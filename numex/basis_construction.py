@@ -32,6 +32,8 @@ print(mesh.GetBoundaries())
 print(mesh.GetBBoundaries())
 #input()
 
+
+
 edge_modes = 2
 
 V = H1(mesh, order = 4, dirichlet = ".*")
@@ -42,6 +44,8 @@ vertex_dofs = V.GetDofs(mesh.BBoundaries(".*"))
 #     vertex_dofs[i] = 1
 # print(vertex_dofs)
 # input()
+all_edge_freedofs = BitArray(V.ndof)
+all_edge_freedofs.Clear()
 edge_freedofs = {}
 for edge_name in mesh.GetBoundaries():
     free_dofs = V.GetDofs(mesh.Boundaries(edge_name))
@@ -49,18 +53,15 @@ for edge_name in mesh.GetBoundaries():
         if b == 1:
             free_dofs[i] = 0
         edge_freedofs[edge_name] = free_dofs
+    all_edge_freedofs = all_edge_freedofs | free_dofs
+
+# print(all_edge_freedofs)
+# input()
+# all dofs on the skeleton without vertex dofs
+
+
 
 u, v = V.TnT()
-
-t = specialcf.tangential(2)
-
-a_edge = BilinearForm(V)
-a_edge += (grad(u)*t) * (grad(v)*t) * ds(skeleton = True) #, definedon=mesh.Boundaries("bottom"))
-a_edge.Assemble()
-
-m_edge = BilinearForm(V)
-m_edge += u.Trace() * v.Trace() * ds()
-m_edge.Assemble()
 
 
 a = BilinearForm(V)
@@ -72,7 +73,23 @@ a.Assemble()
 gfu = GridFunction(V)
 res = gfu.vec.CreateVector()
 
-ainv = a.mat.Inverse(V.FreeDofs())
+a_inv = a.mat.Inverse(V.FreeDofs())
+
+
+###############################################################
+# edge basis
+
+t = specialcf.tangential(2)
+
+a_edge = BilinearForm(V)
+a_edge += (grad(u)*t) * (grad(v)*t) * ds(skeleton = True) #, definedon=mesh.Boundaries("bottom"))
+
+a_edge.Assemble()
+a_edge_inv = a_edge.mat.Inverse(all_edge_freedofs)
+
+m_edge = BilinearForm(V)
+m_edge += u.Trace() * v.Trace() * ds()
+m_edge.Assemble()
 
 edge_ev_evec = {}
 edge_basis = {}
@@ -103,7 +120,6 @@ for edge_name in mesh.GetBoundaries():
     evec = evec.transpose()
     # edge_ev_evec[edge_name] = [ev, evec]
 
-
     for e in evec:
         gfu_extension = gfu.vec.CreateVector()
         gfu.vec[:] = 0
@@ -112,18 +128,55 @@ for edge_name in mesh.GetBoundaries():
         # Draw(gfu)
         res = a.mat * gfu.vec
         # gfu.vec.data += -ainv*res
-        gfu_extension.data = gfu.vec - ainv * res
+        gfu_extension.data = gfu.vec - a_inv * res
         # Draw(gfu_extension, mesh, "extension")
         # input()
         edge_basis[edge_name].append(gfu_extension)
 
+###############################################################
+# vertex basis
+vertex_basis = {}
+for vertex_name in mesh.GetBBoundaries():
+    print(vertex_name)
+    gfu_extension = gfu.vec.CreateVector()
+    fd = V.GetDofs(mesh.BBoundaries(vertex_name)) 
+    # print(fd)
+    # print("AAA")
+    gfu.vec[:] = 0
+    for i, b in enumerate(fd):
+        # print("AAA")
+        if b == 1:
+            gfu.vec[i] = 1
+            # print("AAA")
+
+    # THIS IS JUST A LINEAR EXTENSION!!!!!!!
+    # VERY EXPENSIVE AT THE MOMENT, FIND ALTERNATIVE!
+    res = a_edge.mat * gfu.vec
+    gfu_extension.data = gfu.vec - a_edge_inv * res
+    vertex_basis[vertex_name] = gfu_extension
+
+    res = a.mat * gfu_extension
+    gfu_extension.data = gfu_extension - a_inv * res
+    vertex_basis[vertex_name] = gfu_extension
 
 
-for edge_name in mesh.GetBoundaries():
-    for phi_e in edge_basis[edge_name]:
-        gfu.vec.data = phi_e
-        Draw(gfu)
-        input()
+for vertex_name in mesh.GetBBoundaries():
+    gfu.vec.data = vertex_basis[vertex_name]
+    Draw(gfu)
+    input("phi_v")
+
+
+for vertex_name in mesh.GetBBoundaries():
+    gfu.vec.data = vertex_basis[vertex_name]
+    Draw(gfu)
+    input("phi_v")
+
+
+# for edge_name in mesh.GetBoundaries():
+#     for phi_e in edge_basis[edge_name]:
+#         gfu.vec.data = phi_e
+#         Draw(gfu)
+#         input()
 
 
 
