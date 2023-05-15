@@ -33,10 +33,10 @@ print(mesh.GetBBoundaries())
 #input()
 
 
-
+bubble_modes = 3
 edge_modes = 2
 
-V = H1(mesh, order = 4, dirichlet = ".*")
+V = H1(mesh, order = 3, dirichlet = ".*")
 
 vertex_dofs = V.GetDofs(mesh.BBoundaries(".*")) 
 
@@ -63,10 +63,14 @@ for edge_name in mesh.GetBoundaries():
 
 u, v = V.TnT()
 
-
 a = BilinearForm(V)
 a += grad(u) * grad(v) * dx
 a.Assemble()
+
+m = BilinearForm(V)
+m += u * v * dx
+m.Assemble()
+
 
 # in V.Freedofs we only have the interior dofs 
 # since we set a dirichlet flag on the whole boundary 
@@ -159,18 +163,59 @@ for vertex_name in mesh.GetBBoundaries():
     gfu_extension.data = gfu_extension - a_inv * res
     vertex_basis[vertex_name] = gfu_extension
 
+###############################################################
+# bubbles
+# edge_ev_evec = {}
+# edge_basis = {}
 
-for vertex_name in mesh.GetBBoundaries():
-    gfu.vec.data = vertex_basis[vertex_name]
-    Draw(gfu)
-    input("phi_v")
+bubble_basis = {}
+with TaskManager():
+ for mat_name in mesh.GetMaterials():
+    bubble_basis[mat_name] = []
+    fd = V.GetDofs(mesh.Materials(mat_name)) & V.FreeDofs()
+    
+    nd = sum(fd)
+    # print(fd)
+    A = Matrix(nd, nd)
+    M = Matrix(nd, nd)
+
+    dofs = []
+    for i, b in enumerate(fd):
+        if b == 1:
+            dofs.append(i)
+
+    for i in range(nd):
+        for j in range(nd):
+            A[i,j] = a.mat[dofs[i], dofs[j]]
+            M[i,j] = m.mat[dofs[i], dofs[j]]
+
+    # print(A)
+    # print(M)
+
+    ## ev numbering starts with zero!
+    ev, evec = scipy.linalg.eigh(a=A, b=M, subset_by_index=[0, bubble_modes-1])
+    print(ev)
+    evec = evec.transpose()
+    # edge_ev_evec[edge_name] = [ev, evec]
+    # print("AAAA")
+    for e in evec:
+        bubble = gfu.vec.CreateVector()
+        bubble[:] = 0
+        for i in range(nd):
+            bubble[dofs[i]] = e[i]
+        bubble_basis[mat_name].append(bubble)
+
+for mat_name in mesh.GetMaterials():
+    for phi_b in bubble_basis[mat_name]:
+        gfu.vec.data = phi_b
+        Draw(gfu)
+        input("")
 
 
-for vertex_name in mesh.GetBBoundaries():
-    gfu.vec.data = vertex_basis[vertex_name]
-    Draw(gfu)
-    input("phi_v")
-
+# for vertex_name in mesh.GetBBoundaries():
+#     gfu.vec.data = vertex_basis[vertex_name]
+#     Draw(gfu)
+#     input("phi_v")
 
 # for edge_name in mesh.GetBoundaries():
 #     for phi_e in edge_basis[edge_name]:
