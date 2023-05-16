@@ -210,7 +210,7 @@ def calc_bubble_basis():
 
 
 calc_vertex_basis()
-# calc_edge_basis()
+calc_edge_basis()
 # calc_bubble_basis()
 
 
@@ -238,3 +238,4 @@ asmall = InnerProduct (basis, a.mat * basis)
 msmall = InnerProduct (basis, m.mat * basis)
 
 print(asmall)
+
