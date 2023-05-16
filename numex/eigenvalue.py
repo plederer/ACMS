@@ -33,8 +33,8 @@ print(mesh.GetBBoundaries())
 #input()
 
 
-bubble_modes = 3
-edge_modes = 4
+bubble_modes = 10
+edge_modes = 15
 
 V = H1(mesh, order = 1, dirichlet = ".*")
 
@@ -95,11 +95,11 @@ m_edge = BilinearForm(V)
 m_edge += u.Trace() * v.Trace() * ds()
 m_edge.Assemble()
 
-edge_ev_evec = {}
-edge_basis = {}
-def calc_edge_basis():
+# edge_ev_evec = {}
+# edge_basis = {}
+def calc_edge_basis(basis):
     for edge_name in mesh.GetBoundaries():
-        edge_basis[edge_name] = []
+        # edge_basis[edge_name] = []
         fd = edge_freedofs[edge_name]
         # print(fd)
         nd = sum(fd)
@@ -136,14 +136,14 @@ def calc_edge_basis():
             gfu_extension.data = gfu.vec - a_inv * res
             # Draw(gfu_extension, mesh, "extension")
             # input()
-            edge_basis[edge_name].append(gfu_extension)
-
+            # edge_basis[edge_name].append(gfu_extension)
+            basis.Append(gfu_extension)
 ###############################################################
 # vertex basis
-vertex_basis = {}
-def calc_vertex_basis():
-    for vertex_name in mesh.GetBBoundaries():
-        print(vertex_name)
+# vertex_basis = {}
+def calc_vertex_basis(basis):
+    for j,vertex_name in enumerate(mesh.GetBBoundaries()):
+        # print(vertex_name)
         gfu_extension = gfu.vec.CreateVector()
         fd = V.GetDofs(mesh.BBoundaries(vertex_name)) 
         # print(fd)
@@ -159,22 +159,26 @@ def calc_vertex_basis():
         # VERY EXPENSIVE AT THE MOMENT, FIND ALTERNATIVE!
         res = a_edge.mat * gfu.vec
         gfu_extension.data = gfu.vec - a_edge_inv * res
-        vertex_basis[vertex_name] = gfu_extension
 
         res = a.mat * gfu_extension
         gfu_extension.data = gfu_extension - a_inv * res
-        vertex_basis[vertex_name] = gfu_extension
+        # vertex_basis[vertex_name] = gfu_extension
+        basis.Append(gfu_extension)
+        # gfu.vec.data = gfu_extension
+        # Draw(gfu)
+        # basis[j] = gfu_extension
+        # input()
 
 ###############################################################
 # bubbles
 # edge_ev_evec = {}
 # edge_basis = {}
 
-bubble_basis = {}
+# bubble_basis = {}
 
-def calc_bubble_basis():
+def calc_bubble_basis(basis):
     for mat_name in mesh.GetMaterials():
-        bubble_basis[mat_name] = []
+        # bubble_basis[mat_name] = []
         fd = V.GetDofs(mesh.Materials(mat_name)) & V.FreeDofs()
         
         nd = sum(fd)
@@ -197,7 +201,7 @@ def calc_bubble_basis():
 
         ## ev numbering starts with zero!
         ev, evec = scipy.linalg.eigh(a=A, b=M, subset_by_index=[0, bubble_modes-1])
-        print(ev)
+        # print(ev)
         evec = evec.transpose()
         # edge_ev_evec[edge_name] = [ev, evec]
         # print("AAAA")
@@ -206,38 +210,50 @@ def calc_bubble_basis():
             bubble[:] = 0
             for i in range(nd):
                 bubble[dofs[i]] = e[i]
-            bubble_basis[mat_name].append(bubble)
+            # bubble_basis[mat_name].append(bubble)
+            # basis[j] = bubble
+            basis.Append(bubble)
 
 
-calc_vertex_basis()
-calc_edge_basis()
-# calc_bubble_basis()
+basis = MultiVector(gfu.vec, 0)
 
+calc_vertex_basis(basis)
+calc_edge_basis(basis)
+calc_bubble_basis(basis)
 
-num_basis = len(vertex_basis) + len(edge_basis) + len(bubble_basis)
+num = len(basis)
 
-basis = MultiVector(gfu.vec, num_basis)
+u, v = V.TnT()
 
-asmall = Matrix(num_basis, num_basis)
-msmall = Matrix(num_basis, num_basis)
+dom_bnd = "bottom0|bottom1|right|top1|top0|left"
 
-for i,v in enumerate(vertex_basis.keys()):
-    basis[i] = vertex_basis[v]
-    
+a = BilinearForm(V)
+a += grad(u) * grad(v) * dx
+a += 10**6 * u * v * ds(dom_bnd)
+# a += u * v * dx
+a.Assemble()
 
-# # gfu = GridFunction(V)
-# for i in range(num_basis):
-#     gfu.vec.data = basis[i]
-#     Draw(gfu)
-#     input()
+f = LinearForm(V)
+f += 1 * v * dx()
+f.Assemble()
 
-
-# test = basis
 
 asmall = InnerProduct (basis, a.mat * basis)
-msmall = InnerProduct (basis, m.mat * basis)
+ainvsmall = Matrix(num,num)
 
-print(asmall)
+f_small = InnerProduct(basis, f.vec)
 
+asmall.Inverse(ainvsmall)
+usmall = ainvsmall * f_small
 
-#Comment!
+gfu.vec[:] = 0.0
+
+gfu.vec.data = basis * usmall
+
+Draw(gfu, mesh, "gfu")
+### big solution
+
+ainv = a.mat.Inverse()
+gfu_ex = GridFunction(V)
+gfu_ex.vec.data = ainv * f.vec
+Draw(gfu_ex, mesh, "gfu_ex")
