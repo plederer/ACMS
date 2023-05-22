@@ -3,7 +3,7 @@ from netgen.geom2d import SplineGeometry
 
 import scipy.linalg
 import scipy.sparse as sp
-
+import numpy as np
 
 geo = SplineGeometry()
 Points = [(0,0), (1,0), (2,0), 
@@ -80,7 +80,7 @@ m.Assemble()
 gfu = GridFunction(V)
 res = gfu.vec.CreateVector()
 
-a_inv = a.mat.Inverse(V.FreeDofs())
+# a_inv = a.mat.Inverse(V.FreeDofs())
 
 
 ###############################################################
@@ -94,60 +94,99 @@ a_edge += (grad(u)*t) * (grad(v)*t) * ds(skeleton = True) #, definedon=mesh.Boun
 a_edge.Assemble()
 a_edge_inv = a_edge.mat.Inverse(all_edge_freedofs)
 
-m_edge = BilinearForm(V)
-m_edge += u.Trace() * v.Trace() * ds()
-m_edge.Assemble()
+# m_edge = BilinearForm(V)
+# m_edge += u.Trace() * v.Trace() * ds()
+# m_edge.Assemble()
 
 # edge_ev_evec = {}
 # edge_basis = {}
+
+def CreateHarmonicExtension(fd_all):
+    Vharm = H1(mesh, order = order, dirichlet = ".*")
+    for i in range(Vharm.ndof):
+        if (fd_all[i] == 0):
+            Vharm.SetCouplingType(i, COUPLING_TYPE.UNUSED_DOF)
+    Vharm = Compress(Vharm) 
+    uharm, vharm = Vharm.TnT()
+    aharm = BilinearForm(Vharm)
+    aharm += grad(uharm)*grad(vharm)*dx()
+    aharm.Assemble()
+    aharm_inv = aharm.mat.Inverse(Vharm.FreeDofs(), inverse = "sparsecholesky")
+    
+    return Vharm, aharm, aharm_inv
+
+
+
 def calc_edge_basis(basis):
     for edge_name in mesh.GetBoundaries():
-        # edge_basis[edge_name] = []
-        fd = edge_freedofs[edge_name]
-        # print(fd)
-        nd = sum(fd)
+        vertex_dofs = V.GetDofs(mesh.BBoundaries(".*")) 
+        fd = V.GetDofs(mesh.Boundaries(edge_name)) & (~vertex_dofs) 
 
-        A = Matrix(nd, nd)
-        M = Matrix(nd, nd)
+        ## Create harmonic extension for each edge
+        # neighboring regions
+        nb = mesh.Boundaries(edge_name).Neighbours(VOL)
+        fd_harm = V.GetDofs(nb) & (~V.GetDofs(mesh.Boundaries(".*")))
+        fd_all = fd | fd_harm
+        # fd_all = V.GetDofs(nb)
+        
+        Vloc = H1(mesh, order = order, dirichlet = ".*")
+        for i in range(Vloc.ndof):
+            if (fd[i] == 0): # or (fd_harm == 1)):
+                Vloc.SetCouplingType(i, COUPLING_TYPE.UNUSED_DOF)
+        Vloc = Compress(Vloc)
 
-        dofs = []
-        for i, b in enumerate(fd):
-            if b == 1:
-                dofs.append(i)
+        uloc, vloc = Vloc.TnT()
+        t = specialcf.tangential(2)
 
-        for i in range(nd):
-            for j in range(nd):
-                A[i,j] = a_edge.mat[dofs[i], dofs[j]]
-                M[i,j] = m_edge.mat[dofs[i], dofs[j]]
+        aloc = BilinearForm(Vloc)
+        aloc += (grad(uloc)*t) * (grad(vloc)*t) * ds(skeleton=True, definedon=mesh.Boundaries(edge_name))
+        aloc.Assemble()
 
-        # print(A)
-        # print(M)
+        mloc = BilinearForm(Vloc)
+        mloc += uloc.Trace() * vloc.Trace() * ds(edge_name)
+        mloc.Assemble()
 
-        ## ev numbering starts with zero!
-        ev, evec = scipy.linalg.eigh(a=A, b=M, subset_by_index=[0, edge_modes-1])
+        AA = sp.csr_matrix(aloc.mat.CSR())
+        MM = sp.csr_matrix(mloc.mat.CSR())
+        ev, evec =scipy.sparse.linalg.eigs(A = AA, M = MM, k = edge_modes, which='SM')
         evec = evec.transpose()
-        # edge_ev_evec[edge_name] = [ev, evec]
+
+        
+        Vharm, aharm, aharm_inv = CreateHarmonicExtension(fd_all)
+
+        gfu_extension = GridFunction(Vharm)
+        res = gfu_extension.vec.CreateVector()
 
         for e in evec:
-            gfu_extension = gfu.vec.CreateVector()
-            gfu.vec[:] = 0
-            for i in range(nd):
-                gfu.vec[dofs[i]] = e[i]
-            # Draw(gfu)
-            res = a.mat * gfu.vec
+            # gfu_extension = GridFunction(V) #gfu.vec.CreateVector()
+            # gfu_loc = GridFunction(Vloc)
+            # for i in range(sum(fd)):
+            #     gfu_loc.vec[dofs[i]] = e[i].real
+            # gfu.vec[:] = 0
+            Vloc.Embed(e.real, gfu.vec)
+            Vharm.EmbedTranspose(gfu.vec, gfu_extension.vec)
+            # Vloc.Embed(e.real, gfu.vec)
+            # for i in range(nd):
+            #     gfu.vec[dofs[i]] = e[i]
+            # Draw(gfu_extension)
+            # Draw(gfu, mesh, "gfu")
+            # input()
+            res = aharm.mat * gfu_extension.vec
             # gfu.vec.data += -ainv*res
-            gfu_extension.data = gfu.vec - a_inv * res
+            gfu_extension.vec.data = gfu_extension.vec - aharm_inv * res
             # Draw(gfu_extension, mesh, "extension")
+            Vharm.Embed(gfu_extension.vec, gfu.vec)
+            # Draw(gfu)
             # input()
             # edge_basis[edge_name].append(gfu_extension)
-            basis.Append(gfu_extension)
+            basis.Append(gfu.vec)
 ###############################################################
 # vertex basis
 # vertex_basis = {}
 def calc_vertex_basis(basis):
     for j,vertex_name in enumerate(mesh.GetBBoundaries()):
         # print(vertex_name)
-        gfu_extension = gfu.vec.CreateVector()
+        gfu_extension_edge = gfu.vec.CreateVector()
         fd = V.GetDofs(mesh.BBoundaries(vertex_name)) 
         # print(fd)
         # print("AAA")
@@ -160,44 +199,68 @@ def calc_vertex_basis(basis):
 
         # THIS IS JUST A LINEAR EXTENSION!!!!!!!
         # VERY EXPENSIVE AT THE MOMENT, FIND ALTERNATIVE!
-        res = a_edge.mat * gfu.vec
-        gfu_extension.data = gfu.vec - a_edge_inv * res
 
-        res = a.mat * gfu_extension
-        gfu_extension.data = gfu_extension - a_inv * res
-        # vertex_basis[vertex_name] = gfu_extension
-        basis.Append(gfu_extension)
-        # gfu.vec.data = gfu_extension
+        # nb = mesh.BBoundaries(vertex_name).Neighbours(BND)
+        # fd = V.GetDofs(mesh.Boundaries(nb))
+
+
+
+
+        res_edge = gfu_extension_edge.CreateVector()
+        res_edge = a_edge.mat * gfu.vec
+        gfu_extension_edge.data = gfu.vec - a_edge_inv * res_edge
+
+        nb_edges = mesh.BBoundaries(vertex_name).Neighbours(BND)
+        fd_harm_edges = V.GetDofs(nb_edges)
+        nb = mesh.BBoundaries(vertex_name).Neighbours(VOL)
+        # dofs in the interior
+        fd_harm = V.GetDofs(nb) & (~V.GetDofs(mesh.Boundaries(".*")))
+        fd_all = fd_harm_edges | fd_harm
+
+        Vharm = H1(mesh, order = order, dirichlet = ".*")
+        for i in range(Vharm.ndof):
+            if (fd_all[i] == 0):
+                Vharm.SetCouplingType(i, COUPLING_TYPE.UNUSED_DOF)
+        Vharm = Compress(Vharm)
+
+        uharm, vharm = Vharm.TnT()
+        aharm = BilinearForm(Vharm)
+        aharm += grad(uharm)*grad(vharm)*dx(nb)
+        aharm.Assemble()
+        aharm_inv = aharm.mat.Inverse(Vharm.FreeDofs(), inverse = "sparsecholesky")
+
+        gfu_extension = GridFunction(Vharm)
+        res = gfu_extension.vec.CreateVector()
+        
+        Vharm.EmbedTranspose(gfu_extension_edge, gfu_extension.vec)
+
+        res = aharm.mat * gfu_extension.vec
+        gfu_extension.vec.data = gfu_extension.vec - aharm_inv * res
+        Vharm.Embed(gfu_extension.vec, gfu.vec)
+
+        # res_edge = a.mat * gfu_extension_edge
+        # gfu_extension_edge.data = gfu_extension_edge - a_inv * res_edge
+        # gfu.vec.data = gfu_extension_edge
+
+        basis.Append(gfu.vec)
+        
         # Draw(gfu)
         # basis[j] = gfu_extension
+        # Draw(gfu)
         # input()
 
 ###############################################################
-# bubbles
-# edge_ev_evec = {}
-# edge_basis = {}
-
-# bubble_basis = {}
 
 def calc_bubble_basis(basis):
     for mat_name in mesh.GetMaterials():
-        # bubble_basis[mat_name] = []
-        # print(mat_name)
         fd = V.GetDofs(mesh.Materials(mat_name)) & V.FreeDofs()
         Vloc = H1(mesh, order = order, dirichlet = ".*")
-        # Vloc = H1(mesh, order = order, definedon = mat_name, dirichlet = ".*")
         for i in range(Vloc.ndof):
-            if fd[i] == 0: #Vloc.FreeDofs()[i] == 0:
-                # print(Vloc.FreeDofs())
-                # print(Vloc.CouplingType(i))
+            if fd[i] == 0:
                 Vloc.SetCouplingType(i, COUPLING_TYPE.UNUSED_DOF)
-        # input()
         Vloc = Compress(Vloc)
-        # print(Vloc.FreeDofs())
-        emb = ConvertOperator(V, Vloc)
 
         uloc, vloc = Vloc.TnT()
-
         aloc = BilinearForm(Vloc)
         aloc += grad(uloc) * grad(vloc) * dx()
         aloc.Assemble()
@@ -206,69 +269,15 @@ def calc_bubble_basis(basis):
         mloc += uloc * vloc * dx()
         mloc.Assemble()
 
-        # nd = Vloc.ndof
-
-        # fd = Vloc.FreeDofs()
-        # print(fd)
-        # nd = sum(fd)
-        # # print(fd)
-        # A = Matrix(nd, nd)
-        # M = Matrix(nd, nd)
-
-        
-        # dofs = []
-        # for i, b in enumerate(fd):
-        #     if b == 1:
-        #         dofs.append(i)
-
-        # # print(dofs)
-
-        # for i in range(nd):
-        #     for j in range(nd):
-        #         # A[i,j] = Aloc.mat[i, j]
-        #         # M[i,j] = Mloc.mat[i, j]
-        #         A[i,j] = aloc.mat[dofs[i], dofs[j]]
-        #         M[i,j] = mloc.mat[dofs[i], dofs[j]]
-        
-        # print(A)
-        # print(M)
-
-        ## ev numbering starts with zero!
         AA = sp.csr_matrix(aloc.mat.CSR())
         MM = sp.csr_matrix(mloc.mat.CSR())
         ev, evec =scipy.sparse.linalg.eigs(A = AA, M = MM, k = bubble_modes, which='SM')
-        # print(ev)
-        # ev, evec = scipy.linalg.eigh(a=A, b=M, subset_by_index=[0, bubble_modes-1])
-        # print(ev)
         evec = evec.transpose()
 
-        # edge_ev_evec[edge_name] = [ev, evec]
-        # print("AAAA")
-
-        bubble = GridFunction(Vloc)
         for e in evec:
-            # bubble = gfu.vec.CreateVector()
-            # bubble.vec[:] = 0
-            # bubble.vec[:] = e
-            # bubble.vec.data = emb.T * e
-            # Draw(bubble, mesh, "test")
-            # input()
-            
-            # for i in range(nd):
-            #     bubble.vec[dofs[i]] = e[i].real
-            # Draw(bubble)
-            # input()
-            # bubble_basis[mat_name].append(bubble)
-            # basis[j] = bubble
-            # gfu.vec.data = emb.T * bubble.vec
             gfu.vec[:]=0.0
-            bubble.vec.FV()[:] = e.real
-            Vloc.Embed(bubble.vec, gfu.vec)
-            # Draw(gfu)
-            # input()
-            # Draw(bubble)
-            # input()
-            # basis.Append(emb.T * bubble.vec)
+            # bubble.vec.FV()[:] = e.real
+            Vloc.Embed(e.real, gfu.vec)
             basis.Append(gfu.vec)
 
 
@@ -318,10 +327,10 @@ gfu.vec.data = basis * usmall
 
 ### big solution
 
-ainv = a.mat.Inverse()
-gfu_ex = GridFunction(V)
-gfu_ex.vec.data = ainv * f.vec
-Draw(gfu_ex, mesh, "gfu_ex")
+# ainv = a.mat.Inverse()
+# gfu_ex = GridFunction(V)
+# gfu_ex.vec.data = ainv * f.vec
+# Draw(gfu_ex, mesh, "gfu_ex")
 Draw(gfu, mesh, "gfu")
 
 print(Norm(gfu.vec))
