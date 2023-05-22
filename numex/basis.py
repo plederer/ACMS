@@ -34,10 +34,11 @@ print(mesh.GetBoundaries())
 print(mesh.GetBBoundaries())
 #input()
 
-order = 4
 
-bubble_modes = 10
-edge_modes = 15
+order = 2
+
+bubble_modes = 2
+edge_modes = 5
 
 V = H1(mesh, order = order, dirichlet = ".*")
 gfu = GridFunction(V)
@@ -49,15 +50,13 @@ vol_extensions = {}
 
 def GetHarmonicExtensionDomain(dom_name):
     fd_all = V.GetDofs(mesh.Materials(dom_name))
-    Vharm = Compress(H1(mesh, order = order, dirichlet = ".*"), fd_all) 
+    Vharm = Compress(H1(mesh, order = order, dirichlet = ".*"), fd_all)
     uharm, vharm = Vharm.TnT()
     aharm = BilinearForm(Vharm)
-    aharm += grad(uharm)*grad(vharm)*dx()
+    aharm += grad(uharm)*grad(vharm)*dx(dom_name)
     aharm.Assemble()
-
     aharm_inv = aharm.mat.Inverse(Vharm.FreeDofs(), inverse = "sparsecholesky")
-    
-    return Vharm, aharm, aharm_inv
+    return Vharm, aharm.mat, aharm_inv
 
 def GetHarmonicExtensionEdge(edge_name):
     fd_all = V.GetDofs(mesh.Boundaries(edge_name))
@@ -73,9 +72,9 @@ def GetHarmonicExtensionEdge(edge_name):
     aharm = BilinearForm(Vharm)
     aharm += (grad(uharm)*t) * (grad(vharm)*t) * ds(skeleton = True, definedon=mesh.Boundaries(edge_name))
     aharm.Assemble()
-    aharm_inv = aharm.mat.Inverse(Vharm.FreeDofs(), inverse = "sparsecholesky")
     
-    return Vharm, aharm, aharm_inv
+    aharm_inv = aharm.mat.Inverse(Vharm.FreeDofs(), inverse = "sparsecholesky")
+    return Vharm, aharm.mat, aharm_inv
 
 def CalcHarmonicExtensions():
     for dom_name in mesh.GetMaterials():
@@ -115,9 +114,9 @@ def calc_edge_basis(basis):
             nb_dom = mesh.Boundaries(edge_name).Neighbours(VOL)
             gfu_edge = gfu.vec.CreateVector()
         
-            for i, n in enumerate(mesh.GetMaterials()):
-                if nb_dom.Mask()[i]:
-                    Vharm, aharm, aharm_inv = vol_extensions[n]
+            for bi, bb in enumerate(mesh.GetMaterials()):
+                if nb_dom.Mask()[bi]:
+                    Vharm, aharm_mat, aharm_inv = vol_extensions[bb]
             
                     gfu_extension = GridFunction(Vharm)
                     res = gfu_extension.vec.CreateVector()
@@ -125,7 +124,7 @@ def calc_edge_basis(basis):
                     gfu_edge.data = gfu.vec
                     Vharm.EmbedTranspose(gfu_edge, gfu_extension.vec)
 
-                    res = aharm.mat * gfu_extension.vec
+                    res = aharm_mat * gfu_extension.vec
                     gfu_extension.vec.data = - aharm_inv * res
                     Vharm.Embed(gfu_extension.vec, gfu_edge)
                     gfu.vec.data += gfu_edge
@@ -133,48 +132,51 @@ def calc_edge_basis(basis):
             basis.Append(gfu.vec)
 
 ###############################################################
+
 def calc_vertex_basis(basis):
-    for j,vertex_name in enumerate(mesh.GetBBoundaries()):
+    for j, vertex_name in enumerate(mesh.GetBBoundaries()):
         gfu_vertex = gfu.vec.CreateVector()
         fd = V.GetDofs(mesh.BBoundaries(vertex_name))
 
         nb_edges = mesh.BBoundaries(vertex_name).Neighbours(BND)
-        
+        nb_dom = mesh.BBoundaries(vertex_name).Neighbours(VOL)
+
         gfu.vec[:] = 0
         gfu.vec[np.nonzero(fd)[0]] = 1 
 
-        for i, n in enumerate(mesh.GetBoundaries()):
-            if nb_edges.Mask()[i]:
-                # Vharm, aharm, aharm_inv = CreateHarmonicExtensionEdge(n)
-                Vharm, aharm, aharm_inv = edge_extensions[n]
+        for bi, bb in enumerate(mesh.GetBoundaries()):
+            if nb_edges.Mask()[bi]:
+                # Vharm, aharm_mat, aharm_inv = GetHarmonicExtensionEdge(bb)
+                Vharm, aharm_mat, aharm_inv = edge_extensions[bb]
                 gfu_extension = GridFunction(Vharm)
+                gfu_extension.vec[:] = 0.0
                 res = gfu_extension.vec.CreateVector()
+                res[:]=0.0
 
                 gfu_vertex[:] = 0
                 gfu_vertex[np.nonzero(fd)[0]] = 1 
 
                 Vharm.EmbedTranspose(gfu_vertex, gfu_extension.vec)
-                res = aharm.mat * gfu_extension.vec
-                # only harmonic extension to one edge
-                # has zero vertex value! 
+                res.data = aharm_mat * gfu_extension.vec
+                # # # only harmonic extension to one edge
+                # # # has zero vertex value! 
                 gfu_extension.vec.data = - aharm_inv * res
                 Vharm.Embed(gfu_extension.vec, gfu_vertex)
                 gfu.vec.data += gfu_vertex
-
-        nb_dom = mesh.BBoundaries(vertex_name).Neighbours(VOL)
+        
         gfu_edge = gfu.vec.CreateVector()
         
-        for i, n in enumerate(mesh.GetMaterials()):
-            if nb_dom.Mask()[i]:
-                Vharm, aharm, aharm_inv = vol_extensions[n]
-        
+        for bi, bb in enumerate(mesh.GetMaterials()):
+            if nb_dom.Mask()[bi]:
+                Vharm, aharm_mat, aharm_inv = vol_extensions[bb]
                 gfu_extension = GridFunction(Vharm)
+                gfu_extension.vec[:] = 0.0
                 res = gfu_extension.vec.CreateVector()
-
+                gfu_edge[:]=0.0
                 gfu_edge.data = gfu.vec
                 Vharm.EmbedTranspose(gfu_edge, gfu_extension.vec)
-
-                res = aharm.mat * gfu_extension.vec
+                
+                res.data = aharm_mat * gfu_extension.vec
                 gfu_extension.vec.data = - aharm_inv * res
                 Vharm.Embed(gfu_extension.vec, gfu_edge)
                 gfu.vec.data += gfu_edge
@@ -204,7 +206,6 @@ def calc_bubble_basis(basis):
 
         for e in evec:
             gfu.vec[:]=0.0
-            # bubble.vec.FV()[:] = e.real
             Vloc.Embed(e.real, gfu.vec)
             basis.Append(gfu.vec)
 
@@ -212,11 +213,11 @@ def calc_bubble_basis(basis):
 basis = MultiVector(gfu.vec, 0)
 
 CalcHarmonicExtensions()
-
 calc_vertex_basis(basis)
 calc_edge_basis(basis)
 calc_bubble_basis(basis)
 
+# print("AAA")
 # for i in range(len(basis)):
 #     gfu.vec[:] = 0.0
 #     gfu.vec.data = basis[i]
