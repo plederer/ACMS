@@ -86,54 +86,42 @@ res = gfu.vec.CreateVector()
 ###############################################################
 # edge basis
 
-t = specialcf.tangential(2)
-
-a_edge = BilinearForm(V)
-a_edge += (grad(u)*t) * (grad(v)*t) * ds(skeleton = True) #, definedon=mesh.Boundaries("bottom"))
-
-a_edge.Assemble()
-a_edge_inv = a_edge.mat.Inverse(all_edge_freedofs)
-
-# m_edge = BilinearForm(V)
-# m_edge += u.Trace() * v.Trace() * ds()
-# m_edge.Assemble()
-
-# edge_ev_evec = {}
-# edge_basis = {}
 
 def CreateHarmonicExtension(fd_all):
-    Vharm = H1(mesh, order = order, dirichlet = ".*")
-    for i in range(Vharm.ndof):
-        if (fd_all[i] == 0):
-            Vharm.SetCouplingType(i, COUPLING_TYPE.UNUSED_DOF)
-    Vharm = Compress(Vharm) 
+    Vharm = Compress(H1(mesh, order = order, dirichlet = ".*"), fd_all) 
     uharm, vharm = Vharm.TnT()
     aharm = BilinearForm(Vharm)
     aharm += grad(uharm)*grad(vharm)*dx()
+    aharm.Assemble()
+
+    aharm_inv = aharm.mat.Inverse(Vharm.FreeDofs(), inverse = "sparsecholesky")
+    
+    return Vharm, aharm, aharm_inv
+
+def CreateHarmonicExtensionEdge(fd_all, edge_name):
+    bnd = ""
+    for b in mesh.GetBoundaries():
+        if (b != edge_name):
+            bnd += b + "|"
+    bnd = bnd[:-1]
+    Vharm = Compress(H1(mesh, order = order, dirichlet = bnd), fd_all) 
+    t = specialcf.tangential(2)
+
+    uharm, vharm = Vharm.TnT()
+    aharm = BilinearForm(Vharm)
+    aharm += (grad(u)*t) * (grad(v)*t) * ds(skeleton = True, definedon=mesh.Boundaries(edge_name))
     aharm.Assemble()
     aharm_inv = aharm.mat.Inverse(Vharm.FreeDofs(), inverse = "sparsecholesky")
     
     return Vharm, aharm, aharm_inv
 
 
-
 def calc_edge_basis(basis):
     for edge_name in mesh.GetBoundaries():
         vertex_dofs = V.GetDofs(mesh.BBoundaries(".*")) 
         fd = V.GetDofs(mesh.Boundaries(edge_name)) & (~vertex_dofs) 
-
-        ## Create harmonic extension for each edge
-        # neighboring regions
-        nb = mesh.Boundaries(edge_name).Neighbours(VOL)
-        fd_harm = V.GetDofs(nb) & (~V.GetDofs(mesh.Boundaries(".*")))
-        fd_all = fd | fd_harm
-        # fd_all = V.GetDofs(nb)
         
-        Vloc = H1(mesh, order = order, dirichlet = ".*")
-        for i in range(Vloc.ndof):
-            if (fd[i] == 0): # or (fd_harm == 1)):
-                Vloc.SetCouplingType(i, COUPLING_TYPE.UNUSED_DOF)
-        Vloc = Compress(Vloc)
+        Vloc = Compress(H1(mesh, order = order, dirichlet = ".*"), fd)
 
         uloc, vloc = Vloc.TnT()
         t = specialcf.tangential(2)
@@ -151,114 +139,80 @@ def calc_edge_basis(basis):
         ev, evec =scipy.sparse.linalg.eigs(A = AA, M = MM, k = edge_modes, which='SM')
         evec = evec.transpose()
 
-        
+        ## Create harmonic extension for each edge
+        # neighboring regions
+        nb = mesh.Boundaries(edge_name).Neighbours(VOL)
+        # includes dofs of all boundary edges of corresponding domain
+        # little bit more expensive, but if stored we could reuse it
+        # for future improvements
+        fd_all = V.GetDofs(nb) 
         Vharm, aharm, aharm_inv = CreateHarmonicExtension(fd_all)
 
         gfu_extension = GridFunction(Vharm)
         res = gfu_extension.vec.CreateVector()
 
         for e in evec:
-            # gfu_extension = GridFunction(V) #gfu.vec.CreateVector()
-            # gfu_loc = GridFunction(Vloc)
-            # for i in range(sum(fd)):
-            #     gfu_loc.vec[dofs[i]] = e[i].real
-            # gfu.vec[:] = 0
             Vloc.Embed(e.real, gfu.vec)
             Vharm.EmbedTranspose(gfu.vec, gfu_extension.vec)
-            # Vloc.Embed(e.real, gfu.vec)
-            # for i in range(nd):
-            #     gfu.vec[dofs[i]] = e[i]
-            # Draw(gfu_extension)
-            # Draw(gfu, mesh, "gfu")
-            # input()
             res = aharm.mat * gfu_extension.vec
-            # gfu.vec.data += -ainv*res
             gfu_extension.vec.data = gfu_extension.vec - aharm_inv * res
-            # Draw(gfu_extension, mesh, "extension")
             Vharm.Embed(gfu_extension.vec, gfu.vec)
-            # Draw(gfu)
-            # input()
-            # edge_basis[edge_name].append(gfu_extension)
             basis.Append(gfu.vec)
+
 ###############################################################
-# vertex basis
-# vertex_basis = {}
 def calc_vertex_basis(basis):
     for j,vertex_name in enumerate(mesh.GetBBoundaries()):
-        # print(vertex_name)
-        gfu_extension_edge = gfu.vec.CreateVector()
-        fd = V.GetDofs(mesh.BBoundaries(vertex_name)) 
-        # print(fd)
-        # print("AAA")
-        gfu.vec[:] = 0
-        for i, b in enumerate(fd):
-            # print("AAA")
-            if b == 1:
-                gfu.vec[i] = 1
-                # print("AAA")
-
-        # THIS IS JUST A LINEAR EXTENSION!!!!!!!
-        # VERY EXPENSIVE AT THE MOMENT, FIND ALTERNATIVE!
-
-        # nb = mesh.BBoundaries(vertex_name).Neighbours(BND)
-        # fd = V.GetDofs(mesh.Boundaries(nb))
-
-
-
-
-        res_edge = gfu_extension_edge.CreateVector()
-        res_edge = a_edge.mat * gfu.vec
-        gfu_extension_edge.data = gfu.vec - a_edge_inv * res_edge
-
         nb_edges = mesh.BBoundaries(vertex_name).Neighbours(BND)
         fd_harm_edges = V.GetDofs(nb_edges)
         nb = mesh.BBoundaries(vertex_name).Neighbours(VOL)
-        # dofs in the interior
         fd_harm = V.GetDofs(nb) & (~V.GetDofs(mesh.Boundaries(".*")))
         fd_all = fd_harm_edges | fd_harm
 
-        Vharm = H1(mesh, order = order, dirichlet = ".*")
-        for i in range(Vharm.ndof):
-            if (fd_all[i] == 0):
-                Vharm.SetCouplingType(i, COUPLING_TYPE.UNUSED_DOF)
-        Vharm = Compress(Vharm)
+        gfu_vertex = gfu.vec.CreateVector()
+        fd = V.GetDofs(mesh.BBoundaries(vertex_name))
+        
 
-        uharm, vharm = Vharm.TnT()
-        aharm = BilinearForm(Vharm)
-        aharm += grad(uharm)*grad(vharm)*dx(nb)
-        aharm.Assemble()
-        aharm_inv = aharm.mat.Inverse(Vharm.FreeDofs(), inverse = "sparsecholesky")
+        nb = mesh.BBoundaries(vertex_name).Neighbours(BND)
+        
+        gfu.vec[:] = 0
+        gfu.vec[np.nonzero(fd)[0]] = 1 
 
+        for i, n in enumerate(mesh.GetBoundaries()):
+            if nb.Mask()[i]:
+                Vharm, aharm, aharm_inv = CreateHarmonicExtensionEdge(V.GetDofs(mesh.Boundaries(n)), n)
+                gfu_extension = GridFunction(Vharm)
+                res = gfu_extension.vec.CreateVector()
+
+                gfu_vertex[:] = 0
+                gfu_vertex[np.nonzero(fd)[0]] = 1 
+
+                Vharm.EmbedTranspose(gfu_vertex, gfu_extension.vec)
+                res = aharm.mat * gfu_extension.vec
+                # only harmonic extension to one edge
+                # has zero vertex value! 
+                gfu_extension.vec.data = - aharm_inv * res
+                Vharm.Embed(gfu_extension.vec, gfu_vertex)
+                gfu.vec.data += gfu_vertex
+
+        Vharm, aharm, aharm_inv = CreateHarmonicExtension(fd_all)
+        
         gfu_extension = GridFunction(Vharm)
         res = gfu_extension.vec.CreateVector()
         
-        Vharm.EmbedTranspose(gfu_extension_edge, gfu_extension.vec)
+        Vharm.EmbedTranspose(gfu.vec, gfu_extension.vec)
 
         res = aharm.mat * gfu_extension.vec
         gfu_extension.vec.data = gfu_extension.vec - aharm_inv * res
         Vharm.Embed(gfu_extension.vec, gfu.vec)
-
-        # res_edge = a.mat * gfu_extension_edge
-        # gfu_extension_edge.data = gfu_extension_edge - a_inv * res_edge
-        # gfu.vec.data = gfu_extension_edge
-
-        basis.Append(gfu.vec)
         
-        # Draw(gfu)
-        # basis[j] = gfu_extension
-        # Draw(gfu)
-        # input()
+        basis.Append(gfu.vec)
 
 ###############################################################
 
 def calc_bubble_basis(basis):
     for mat_name in mesh.GetMaterials():
         fd = V.GetDofs(mesh.Materials(mat_name)) & V.FreeDofs()
-        Vloc = H1(mesh, order = order, dirichlet = ".*")
-        for i in range(Vloc.ndof):
-            if fd[i] == 0:
-                Vloc.SetCouplingType(i, COUPLING_TYPE.UNUSED_DOF)
-        Vloc = Compress(Vloc)
+        Vloc = Compress(H1(mesh, order = order, dirichlet = ".*"), fd)
 
         uloc, vloc = Vloc.TnT()
         aloc = BilinearForm(Vloc)
