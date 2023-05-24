@@ -8,7 +8,7 @@ import scipy.sparse as sp
 geo = SplineGeometry()
 Points = [(0,0), (1,0), (2,0), 
           (2,1), (1,1), (0,1)]
-
+#Setting edgle lables counter-clock wise 
 bcs_edge = ["bottom0", "bottom1", "right", "top1", "top0", "left", "middle"]
 
 for i, pnt in enumerate(Points):
@@ -33,8 +33,8 @@ print(mesh.GetBBoundaries())
 #input()
 
 
-bubble_modes = 10
-edge_modes = 15
+bubble_modes = 2
+edge_modes = 3
 
 V = H1(mesh, order = 1, dirichlet = ".*")
 
@@ -227,8 +227,11 @@ u, v = V.TnT()
 
 dom_bnd = "bottom0|bottom1|right|top1|top0|left"
 
+
+kappa = 0
 a = BilinearForm(V)
 a += grad(u) * grad(v) * dx
+a += -kappa * u * v * dx
 a += 10**6 * u * v * ds(dom_bnd)
 # a += u * v * dx
 a.Assemble()
