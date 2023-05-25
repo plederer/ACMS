@@ -6,14 +6,15 @@ import scipy.sparse as sp
 
 
 geo = SplineGeometry()
+# Setting global decomposition vertices (coarse mesh)
 Points = [(0,0), (1,0), (2,0), 
           (2,1), (1,1), (0,1)]
-#Setting edgle lables counter-clock wise 
+# Setting edgle lables counter-clock wise 
 bcs_edge = ["bottom0", "bottom1", "right", "top1", "top0", "left", "middle"]
-
+# Labeling vertices V1,...,V6
 for i, pnt in enumerate(Points):
     geo.AddPoint(*pnt, name = "V" + str(i))
-
+# Labeling edges by specifying end points, neighbouring domains (counterclock-wise), label
 geo.Append(["line", 0, 1], leftdomain=1, rightdomain=0, bc="bottom0")
 geo.Append(["line", 1, 2], leftdomain=2, rightdomain=0, bc="bottom1")
 geo.Append(["line", 2, 3], leftdomain=2, rightdomain=0, bc="right")
@@ -24,21 +25,28 @@ geo.Append(["line", 1, 4], leftdomain=1, rightdomain=2, bc="middle")
 
 # ngmesh = unit_square.GenerateMesh(maxh=0.1)
 mesh = Mesh(geo.GenerateMesh(maxh = 0.1))
-mesh.ngmesh.SetMaterial(1,"omega0")
+# Labeling subdomains in coarse mesh
+mesh.ngmesh.SetMaterial(1,"omega0") 
 mesh.ngmesh.SetMaterial(2,"omega1")
 Draw(mesh)
-print(mesh.GetMaterials())
-print(mesh.GetBoundaries())
-print(mesh.GetBBoundaries())
+print(mesh.GetMaterials()) # Subdomains
+print(mesh.GetBoundaries()) # Edges
+print(mesh.GetBBoundaries()) # Vertices
 #input()
 
-
+# Basis functions per subdomains (constant for all subdomains)
 bubble_modes = 2
 edge_modes = 3
 
+# Definition of Sobolev space, order of polynomial approximation can be increased
+# The Dirichlet condition is imposed everywhere because it will be needed for the basis construction
+# It does not effectively remove the boundary nodes
 V = H1(mesh, order = 1, dirichlet = ".*")
 
+# Saving in a vector the boundaries of the boundary, namely the vertices of the edges that are on the boundary
+# This returns a vector of 0 for internal mesh vertices and 1 for edge mesh vertices (coarse vertices)
 vertex_dofs = V.GetDofs(mesh.BBoundaries(".*")) 
+#print(vertex_dofs)
 
 # for i in range(4):
 #     vertex_dofs[i] = 1
