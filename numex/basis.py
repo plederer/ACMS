@@ -189,27 +189,30 @@ We define the edge modes as solutions to the following weak formulation of the e
 
 def calc_edge_basis(basis):
     for edge_name in mesh.GetBoundaries():
-        vertex_dofs = V.GetDofs(mesh.BBoundaries(".*")) 
+        vertex_dofs = V.GetDofs(mesh.BBoundaries(".*")) # Global vertices (coarse mesh)
         fd = V.GetDofs(mesh.Boundaries(edge_name)) & (~vertex_dofs) 
-        base_space = H1(mesh, order = order, dirichlet = ".*")
-        Vloc = Compress(base_space, fd)
+        # Vertices on a specific edge with boundaries removed (global vertices)
+        base_space = H1(mesh, order = order, dirichlet = ".*") # Creating Sobolev space
+        Vloc = Compress(base_space, fd) #Restricting Sobolev space on edge (with Dirichlet bc)
 
-        uloc, vloc = Vloc.TnT()
+        uloc, vloc = Vloc.TnT() # Trial and test functions
         t = specialcf.tangential(2)
-
+        #Setting bilinear form: - int (Grad u Grad v) de
         aloc = BilinearForm(Vloc)
         aloc += (grad(uloc)*t) * (grad(vloc)*t) * ds(skeleton=True, definedon=mesh.Boundaries(edge_name))
         aloc.Assemble()
-
-        mloc = BilinearForm(Vloc)
+        # What is the difference between the two differentials ds?
+        #Setting bilinear form:  int u v de        mloc = BilinearForm(Vloc)
         mloc += uloc.Trace() * vloc.Trace() * ds(edge_name)
         mloc.Assemble()
 
+        # Resolution of eigenvalue problem: AA x = ev MM x
         AA = sp.csr_matrix(aloc.mat.CSR())
         MM = sp.csr_matrix(mloc.mat.CSR())
         ev, evec =sp.linalg.eigs(A = AA, M = MM, k = edge_modes, which='SM')
         evec = evec.transpose()
 
+        # Local to global mapping?
         ind = Vloc.ndof * [0]
         ii = 0
         for i, b in enumerate(fd):
@@ -218,25 +221,28 @@ def calc_edge_basis(basis):
                 ii += 1
         Eloc = PermutationMatrix(base_space.ndof, ind)
 
-        for e in evec:
+        for e in evec: # Going over eigenvectors
             # Vloc.Embed(e.real, gfu.vec)
-            gfu.vec.data = Eloc.T * e.real
+            gfu.vec.data = Eloc.T * e.real # Grid funciton on full mesh
+            #Mapping components?
 
-            nb_dom = mesh.Boundaries(edge_name).Neighbours(VOL)
+            nb_dom = mesh.Boundaries(edge_name).Neighbours(VOL) #?
             gfu_edge = gfu.vec.CreateVector()
         
             for bi, bb in enumerate(mesh.GetMaterials()):
                 if nb_dom.Mask()[bi]:
                     Vharm, aharm_mat, aharm_inv, E = vol_extensions[bb]
             
-                    gfu_extension = GridFunction(Vharm)
+                    gfu_extension = GridFunction(Vharm) # Grid funciton on specific subdomain
                     res = gfu_extension.vec.CreateVector()
 
-                    gfu_edge.data = gfu.vec
+                    gfu_edge.data = gfu.vec  # Grid funciton on edge
                     # Vharm.EmbedTranspose(gfu_edge, gfu_extension.vec)
-                    gfu_extension.vec.data = E * gfu_edge
+                    # Extension to subdomain * values on edge = function extended to subdomain
+                    gfu_extension.vec.data = E * gfu_edge 
                     
-                    res = aharm_mat * gfu_extension.vec
+                    # Harmonic extension on edge
+                    res = aharm_mat * gfu_extension.vec 
                     gfu_extension.vec.data = - aharm_inv * res
                     # Vharm.Embed(gfu_extension.vec, gfu_edge)
                     gfu_edge.data = E.T * gfu_extension.vec
@@ -378,6 +384,12 @@ def calc_bubble_basis(basis):
             # Vloc.Embed(e.real, gfu.vec)
             gfu.vec.data = E.T * e.real
             basis.Append(gfu.vec)
+
+
+
+#######################################################################
+# SYSTEM ASSEMBLY
+
 
 with TaskManager():
     basis = MultiVector(gfu.vec, 0)
