@@ -7,15 +7,19 @@ import numpy as np
 
 SetNumThreads(4)
 
+# Setting the geometry
+
 geo = SplineGeometry()
+# Setting global decomposition vertices (coarse mesh)
 Points = [(0,0), (1,0), (2,0), 
           (2,1), (1,1), (0,1)]
-
+# Setting edgle lables counter-clock wise 
 bcs_edge = ["bottom0", "bottom1", "right", "top1", "top0", "left", "middle"]
-
+# Labeling vertices V1,...,V6
 for i, pnt in enumerate(Points):
     geo.AddPoint(*pnt, name = "V" + str(i))
-
+    
+# Labeling edges by specifying end points, neighbouring domains (counterclock-wise), label
 geo.Append(["line", 0, 1], leftdomain=1, rightdomain=0, bc="bottom0")
 geo.Append(["line", 1, 2], leftdomain=2, rightdomain=0, bc="bottom1")
 geo.Append(["line", 2, 3], leftdomain=2, rightdomain=0, bc="right")
@@ -26,41 +30,92 @@ geo.Append(["line", 1, 4], leftdomain=1, rightdomain=2, bc="middle")
 
 # ngmesh = unit_square.GenerateMesh(maxh=0.1)
 mesh = Mesh(geo.GenerateMesh(maxh = 0.1))
+# Labeling subdomains in coarse mesh
 mesh.ngmesh.SetMaterial(1,"omega0")
 mesh.ngmesh.SetMaterial(2,"omega1")
 Draw(mesh)
-print(mesh.nv)
-# quit()
-print(mesh.GetMaterials())
-print(mesh.GetBoundaries())
-print(mesh.GetBBoundaries())
+print(mesh.nv) # Number of vertices?
+print(mesh.GetMaterials()) # Subdomains
+print(mesh.GetBoundaries()) # Edges
+print(mesh.GetBBoundaries()) # Vertices
 #input()
 
 
-order = 2
-
+# Basis functions per subdomains (constant for all subdomains)
 bubble_modes = 60
 edge_modes = 5
 
+# Definition of Sobolev space, order of polynomial approximation can be increased
+# The Dirichlet condition is imposed everywhere because it will be needed for the basis construction
+# It does not effectively remove the boundary nodes
+order = 2 # Polynomial degree of approximation
 V = H1(mesh, order = order, dirichlet = ".*")
+
 gfu = GridFunction(V)
 
+
 ###############################################################
+
+"""
+**Extension operators**
+
+We need an extension from $\Gamma$ to $\Omega$, which is obtained by combining the extensions of functions from $\partial\Omega_j$ to $\Omega_j$.
+
+For a given $\tau \in H^{1/2}(\partial \Omega_j)$, let $\tilde \tau \in H^1(\Omega_j)$ be any function satisfying $\tilde\tau_{\mid\partial\Omega_j}=\tau$.
+Then, we indicate by $\tilde\tau_0 \in H_0^1(\Omega_j)$ the solution to
+
+\begin{align} 
+    \mathcal{A}_{j} (\tilde\tau_0, v)-(\kappa^2 \tilde\tau_0, v)_{\Omega_j} = -\left(\mathcal{A}_j(\tilde\tau,v)-(\kappa^2 \tilde\tau, v)_{\Omega_j}\right) \quad \forall  v\in  H_0^1(\Omega_j).
+\end{align}
+
+We characterize the $\mathcal{A}$-harmonic extension $E^{j}:H^{1/2}(\partial \Omega_j) \to H^1(\Omega_j)$ by setting 
+    $E^{j}\tau := \tilde\tau+\tilde\tau_0$.
+
+**Lemma** The extension operator $E^{j}:H^{1/2}(\partial \Omega_j) \to H^1(\Omega_j)$ is bounded, that is,
+    \begin{equation}
+        \|E^{j}\tau\|_{\mathcal{B}}\leq (1+\frac{1}{\beta^j})\|\tilde\tau\|_{\mathcal{B}},
+    \end{equation}
+    where $\tilde \tau\in H^1(\Omega_j)$ is any extension of $\tau\in \ H^{1/2}(\partial \Omega_j)$.
+    
+
+We note the following orthogonality relation, which is a crucial property for the construction of the ACMS  spaces: for all bubble functions $b_i^j \in H_0^1(\Omega_j)$, we have
+\begin{align}
+		\mathcal{A}_{j}(E^j \tau,b_i^j)-(\kappa^2 E^j \tau,b_i^j)_{\Omega_j}=0.
+\end{align}
+
+Assume that $e=\partial\Omega_j \cap \partial\Omega_i\in \mathcal{E}$ is a common edge of $\Omega_i$ and $\Omega_j$. Let $\tau \in H^{1/2}(\Gamma)$, which, by restriction, implies $\tau\in H^{1/2}(\partial \Omega_j)$ and $\tau\in H^{1/2}(\partial \Omega_i)$.
+
+
+Extension on interface: $E^{\Gamma} : H^{1/2}(\Gamma) \to H^1_D(\Omega)$ by $(E^{\Gamma} \tau)_{\mid\Omega_j} = E^{j} \tau_{\mid \partial \Omega_j}$, for all $j = 1,\ldots,J$. 
+
+Extension on edges: $E^{\Gamma} : H^{1/2}_{00}(e) \to H^1_D(\Omega)$ via $E^{\Gamma} \tau = E^{\Gamma} E_0^e\tau$, where $E_0^e: H^{1/2}_{00}(e)  \to H^{1/2}(\Gamma)$ denotes the extension by zero to the interface $\Gamma$.
+
+"""
+
+
+
+
+###############################################################
+# EXTENSIONS
 
 edge_extensions = {}
 vol_extensions = {}
 
+# Define harmonic extension on specific subdomain
+# Returns the Sobolev space H^1_0(\Omega_j), the stiffness matrix and its inverse
 def GetHarmonicExtensionDomain(dom_name):
-    fd_all = V.GetDofs(mesh.Materials(dom_name))
-    base_space = H1(mesh, order = order, dirichlet = ".*")
+    fd_all = V.GetDofs(mesh.Materials(dom_name)) # Dofs of specific domain
+    base_space = H1(mesh, order = order, dirichlet = ".*") #Replicate H^1_0 on subdomain
     Vharm = Compress(base_space, fd_all)
-    uharm, vharm = Vharm.TnT()
+    uharm, vharm = Vharm.TnT() # Trial and test functions
     aharm = BilinearForm(Vharm)
+    #Setting bilinear form: - int (Grad u Grad v) d\Omega_j
     aharm += grad(uharm)*grad(vharm)*dx(dom_name)
     aharm.Assemble()
     aharm_inv = aharm.mat.Inverse(Vharm.FreeDofs(), inverse = "sparsecholesky")
 
     # Calc embedding
+    # Is it local to global matrix? 
     ind = Vharm.ndof * [0]
     ii = 0
     for i, b in enumerate(fd_all):
@@ -71,22 +126,25 @@ def GetHarmonicExtensionDomain(dom_name):
 
     return Vharm, aharm.mat, aharm_inv, E
 
-def GetHarmonicExtensionEdge(edge_name):
-    fd_all = V.GetDofs(mesh.Boundaries(edge_name))
-    bnd = ""
-    for b in mesh.GetBoundaries():
-        if (b != edge_name):
-            bnd += b + "|"
-    bnd = bnd[:-1]
-    base_space = H1(mesh, order = order, dirichlet = bnd)
-    Vharm = Compress(base_space, fd_all)
-    t = specialcf.tangential(2)
 
+# Define harmonic extension on specific subdomain
+# Returns the Sobolev space H^{1/2}_00(e??), the stiffness matrix and its inverse
+def GetHarmonicExtensionEdge(edge_name):
+    fd_all = V.GetDofs(mesh.Boundaries(edge_name)) # Dofs of specific edge
+    bnd = "" # Initialize empty boundary 
+    for b in mesh.GetBoundaries():
+        if (b != edge_name): # If the edge is not our specified edge, then add it to bnd - why?
+            bnd += b + "|"
+    bnd = bnd[:-1] # Take every component exept the last one
+    base_space = H1(mesh, order = order, dirichlet = bnd)
+
+    #Setting bilinear form: - int (Grad u Grad v) d"e". 
+    Vharm = Compress(base_space, fd_all) #Sobolev space H^{1/2}_00(e??)
+    t = specialcf.tangential(2) # What is this specialcf?
     uharm, vharm = Vharm.TnT()
     aharm = BilinearForm(Vharm)
     aharm += (grad(uharm)*t) * (grad(vharm)*t) * ds(skeleton = True, definedon=mesh.Boundaries(edge_name))
     aharm.Assemble()
-    
     aharm_inv = aharm.mat.Inverse(Vharm.FreeDofs(), inverse = "sparsecholesky")
 
     ind = Vharm.ndof * [0]
@@ -99,6 +157,10 @@ def GetHarmonicExtensionEdge(edge_name):
 
     return Vharm, aharm.mat, aharm_inv, E
 
+
+
+# Function that computes the harmonic extensions on all subdomains and on all edges (of coarse mesh)
+# Returns vol_extensions and edge_extensions
 def CalcHarmonicExtensions():
     for dom_name in mesh.GetMaterials():
         Vharm, aharm, aharm_inv, E = GetHarmonicExtensionDomain(dom_name)
@@ -108,6 +170,22 @@ def CalcHarmonicExtensions():
         Vharm, aharm, aharm_inv, E = GetHarmonicExtensionEdge(edge_name)
         edge_extensions[edge_name] = [Vharm, aharm, aharm_inv, E]
 
+
+
+"""
+**Edge basis**
+
+Same for elliptic or Helmholtz case (changes the extension).
+
+Let us consider $e\in\mathcal{E}$ and denote by $\partial_e$ the tangential derivative, i.e., differentiation along $e$.
+We define the edge modes as solutions to the following weak formulation of the edge-Laplace eigenvalue problems: for each $e\in\mathcal{E}$, for $i \in \mathbb{N}$, find $(\tau^e_i,\lambda^e_i)\in H^{1/2}_{00}(e) \times\mathbb{R}$ such that
+\begin{align}
+(\partial_e \tau^e_i,\partial_e \eta)_e =\lambda^e_i ( \tau^e_i, \eta)_e \quad \text{for all } \eta\in H^{1/2}_{00}(e).
+\end{align}
+"""
+
+###############################################################
+# EDGE MODES
 
 def calc_edge_basis(basis):
     for edge_name in mesh.GetBoundaries():
@@ -129,7 +207,7 @@ def calc_edge_basis(basis):
 
         AA = sp.csr_matrix(aloc.mat.CSR())
         MM = sp.csr_matrix(mloc.mat.CSR())
-        ev, evec =scipy.sparse.linalg.eigs(A = AA, M = MM, k = edge_modes, which='SM')
+        ev, evec =sp.linalg.eigs(A = AA, M = MM, k = edge_modes, which='SM')
         evec = evec.transpose()
 
         ind = Vloc.ndof * [0]
@@ -166,7 +244,30 @@ def calc_edge_basis(basis):
 
             basis.Append(gfu.vec)
 
+
+
+
+
+
+
+"""
+**Vertex basis**
+
+**Helmholtz case:** For any $p\in\mathcal{V}$, let $\varphi_p: \Gamma\to \mathbb{R}$ denote a piecewise harmonic function, that is, $\Delta_e\varphi_{p\mid e}=0$ for all $e\in\mathcal{E}$, with $\Delta_e$ indicating the Laplace operator along the edge $e\in\mathcal{E}$, and $\varphi_p(q)=\delta_{p,q}$ for all $p,q\in\mathcal{V}$.
+The vertex based space is then defined by linear combinations of corresponding  extensions:
+\begin{align*}
+V_{\mathcal{V}} = {\rm span}\{\, E^{\Gamma} \varphi_p \,:\, \ p\in\mathcal{V}\}.
+\end{align*}
+For our error analysis, we will employ the nodal interpolant
+\begin{align}
+I_{\mathcal{V}} v = \sum_{p\in \mathcal{V}} v(p) \varphi_p,
+\end{align}
+which is well-defined for functions $v:\overline{\Omega}\to\mathbb{C}$ that are continuous in all $p\in \mathcal{V}$. Moreover, note that the support of the vertex basis functions consists of all subdomains which share the vertex and is therefore local.
+"""
+
+
 ###############################################################
+# VERTEX BASIS
 
 def calc_vertex_basis(basis):
     for j, vertex_name in enumerate(mesh.GetBBoundaries()):
@@ -222,7 +323,28 @@ def calc_vertex_basis(basis):
 
         basis.Append(gfu.vec)
 
+
+
+
+
+"""
+**Bubble functions**
+
+
+**Elliptic case:** Let us define the local bilinear form $\mathcal{A}{j}: H^1(\Omega_j) \times H^1(\Omega_j) \to \mathbb{R}$ with domain of integration $\Omega_j$ instead of $\Omega$.
+Since $\mathcal{A}_{j}$ is symmetric, we can consider the eigenproblems: for $j=1,...,J$ and $i \in \mathbb{N}$, find $(b_i^j,\lambda_i^j)\in H_0^1(\Omega_j) \times \mathbb{R}$ such that
+\begin{align}
+	\mathcal{A}_{j}(b_i^j,v)= \lambda_i^j ( b_i^j,v)_{\Omega_j} \quad \forall v \in H_0^1(\Omega_j).
+\end{align}
+
+**Helmholtz case:** Let us define the local sesquilinear form $\mathcal{A}{j}: H^1(\Omega_j) \times H^1(\Omega_j) \to \mathbb{C}$ with domain of integration $\Omega_j$ instead of $\Omega$.
+Since $\mathcal{A}_{j}$ is Hermitian, we can consider the eigenproblems: for $j=1,...,J$ and $i \in \mathbb{N}$, find $(b_i^j,\lambda_i^j)\in H)0^1(\Omega_j) \times \mathbb{R}$ such that
+\begin{align}
+	\mathcal{A}_{j}(b_i^j,v)= \lambda_i^j ( {\kappa^2} b_i^j,v)_{\Omega_j} \quad \forall v \in H_0^1(\Omega_j).
+\end{align}
+"""
 ###############################################################
+# BUBBLE FUNCTIONS
 
 def calc_bubble_basis(basis):
     for mat_name in mesh.GetMaterials():
