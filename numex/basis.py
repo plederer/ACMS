@@ -202,7 +202,8 @@ def calc_edge_basis(basis):
         aloc += (grad(uloc)*t) * (grad(vloc)*t) * ds(skeleton=True, definedon=mesh.Boundaries(edge_name))
         aloc.Assemble()
         # What is the difference between the two differentials ds?
-        #Setting bilinear form:  int u v de        mloc = BilinearForm(Vloc)
+        #Setting bilinear form:  int u v de        
+        mloc = BilinearForm(Vloc)
         mloc += uloc.Trace() * vloc.Trace() * ds(edge_name)
         mloc.Assemble()
 
