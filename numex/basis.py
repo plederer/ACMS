@@ -106,45 +106,49 @@ vol_extensions = {}
 def GetHarmonicExtensionDomain(dom_name):
     fd_all = V.GetDofs(mesh.Materials(dom_name)) # Dofs of specific domain
     base_space = H1(mesh, order = order, dirichlet = ".*") #Replicate H^1_0 on subdomain
-    Vharm = Compress(base_space, fd_all)
+    Vharm = Compress(base_space, fd_all) # Restriction to specified dofs
     uharm, vharm = Vharm.TnT() # Trial and test functions
     aharm = BilinearForm(Vharm)
-    #Setting bilinear form: - int (Grad u Grad v) d\Omega_j
+    #Setting bilinear form:  int (Grad u Grad v) d\Omega_j
     aharm += grad(uharm)*grad(vharm)*dx(dom_name)
     aharm.Assemble()
+    # Homogeneous Dirichlet bc because we select FreeDofs (only internal dofs)
     aharm_inv = aharm.mat.Inverse(Vharm.FreeDofs(), inverse = "sparsecholesky")
 
-    # Calc embedding
-    # Is it local to global matrix? 
+    # Calc embedding - Local to global mapping
+    # Computes global indices of local dofs 
     ind = Vharm.ndof * [0]
-    ii = 0
-    for i, b in enumerate(fd_all):
-        if b == True:
+    ii = 0 # ii = index of local dofs
+    for i, b in enumerate(fd_all): # i = index of global dofs
+        if b == True: # If I am on a local dof -> save it and increase counter
             ind[ii] = i
             ii += 1
-    E = PermutationMatrix(base_space.ndof, ind)
+    E = PermutationMatrix(base_space.ndof, ind) # NGSolve for contructing mapping
 
     return Vharm, aharm.mat, aharm_inv, E
-
 
 # Define harmonic extension on specific subdomain
 # Returns the Sobolev space H^{1/2}_00(e??), the stiffness matrix and its inverse
 def GetHarmonicExtensionEdge(edge_name):
     fd_all = V.GetDofs(mesh.Boundaries(edge_name)) # Dofs of specific edge
     bnd = "" # Initialize empty boundary 
+    # The space construction requires bc specified on the full domain 
+    # so first we set Dirichlet everywhere and then remove internal vertices on our edge
+    # This gives the edge vertices with Dirichlet bc
     for b in mesh.GetBoundaries():
-        if (b != edge_name): # If the edge is not our specified edge, then add it to bnd - why?
+        if (b != edge_name): # If the edge is not our specified edge, then add it to bnd
             bnd += b + "|"
-    bnd = bnd[:-1] # Take every component exept the last one
+    bnd = bnd[:-1] # Remove the last added "|" - unnecessary
     base_space = H1(mesh, order = order, dirichlet = bnd)
 
     #Setting bilinear form: - int (Grad u Grad v) d"e". 
-    Vharm = Compress(base_space, fd_all) #Sobolev space H^{1/2}_00(e??)
-    t = specialcf.tangential(2) # What is this specialcf?
+    Vharm = Compress(base_space, fd_all) #Sobolev space H^{1/2}_00(e)
+    t = specialcf.tangential(2) # Object to be evaluated - Tangential vector along edge (2=dimension)
     uharm, vharm = Vharm.TnT()
     aharm = BilinearForm(Vharm)
     aharm += (grad(uharm)*t) * (grad(vharm)*t) * ds(skeleton = True, definedon=mesh.Boundaries(edge_name))
     aharm.Assemble()
+    # Matrix in inverted only on internal dofs (FreeDofs) so it can be used for all edges
     aharm_inv = aharm.mat.Inverse(Vharm.FreeDofs(), inverse = "sparsecholesky")
 
     ind = Vharm.ndof * [0]
@@ -197,23 +201,24 @@ def calc_edge_basis(basis):
 
         uloc, vloc = Vloc.TnT() # Trial and test functions
         t = specialcf.tangential(2)
-        #Setting bilinear form: - int (Grad u Grad v) de
+        #Setting bilinear form: int (Grad u Grad v) de
         aloc = BilinearForm(Vloc)
+        # This allows us to take the normal derivative of a function that is in H1 and computing the integral only on edges
+        # Otherwise NGSolve does not allow to take the trace of a function in H^{1/2}(e) - uloc is defined on edge
         aloc += (grad(uloc)*t) * (grad(vloc)*t) * ds(skeleton=True, definedon=mesh.Boundaries(edge_name))
         aloc.Assemble()
-        # What is the difference between the two differentials ds?
         #Setting bilinear form:  int u v de        
         mloc = BilinearForm(Vloc)
         mloc += uloc.Trace() * vloc.Trace() * ds(edge_name)
         mloc.Assemble()
 
-        # Resolution of eigenvalue problem: AA x = ev MM x
+        # Solving eigenvalue problem: AA x = ev MM x
         AA = sp.csr_matrix(aloc.mat.CSR())
         MM = sp.csr_matrix(mloc.mat.CSR())
         ev, evec =sp.linalg.eigs(A = AA, M = MM, k = edge_modes, which='SM')
         evec = evec.transpose()
 
-        # Local to global mapping?
+        # Local to global mapping
         ind = Vloc.ndof * [0]
         ii = 0
         for i, b in enumerate(fd):
@@ -227,13 +232,13 @@ def calc_edge_basis(basis):
             gfu.vec.data = Eloc.T * e.real # Grid funciton on full mesh
             #Mapping components?
 
-            nb_dom = mesh.Boundaries(edge_name).Neighbours(VOL) #?
+            nb_dom = mesh.Boundaries(edge_name).Neighbours(VOL) # It gives volumes that are neighbours of my edge
             gfu_edge = gfu.vec.CreateVector()
         
             for bi, bb in enumerate(mesh.GetMaterials()):
                 if nb_dom.Mask()[bi]:
                     Vharm, aharm_mat, aharm_inv, E = vol_extensions[bb]
-            
+                    # gfu_extension gfu_edge are auxiliary functions
                     gfu_extension = GridFunction(Vharm) # Grid funciton on specific subdomain
                     res = gfu_extension.vec.CreateVector()
 
@@ -241,15 +246,19 @@ def calc_edge_basis(basis):
                     # Vharm.EmbedTranspose(gfu_edge, gfu_extension.vec)
                     # Extension to subdomain * values on edge = function extended to subdomain
                     gfu_extension.vec.data = E * gfu_edge 
+                    # Restricting globally defined edge function to the subdomain I want
+                    
                     
                     # Harmonic extension on edge
                     res = aharm_mat * gfu_extension.vec 
-                    gfu_extension.vec.data = - aharm_inv * res
+                    gfu_extension.vec.data = - aharm_inv * res 
+                    #Include Dirichlet bc because we loop over all subdomains to which we want to extend
                     # Vharm.Embed(gfu_extension.vec, gfu_edge)
                     gfu_edge.data = E.T * gfu_extension.vec
-                    gfu.vec.data += gfu_edge
+                    gfu.vec.data += gfu_edge # Boundary value stored
 
             basis.Append(gfu.vec)
+
 
 
 
