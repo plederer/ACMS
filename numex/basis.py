@@ -201,10 +201,13 @@ def calc_edge_basis(basis):
         aloc = BilinearForm(Vloc)
         aloc += (grad(uloc)*t) * (grad(vloc)*t) * ds(skeleton=True, definedon=mesh.Boundaries(edge_name))
         aloc.Assemble()
+
+
         # What is the difference between the two differentials ds?
         #Setting bilinear form:  int u v de        
         mloc = BilinearForm(Vloc)
         mloc += uloc.Trace() * vloc.Trace() * ds(edge_name)
+        #mloc += uloc * vloc * ds(skeleton = True, edge_name)
         mloc.Assemble()
 
         # Resolution of eigenvalue problem: AA x = ev MM x
@@ -241,7 +244,6 @@ def calc_edge_basis(basis):
                     # Vharm.EmbedTranspose(gfu_edge, gfu_extension.vec)
                     # Extension to subdomain * values on edge = function extended to subdomain
                     gfu_extension.vec.data = E * gfu_edge 
-                    
                     # Harmonic extension on edge
                     res = aharm_mat * gfu_extension.vec 
                     gfu_extension.vec.data = - aharm_inv * res
