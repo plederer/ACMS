@@ -55,7 +55,6 @@ class ACMS:
         self.dirichlet = dirichlet
         self.mesh = mesh
         self.V = H1(mesh, order = order, dirichlet = dirichlet)
-
         self.gfu = GridFunction(self.V)
 
         self.edge_extensions = {}
@@ -64,10 +63,13 @@ class ACMS:
         self.bubble_modes = bm
         self.edge_modes = em
 
+        self.basis_v = MultiVector(self.gfu.vec, 0)
+        self.basis_e = MultiVector(self.gfu.vec, 0)
+        self.basis_b = MultiVector(self.gfu.vec, 0)
 
     # Define harmonic extension on specific subdomain
     # Returns the Sobolev space H^1_0(\Omega_j), the stiffness matrix and its inverse
-    def GetHarmonicExtensionDomain(self, dom_name):
+    def GetHarmonicExtensionDomain(self, dom_name, kappa = 0):
         fd_all = self.V.GetDofs(self.mesh.Materials(dom_name)) # Dofs of specific domain
         base_space = H1(self.mesh, order = self.order, dirichlet = self.dirichlet) #Replicate H^1_0 on subdomain
         Vharm = Compress(base_space, fd_all)
@@ -75,6 +77,8 @@ class ACMS:
         aharm = BilinearForm(Vharm)
         #Setting bilinear form: - int (Grad u Grad v) d\Omega_j
         aharm += grad(uharm)*grad(vharm)*dx(dom_name)
+        if (kappa!= 0):
+            aharm += -kappa**2 * uharm*vharm*dx(dom_name)
         aharm.Assemble()
         aharm_inv = aharm.mat.Inverse(Vharm.FreeDofs(), inverse = "sparsecholesky")
 
@@ -93,7 +97,7 @@ class ACMS:
 
     # Define harmonic extension on specific subdomain
     # Returns the Sobolev space H^{1/2}_00(e), the stiffness matrix and its inverse
-    def GetHarmonicExtensionEdge(self, edge_name):
+    def GetHarmonicExtensionEdge(self, edge_name, kappa = 0):
         fd_all = self.V.GetDofs(self.mesh.Boundaries(edge_name)) # Dofs of specific edge
         bnd = "" # Initialize empty boundary 
          # The space construction requires bc specified on the full domain 
@@ -129,13 +133,13 @@ class ACMS:
 
     # Function that computes the harmonic extensions on all subdomains and on all edges (of coarse mesh)
     # Returns vol_extensions and edge_extensions
-    def CalcHarmonicExtensions(self):
+    def CalcHarmonicExtensions(self, kappa = 0):
         for dom_name in self.mesh.GetMaterials():
-            Vharm, aharm, aharm_inv, E = self.GetHarmonicExtensionDomain(dom_name)
+            Vharm, aharm, aharm_inv, E = self.GetHarmonicExtensionDomain(dom_name, kappa = kappa)
             self.vol_extensions[dom_name] = [Vharm, aharm, aharm_inv, E]
 
         for edge_name in self.mesh.GetBoundaries():
-            Vharm, aharm, aharm_inv, E = self.GetHarmonicExtensionEdge(edge_name)
+            Vharm, aharm, aharm_inv, E = self.GetHarmonicExtensionEdge(edge_name, kappa = kappa)
             self.edge_extensions[edge_name] = [Vharm, aharm, aharm_inv, E]
 
 
@@ -155,7 +159,9 @@ class ACMS:
     ###############################################################
     # EDGE MODES
 
-    def calc_edge_basis(self, basis):
+    def calc_edge_basis(self, basis=None):
+        if (basis ==None):
+            basis = self.basis_e
         for edge_name in self.mesh.GetBoundaries():
             vertex_dofs = self.V.GetDofs(self.mesh.BBoundaries(".*")) # Global vertices (coarse mesh)
             fd = self.V.GetDofs(self.mesh.Boundaries(edge_name)) & (~vertex_dofs) 
@@ -247,7 +253,9 @@ class ACMS:
     ###############################################################
     # VERTEX BASIS
 
-    def calc_vertex_basis(self, basis):
+    def calc_vertex_basis(self, basis=None):
+        if (basis == None):
+            basis = self.basis_v
         for j, vertex_name in enumerate(self.mesh.GetBBoundaries()):
             gfu_vertex = self.gfu.vec.CreateVector() # Initialise grid function for vertices
             fd = self.V.GetDofs(self.mesh.BBoundaries(vertex_name)) # Gets coarse vertex representation on full mesh
@@ -305,7 +313,8 @@ class ACMS:
                     gfu_edge.data = E.T * gfu_extension.vec
                     self.gfu.vec.data += gfu_edge
 
-            basis.Append(self.gfu.vec)
+            if (Norm(self.gfu.vec) > 1):
+                basis.Append(self.gfu.vec)
 
 
 
@@ -330,7 +339,9 @@ class ACMS:
     ###############################################################
     # BUBBLE FUNCTIONS
 
-    def calc_bubble_basis(self, basis):
+    def calc_bubble_basis(self, basis=None):
+        if (basis == None):
+            basis = self.basis_b
         for mat_name in self.mesh.GetMaterials(): # Subdomains labels
             # DOFS that are in the interior of the subdomain (excludes edges)
             fd = self.V.GetDofs(self.mesh.Materials(mat_name)) & self.V.FreeDofs()
@@ -368,3 +379,28 @@ class ACMS:
                 self.gfu.vec.data = E.T * e.real # Grid funciton on full mesh
                 basis.Append(self.gfu.vec)
 
+    def calc_basis(self):
+        self.calc_vertex_basis()
+        self.calc_edge_basis()
+        self.calc_bubble_basis()
+        return self.basis_v, self.basis_e, self.basis_b
+    
+    def complex_basis(self):
+        Vc = H1(self. mesh, order = self.order, complex = True)
+        gfu = GridFunction(Vc)
+        basis = MultiVector(gfu.vec, 0)
+
+        for bv in self.basis_v:
+            gfu.vec.FV()[:] = bv
+            basis.Append(gfu.vec)
+
+        for be in self.basis_e:
+            gfu.vec.FV()[:] = be
+            basis.Append(gfu.vec)
+                
+        for bb in self.basis_b:
+            gfu.vec.FV()[:] = bb
+            basis.Append(gfu.vec)
+        
+        return basis
+        

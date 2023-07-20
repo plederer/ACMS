@@ -116,30 +116,36 @@ with TaskManager():
     gfu_ex = GridFunction(V)
     gfu_ex.vec.data = ainv * f.vec
     
-    basis_v = MultiVector(gfu.vec, 0)
-    basis_e = MultiVector(gfu.vec, 0)
-    basis_b = MultiVector(gfu.vec, 0)
+    # basis_v = MultiVector(gfu.vec, 0)
+    # basis_e = MultiVector(gfu.vec, 0)
+    # basis_b = MultiVector(gfu.vec, 0)
+    # acms.calc_vertex_basis(basis_v)
+    # acms.calc_edge_basis(basis_e)
+    # acms.calc_bubble_basis(basis_b)
 
-    acms.calc_vertex_basis(basis_v)
-    acms.calc_edge_basis(basis_e)
-    acms.calc_bubble_basis(basis_b)
+    acms.calc_basis()
+
+    # acms.calc_vertex_basis(basis_v)
+    # acms.calc_edge_basis(basis_e)
+    # acms.calc_bubble_basis(basis_b)
     # print(basis_v.dim)
     # quit()
+
     for BM in [50,60,70,80,90]:
         basis = MultiVector(gfu.vec, 0)
-        for bv in basis_v:
+        for bv in acms.basis_v:
             basis.Append(bv)
             # gfu.vec.data = bv
             # Draw(gfu)
             # input()
 
-        for be in basis_e:
+        for be in acms.basis_e:
             basis.Append(be)
         
         
         for d, dom in enumerate(mesh.GetMaterials()):
             for i in range(BM):
-                basis.Append(basis_b[d * max_bm + i])
+                basis.Append(acms.basis_b[d * max_bm + i])
 
 
         num = len(basis)
