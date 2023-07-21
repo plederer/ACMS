@@ -11,7 +11,7 @@ SetNumThreads(4)
 
 # Setting the geometry
 
-if False:
+if True:
     geo = SplineGeometry()
     # Setting global decomposition vertices (coarse mesh)
     Points = [(0,0), (1,0), (2,0), 
@@ -32,7 +32,7 @@ if False:
     geo.Append(["line", 1, 4], leftdomain=1, rightdomain=2, bc="middle")
 
     # ngmesh = unit_square.GenerateMesh(maxh=0.1)
-    mesh = Mesh(geo.GenerateMesh(maxh = 0.1))
+    mesh = Mesh(geo.GenerateMesh(maxh = 0.05))
     # Labeling subdomains in coarse mesh
     mesh.ngmesh.SetMaterial(1,"omega0")
     mesh.ngmesh.SetMaterial(2,"omega1")
@@ -42,6 +42,8 @@ if False:
     print(mesh.GetBoundaries()) # Edges
     print(mesh.GetBBoundaries()) # Vertices
     #input()
+    dom_bnd = "bottom0|bottom1|right|top1|top0|left"
+
 else:
     geo = SplineGeometry()
     Points = [(0,-1), (1,-1), (1,0), 
@@ -83,6 +85,7 @@ else:
     print(mesh.GetBoundaries())
     print(mesh.GetBBoundaries())
     # input()
+    dom_bnd = "c0|c1|c2|c3"
 
 
 
@@ -91,15 +94,14 @@ else:
 
 
 with TaskManager():
-    V =  H1(mesh, order = 2, dirichlet = ".*")
+    order = 1
+    V =  H1(mesh, order = order) #, dirichlet = ".*")
     gfu = GridFunction(V)
     max_bm = 100
-    acms = ACMS(order = 2, mesh = mesh, bm = max_bm, em = 10)
+    acms = ACMS(order = order, mesh = mesh, bm = max_bm, em = 10)
     acms.CalcHarmonicExtensions()
     
     u, v = V.TnT()
-    # dom_bnd = "bottom0|bottom1|right|top1|top0|left"
-    dom_bnd = "c0|c1|c2|c3"
 
     kappa = 0
     a = BilinearForm(V)
@@ -112,7 +114,7 @@ with TaskManager():
     f = LinearForm(V)
     f += 1 * v * dx()
     f.Assemble()
-    ainv = a.mat.Inverse()
+    ainv = a.mat.Inverse(V.FreeDofs())
     gfu_ex = GridFunction(V)
     gfu_ex.vec.data = ainv * f.vec
     
@@ -150,9 +152,6 @@ with TaskManager():
 
         num = len(basis)
 
-
-
-
         asmall = InnerProduct (basis, a.mat * basis)
         ainvsmall = Matrix(num,num)
 
@@ -163,7 +162,7 @@ with TaskManager():
         usmall = ainvsmall * f_small
 
         gfu.vec[:] = 0.0
-
+        
         gfu.vec.data = basis * usmall
 
 

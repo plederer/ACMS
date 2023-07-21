@@ -122,9 +122,11 @@ asmall_np = asmall.NumPy()
 #         asmall_np[i,j] = complex(asmall[i,j])
 
 # print(asmall_np)
+SetNumThreads(1)
 ainvs_small_np = numpy.linalg.inv(asmall_np)
 
-# ainvsmall = Matrix(num,num,complex=True)
+ainvsmall = Matrix(num,num,complex=True)
+
 
 for i in range(num):
     for j in range(num):
