@@ -68,6 +68,7 @@ beta = 1
 omega = 1
 
 h1_error = []
+dofs =[]
 order_v = [2,3] # ATTENTION: There is an error for order=1
              # Cannot use scipy.linalg.eig for sparse A with k >= N - 1.
 max_bm = 10
@@ -115,10 +116,9 @@ for order in order_v:
     
     for EM in Edge_modes:
             for BM in Bubble_modes:
-                basis = acms.complex_basis()
-                
-                
-                
+                #Vc = H1(mesh, order = order, complex = True)
+                gfu = GridFunction(V)
+                basis = MultiVector(gfu.vec, 0)
                 
                 for bv in acms.basis_v:
                     gfu.vec.FV()[:] = bv
@@ -137,46 +137,47 @@ for order in order_v:
 
     
                 num = len(basis)
-                print(num)
+                dofs.append(num)
             
             
-#                 asmall = InnerProduct (basis, a.mat * basis) #Complex
+                asmall = InnerProduct (basis, a.mat * basis) #Complex
 
-#                 asmall_np = np.zeros((num, num), dtype=numpy.complex128)
-#                 asmall_np = asmall.NumPy()
+                asmall_np = np.zeros((num, num), dtype=numpy.complex128)
+                asmall_np = asmall.NumPy()
 
-#                 SetNumThreads(1)
-#                 ainvs_small_np = numpy.linalg.inv(asmall_np)
+                SetNumThreads(1)
+                ainvs_small_np = numpy.linalg.inv(asmall_np)
 
-#                 ainvsmall = Matrix(num,num,complex=True)
+                ainvsmall = Matrix(num,num,complex=True)
 
 
-#                 for i in range(num):
-#                     for j in range(num):
-#                         ainvsmall[i,j] = ainvs_small_np[i,j]
+                for i in range(num):
+                    for j in range(num):
+                        ainvsmall[i,j] = ainvs_small_np[i,j]
 
-#                 f_small = InnerProduct(basis, l.vec)
+                f_small = InnerProduct(basis, l.vec)
 
-#                 usmall = ainvsmall * f_small
-#                 gfu.vec[:] = 0.0
+                usmall = ainvsmall * f_small
+                gfu.vec[:] = 0.0
 
-#                 gfu.vec.data = basis * usmall
+                gfu.vec.data = basis * usmall
 
-#                 Draw(gfu-gfu_ex, mesh, "error")
+                Draw(gfu-gfu_ex, mesh, "error")
 
-#                 print("finished_acms")
+                print("finished_acms")
     
-#                 #Computing error
-#                 grad_uex = Grad(gfu_ex)
-#                 diff = grad_uex - Grad(gfu)
-#                 h1_error_aux = sqrt( Integrate ( InnerProduct(diff,diff), mesh, order = 10))
-#                 #Needs to do complex conjugate
+                #Computing error
+                grad_uex = Grad(gfu_ex)
+                diff = grad_uex - Grad(gfu)
+                h1_error_aux = sqrt( Integrate ( InnerProduct(diff,diff), mesh, order = 10))
+                #Needs to do complex conjugate
 
-#                 h1_error.append(h1_error_aux)
+                h1_error.append(h1_error_aux.real)
             
             
-# #h1_error = np.reshape(h1_error, (len(order_v)*len(Edge_modes), len(Bubble_modes)))
-# print(h1_error)
+h1_error = np.reshape(h1_error, (len(order_v)*len(Edge_modes), len(Bubble_modes)))
+dofs = np.reshape(dofs, (len(order_v)*len(Edge_modes), len(Bubble_modes)))
+print(h1_error)
 
 
 
@@ -186,7 +187,7 @@ for order in order_v:
 plt.rcParams.update({'font.size':15})
 for d in range(len(order_v)):
     for i in range(len(Edge_modes)):
-        plt.plot(Bubble_modes, h1_error[d*len(Edge_modes) + i,:], label=('Edge modes=%i' %Edge_modes[i]))
+        plt.loglog(Bubble_modes, h1_error[d*len(Edge_modes) + i,:], label=('Edge modes=%i' %Edge_modes[i]))
 plt.title('$H^1$ errors: increased bubbles deg=%i' %order)
 plt.legend()
 plt.xlabel('Bubbles')
@@ -195,18 +196,18 @@ plt.xlabel('Bubbles')
 plt.rcParams.update({'font.size':15})
 for d in range(len(order_v)):
     for i in range(len(Bubble_modes)):
-        plt.plot(Edge_modes, h1_error[d*len(Edge_modes):(d+1)*len(Edge_modes),i], label=('Bubbles=%i' %Bubble_modes[i]))
+        plt.loglog(Edge_modes, h1_error[d*len(Edge_modes):(d+1)*len(Edge_modes),i], label=('Bubbles=%i' %Bubble_modes[i]))
 plt.title('$H^1$ errors: increased edge modes deg=%i' %order)
 plt.legend()
 plt.xlabel('Edge modes')
 
 
 #Order
-plt.rcParams.update({'font.size':15})
-for d in range(len(order_v)):
-    print(len(Edge_modes)-1)
-    print(len(Edge_modes))
-    print(h1_error[len(Edge_modes)-1:len(Edge_modes):-1,-1])
+# plt.rcParams.update({'font.size':15})
+# for d in range(len(order_v)):
+#     print(len(Edge_modes)-1)
+#     print(len(Edge_modes))
+#     print(h1_error[len(Edge_modes)-1:len(Edge_modes):-1,-1])
 #     plt.plot(order_v, h1_error[(d+1)*len(Edge_modes)-1,-1])#, label=('Bubbles=%i' %Bubble_modes[i]))
 # plt.title('$H^1$ errors: increased degree of approximation')
 # plt.legend()
