@@ -71,11 +71,12 @@ h1_error = []
 dofs =[]
 order_v = [2,3] # ATTENTION: There is an error for order=1
              # Cannot use scipy.linalg.eig for sparse A with k >= N - 1.
-max_bm = 10
-max_em = 10
 Bubble_modes = [1,5]
 Edge_modes = [1,5] #CAREFUL: we have a limited number of edge modes due to the mesh size
 # Should redefine max_em
+max_bm = Bubble_modes[-1]
+max_em = Edge_modes[-1]
+
 
 for order in order_v:
     print(order)
