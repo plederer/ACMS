@@ -9,7 +9,7 @@ from netgen.occ import *
 
 from helping_functions import *
 
-from ngsolve.webgui import Draw
+# from ngsolve.webgui import Draw
 import matplotlib.pyplot as plt
 
 geo = SplineGeometry()
@@ -56,7 +56,7 @@ print(mesh.GetBBoundaries())
 dom_bnd = "c0|c1|c2|c3"
 
 
-kappa = 16
+kappa = 1
 # CF = CoefficientFunction
 # k = kappa * CF((0.6,0.8))
 # f = exp(-200 * ( (x)**2 + (y)**2))
@@ -69,10 +69,10 @@ omega = 1
 
 h1_error = []
 dofs =[]
-order_v = [2,3] # ATTENTION: There is an error for order=1
+order_v = [2] # ATTENTION: There is an error for order=1
              # Cannot use scipy.linalg.eig for sparse A with k >= N - 1.
-Bubble_modes = [1,5]
-Edge_modes = [1,5] #CAREFUL: we have a limited number of edge modes due to the mesh size
+Bubble_modes = [10]
+Edge_modes = [2,4,8,10] #CAREFUL: we have a limited number of edge modes due to the mesh size
 # Should redefine max_em
 max_bm = Bubble_modes[-1]
 max_em = Edge_modes[-1]
@@ -101,10 +101,9 @@ for order in order_v:
     print("FEM finished")
     
 
-
+    Draw(gfu_ex, mesh, "u_fem")
     gfu = GridFunction(V)
-    #Draw(gfu, mesh, "u_acms")
-    ##
+    
     
     #Computing full basis with max number of modes 
     acms = ACMS(order = order, mesh = mesh, bm = max_bm, em = max_em)
@@ -141,12 +140,12 @@ for order in order_v:
                 dofs.append(num)
             
             
-                asmall = InnerProduct (basis, a.mat * basis) #Complex
+                asmall = InnerProduct (basis, a.mat * basis, conjugate = False) #Complex
 
                 asmall_np = np.zeros((num, num), dtype=numpy.complex128)
                 asmall_np = asmall.NumPy()
 
-                SetNumThreads(1)
+                # SetNumThreads(1)
                 ainvs_small_np = numpy.linalg.inv(asmall_np)
 
                 ainvsmall = Matrix(num,num,complex=True)
@@ -163,6 +162,7 @@ for order in order_v:
 
                 gfu.vec.data = basis * usmall
 
+                
                 Draw(gfu-gfu_ex, mesh, "error")
 
                 print("finished_acms")
@@ -170,9 +170,11 @@ for order in order_v:
                 #Computing error
                 grad_uex = Grad(gfu_ex)
                 diff = grad_uex - Grad(gfu)
+                # h1_error_aux = sqrt( Integrate ( InnerProduct(diff,diff), mesh, order = 10))
                 h1_error_aux = sqrt( Integrate ( InnerProduct(diff,diff), mesh, order = 10))
                 #Needs to do complex conjugate
-
+                Draw(gfu, mesh, "u_acms")
+                # input()
                 h1_error.append(h1_error_aux.real)
             
             
