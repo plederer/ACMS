@@ -200,11 +200,14 @@ class ACMS:
 
             for e in evec: # Going over eigenvectors
                 # Vloc.Embed(e.real, gfu.vec)
+                self.gfu.vec[:]=0.0
                 self.gfu.vec.data = Eloc.T * e.real # Grid funciton on full mesh
                 #Mapping components?
+                
 
                 nb_dom = self.mesh.Boundaries(edge_name).Neighbours(VOL) # It gives volumes that are neighbours of my edge
                 gfu_edge = self.gfu.vec.CreateVector()
+                gfu_edge[:] = 0.0
             
                 for bi, bb in enumerate(self.mesh.GetMaterials()):
                     if nb_dom.Mask()[bi]:
@@ -212,6 +215,7 @@ class ACMS:
                         # gfu_extension gfu_edge are auxiliary functions
                         gfu_extension = GridFunction(Vharm) # Grid funciton on specific subdomain
                         res = gfu_extension.vec.CreateVector()
+                        gfu_extension.vec[:] = 0.0
 
                         gfu_edge.data = self.gfu.vec  # Grid funciton on edge
                         # Vharm.EmbedTranspose(gfu_edge, gfu_extension.vec)
@@ -219,6 +223,7 @@ class ACMS:
                         gfu_extension.vec.data = E * gfu_edge 
                         # Restricting globally defined edge function to the subdomain I want
                         # Harmonic extension on edge
+                        res[:] = 0.0
                         res = aharm_mat * gfu_extension.vec 
                         gfu_extension.vec.data = - aharm_inv * res
                         #Include Dirichlet bc because we loop over all subdomains to which we want to extend
