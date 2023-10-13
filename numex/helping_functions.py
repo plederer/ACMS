@@ -1,5 +1,5 @@
 from ngsolve import *
-from netgen.geom2d import SplineGeometry
+# from netgen.geom2d import SplineGeometry
 
 import scipy.linalg
 import scipy.sparse as sp
@@ -160,7 +160,7 @@ class ACMS:
     # EDGE MODES
 
     def calc_edge_basis(self, basis=None):
-        if (basis ==None):
+        if (basis == None):
             basis = self.basis_e
         for edge_name in self.mesh.GetBoundaries():
             vertex_dofs = self.V.GetDofs(self.mesh.BBoundaries(".*")) # Global vertices (coarse mesh)
@@ -187,6 +187,9 @@ class ACMS:
             AA = sp.csr_matrix(aloc.mat.CSR())
             MM = sp.csr_matrix(mloc.mat.CSR())
             ev, evec =sp.linalg.eigs(A = AA, M = MM, k = self.edge_modes, which='SM')
+            idx = ev.argsort()[::]   
+            ev = ev[idx]
+            evec = evec[:,idx]
             evec = evec.transpose()
 
             # Local to global mapping
@@ -362,7 +365,11 @@ class ACMS:
             AA = sp.csr_matrix(aloc.mat.CSR())
             MM = sp.csr_matrix(mloc.mat.CSR())
             ev, evec =scipy.sparse.linalg.eigs(A = AA, M = MM, k = self.bubble_modes, which='SM')
+            idx = ev.argsort()[::]   
+            ev = ev[idx]
+            evec = evec[:,idx]
             evec = evec.transpose()
+
 
             # Local to global mapping
             ind = Vloc.ndof * [0]
