@@ -56,14 +56,21 @@ print(mesh.GetBBoundaries())
 dom_bnd = "c0|c1|c2|c3"
 
 
-kappa = 1
+# omega = 1 
+# kappa = omega
+
+# k = kappa * np.array([0.6,0.8])
 # CF = CoefficientFunction
-# k = kappa * CF((0.6,0.8))
+
 # f = exp(-200 * ( (x)**2 + (y)**2))
-g = exp(-200 * ( (x+1/sqrt(2))**2 + (y-1/sqrt(2))**2))
-# u_ex = exp(-1J * (k[0] * x + k[1] * y))
-# Draw(u_ex, mesh, "u_ex")
-# g = -1j * kappa * (k[0] * x + k[1] * y) * u_ex - 1j * u_ex
+# g = exp(-200 * ( (x+1/sqrt(2))**2 + (y-1/sqrt(2))**2))
+kappa = 1
+k = kappa * CF((0.6,0.8))
+u_ex = exp(-1J * (k[0] * x + k[1] * y))
+g = -1j * kappa * (k[0] * x + k[1] * y) * u_ex - 1j * u_ex
+
+
+Duex = CF((u_ex.Diff(x), u_ex.Diff(y)))
 beta = 1
 omega = 1
 
@@ -71,8 +78,8 @@ h1_error = []
 dofs =[]
 order_v = [2] # ATTENTION: There is an error for order=1
              # Cannot use scipy.linalg.eig for sparse A with k >= N - 1.
-Bubble_modes = [10]
-Edge_modes = [2,4,8,10] #CAREFUL: we have a limited number of edge modes due to the mesh size
+Bubble_modes = [1]
+Edge_modes = [1,2,4,8] #CAREFUL: we have a limited number of edge modes due to the mesh size
 # Should redefine max_em
 max_bm = Bubble_modes[-1]
 max_em = Edge_modes[-1]
@@ -92,12 +99,12 @@ for order in order_v:
 
     l = LinearForm(V)
     # l += f * v * dx()
-    l += g * v * ds(dom_bnd)
+    l += g * v * ds(dom_bnd, bonus_intorder=10)
     l.Assemble()
 
     gfu_ex = GridFunction(V)
-    ainv = a.mat.Inverse(V.FreeDofs(), inverse = "sparsecholesky")
-    gfu_ex.vec.data = ainv * l.vec
+    # ainv = a.mat.Inverse(V.FreeDofs(), inverse = "sparsecholesky")
+    # gfu_ex.vec.data = ainv * l.vec
     print("FEM finished")
     
 
@@ -155,11 +162,19 @@ for order in order_v:
                     for j in range(num):
                         ainvsmall[i,j] = ainvs_small_np[i,j]
 
-                f_small = InnerProduct(basis, l.vec)
+                # prod = ainvsmall * asmall
+                # # print(Norm(prod))
+                # # print(ainvs_small_np * asmall_np)
+                # prod = np.dot(ainvs_small_np, asmall_np)
+                # print(prod)
+                # print(num)
+                # # print(Norm(prod))
+                # input()
+                f_small = InnerProduct(basis, l.vec, conjugate = False)
 
                 usmall = ainvsmall * f_small
                 gfu.vec[:] = 0.0
-
+                
                 gfu.vec.data = basis * usmall
 
                 
@@ -168,7 +183,8 @@ for order in order_v:
                 print("finished_acms")
     
                 #Computing error
-                grad_uex = Grad(gfu_ex)
+                # grad_uex = Grad(gfu_ex)
+                grad_uex = Duex
                 diff = grad_uex - Grad(gfu)
                 # h1_error_aux = sqrt( Integrate ( InnerProduct(diff,diff), mesh, order = 10))
                 h1_error_aux = sqrt( Integrate ( InnerProduct(diff,diff), mesh, order = 10))
