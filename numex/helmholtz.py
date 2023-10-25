@@ -45,7 +45,7 @@ geo.Append(["line", 8, 6], leftdomain=8, rightdomain=7, bc="m7")
 # geo = SplineGeometry()
 # geo.AddCircle ( (0, 0), r=1, leftdomain=1, rightdomain=0, )
 
-ngmesh = geo.GenerateMesh(maxh=0.1)
+ngmesh = geo.GenerateMesh(maxh=0.02)
 
 mesh = Mesh(ngmesh)
 for i in range(8):
@@ -64,8 +64,10 @@ dom_bnd = "c0|c1|c2|c3"
 # PROBLEM SETTING
 
 plot_error = 0
-problem = 1 
-
+problem = 2
+order_v = [1,2] # ATTENTION: if the mesh is too coarse, we cannot have many bubbles/modes
+Bubble_modes = [1,2,4,8]
+Edge_modes = [1,2,4,8] 
 
 if problem ==1:  #Problem setting - PLANE WAVE
     
@@ -78,49 +80,25 @@ if problem ==1:  #Problem setting - PLANE WAVE
     g = -1j * kappa * (k[0] * x + k[1] * y) * u_ex - 1j *beta * u_ex
     Du_ex = CF((u_ex.Diff(x), u_ex.Diff(y)))
 
-    #Draw(g.real, mesh, "u_ex")
-    #Draw(g.imag, mesh, "u_ex")
-
-    else if problem == 2:  #Problem setting - INTERIOR SOURCE
+elif problem == 2:  #Problem setting - INTERIOR SOURCE
         
-        class Point: """ Point class for representing and manipulating x,y coordinates. """
+    class Point: """ Point class for representing and manipulating x,y coordinates. """
 
-        def __init__(self):
-            """ Create a new point at the origin """
-            self.x = 0
-            self.y = 0
+    def __init__(self):
+        """ Create a new point at the origin """
+        self.x = 0
+        self.y = 0
 
-        omega = 1
-        kappa = omega
-        beta = 1
-        p = (1/3, 1/3)
-        P = Point()
-        P.x = 1/3
-        P.y = 1/3
+    omega = 1
+    kappa = omega
+    beta = 1
+    p = (1/3, 1/3)
+    P = Point()
+    P.x = 1/3
+    P.y = 1/3
 
-        f = exp(-200 * ((x-P.x)**2 + (y-P.y)**2)) 
-        g = 0
-
-
-# omega = 1 
-# kappa = omega
-
-# k = kappa * np.array([0.6,0.8])
-# CF = CoefficientFunction
-
-# f = exp(-200 * ( (x)**2 + (y)**2))
-# g = exp(-200 * ( (x+1/sqrt(2))**2 + (y-1/sqrt(2))**2))
-# kappa = 1
-# k = kappa * CF((0.6,0.8))
-# u_ex = exp(-1J * (k[0] * x + k[1] * y))
-# g = -1j * kappa * (k[0] * x + k[1] * y) * u_ex - 1j * u_ex
-
-
-# Duex = CF((u_ex.Diff(x), u_ex.Diff(y)))
-# beta = 1
-# omega = 1
-
-
+    f = exp(-200 * ((x-P.x)**2 + (y-P.y)**2)) 
+    g = 0
 
 
 #  RESOLUTION OF GROUND TRUTH SOLUTION
@@ -147,16 +125,15 @@ with TaskManager():
     gfu_ex.vec.data = ainv * l.vec
     print("FEM finished")
 
-
+# GROUND TRUTH SOLUTION
+grad_uex = Grad(gfu_ex)
+# grad_uex = Du_ex #If we have analytical solution defined
 
 #  ACMS RESOLUTION
 
 
 h1_error = []
 dofs =[]
-order_v = [2] # ATTENTION: if the mesh is too coarse, we cannot have many bubbles/modes
-Bubble_modes = [1]
-Edge_modes = [1,2,4,8] 
 max_bm = Bubble_modes[-1]
 max_em = Edge_modes[-1]
 
@@ -176,28 +153,15 @@ with TaskManager():
         a.Assemble()
 
         l = LinearForm(V)
-        # l += f * v * dx()
+        l += f * v * dx(bonus_intorder=10)
         l += g * v * ds(dom_bnd, bonus_intorder=10)
         l.Assemble()
 
-#         gfu_ex = GridFunction(V)
-#         # ainv = a.mat.Inverse(V.FreeDofs(), inverse = "sparsecholesky")
-#         # gfu_ex.vec.data = ainv * l.vec
-#         print("FEM finished")
-# #          Draw(gfu_ex, mesh, "u_fem")
-
-
         gfu = GridFunction(V)
-
-
         #Computing full basis with max number of modes 
         acms = ACMS(order = order, mesh = mesh, bm = max_bm, em = max_em)
-
-
         acms.CalcHarmonicExtensions(kappa = kappa)
         acms.calc_basis()
-
-
 
         for EM in Edge_modes:
                 for BM in Bubble_modes:
@@ -240,14 +204,6 @@ with TaskManager():
                         for j in range(num):
                             ainvsmall[i,j] = ainvs_small_np[i,j]
 
-                    # prod = ainvsmall * asmall
-                    # # print(Norm(prod))
-                    # # print(ainvs_small_np * asmall_np)
-                    # prod = np.dot(ainvs_small_np, asmall_np)
-                    # print(prod)
-                    # print(num)
-                    # # print(Norm(prod))
-                    # input()
                     f_small = InnerProduct(basis, l.vec, conjugate = False)
 
                     usmall = ainvsmall * f_small
@@ -256,13 +212,11 @@ with TaskManager():
                     gfu.vec.data = basis * usmall
 
 
-                    Draw(gfu-gfu_ex, mesh, "error")
+                    # Draw(gfu-gfu_ex, mesh, "error")
 
                     print("finished_acms")
 
                     #Computing error
-                    # grad_uex = Grad(gfu_ex)
-                    grad_uex = Duex
                     diff = grad_uex - Grad(gfu)
                     # h1_error_aux = sqrt( Integrate ( InnerProduct(diff,diff), mesh, order = 10))
                     h1_error_aux = sqrt( Integrate ( InnerProduct(diff,diff), mesh, order = 10))
