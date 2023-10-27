@@ -104,17 +104,17 @@ def problem_definition(problem):
         P.y = 1/3
         f = exp(-200 * ((x-P.x)**2 + (y-P.y)**2)) 
         g = 0
-        Du_ex = 0
+        u_ex = 0
         sol_ex = 0
 
-    return kappa, omega, beta, f, g, sol_ex 
+    return kappa, omega, beta, f, g, sol_ex, u_ex
 
 
 ##################################################################
 ##################################################################
 
 
-def ground_truth(mesh, dom_bnd, kappa, omega, beta, f, g, sol_ex):
+def ground_truth(mesh, dom_bnd, kappa, omega, beta, f, g, sol_ex, u_ex):
     #  RESOLUTION OF GROUND TRUTH SOLUTION
     #Computing the FEM solution /  ground truth solution with higher resolution
     if sol_ex == 1:
