@@ -15,7 +15,7 @@ from helping_functions import *
 from helmholtz_aux import *
 
 
-maxH=0.02
+maxH=0.006
 
 #Generate mesh: unit disco with 8 subdomains
 mesh, dom_bnd = unit_disc(maxH)
