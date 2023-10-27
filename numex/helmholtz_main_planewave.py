@@ -48,5 +48,10 @@ grad_uex = ground_truth(mesh, dom_bnd, kappa, omega, beta, f, g, sol_ex)
 # Solve ACMS system and compute H1 error
 h1_error, gfu_acms = acms_solution(mesh, dom_bnd, Bubble_modes, Edge_modes, order_v, kappa, omega, beta, f, g, grad_uex)
 
+# Save error on file named "file_name.npy" 
+# It needs to be loaded to be readable
+H1_error, file_name = save_error_file(problem, h1_error, order_v, Bubble_modes, Edge_modes)
+
+
 # Plot H1 error
 convergence_plots(plot_error, h1_error, mesh, Edge_modes, Bubble_modes,order_v)

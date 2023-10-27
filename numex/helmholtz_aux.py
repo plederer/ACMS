@@ -13,6 +13,9 @@ from helping_functions import *
 # from ngsolve.webgui import Draw
 import matplotlib.pyplot as plt
 
+from datetime import datetime
+from pathlib import Path
+
 ##################################################################
 ##################################################################
 
@@ -248,12 +251,46 @@ def acms_solution(mesh, dom_bnd, Bubble_modes, Edge_modes, order_v, kappa, omega
 
     #Saving the error on a file
 
-    h1_error_3d = np.reshape(h1_error, (len(order_v), len(Edge_modes), len(Bubble_modes)))
-    np.save('H1_error', h1_error_3d)
-    H1_error = np.load('H1_error.npy')
-    print(H1_error)
+    # h1_error_3d = np.reshape(h1_error, (len(order_v), len(Edge_modes), len(Bubble_modes)))
+    # np.save('H1_error', h1_error_3d)
+    # H1_error = np.load('H1_error.npy')
+    # print(H1_error)
 
     return h1_error, gfu 
+
+
+
+def save_error_file(problem, h1_error, order_v, Bubble_modes, Edge_modes):
+    problem_dict = {
+        1 : "PW",
+        2 : "LIS",
+        3 : "PerCrys"
+    }
+
+    date_time = datetime.now().strftime("%Y%m%d-%H%M%S")
+    file_name = f"H1-error_{problem_dict[problem]}_o{order_v[-1]}_b{Bubble_modes[-1]}_e{Edge_modes[-1]}_{date_time}"
+    # print(file_name)
+
+    save_dir = Path('./Results') #Saves local folder name
+    # print(save_dir)
+    save_dir.mkdir(exist_ok=True) #Creates folder Results if it does not exists already
+    
+    file_path = save_dir.joinpath(file_name) # Full path where to save the results file (no .npy)
+    # print(file_path)
+
+    # 3 dimensional vector with a matrix in bubbles-edges for each order 
+    h1_error_3d = np.reshape(h1_error, (len(order_v), len(Edge_modes), len(Bubble_modes)))
+  
+    np.save(file_path, h1_error_3d)
+
+    # H1_error = np.load("./Results/" + file_name + ".npy")
+    H1_error = np.load(save_dir.joinpath(file_name + ".npy"))
+    print(H1_error)
+
+    return H1_error, file_name
+
+   
+
 
 
 ##################################################################
