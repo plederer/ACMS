@@ -19,7 +19,8 @@ from helping_functions import *
 from helmholtz_aux import *
 
 
-maxH=0.05
+maxH = float(input("maxH: "))
+
 
 #Generate mesh: unit disco with 8 subdomains
 mesh, dom_bnd = unit_disc(maxH)
@@ -31,14 +32,18 @@ mesh, dom_bnd = unit_disc(maxH)
 # no exact solution, use of bubbles
 # PROBLEM = 3: periodic structure (NOT YET IMPLEMENTED -> mesh needs to change)
 
-problem = 2
-
-
+problem = float(input("Problem. 1 = plane wave. 2 = local interior source. : "))
 
 # ATTENTION: if the mesh is too coarse, we cannot have many bubbles/modes
-order_v = [1] 
-Bubble_modes = [1]
-Edge_modes = [1] 
+order_v = list(map(int, input("Order of approximation. Vector = ").split())) # Vector [1, 2, 3]
+print("Order of approximation is ", order_v)
+
+Bubble_modes = list(map(int, input("Number of bubble modes. Vector = ").split())) # Vector [2,4,8,16,32,64,128]
+print("Number of bubble modes is ", order_v)
+
+Edge_modes = list(map(int, input("Number of edge modes. Vector = ").split())) # Vector [2,4,8,16,32,64,128]
+print("Number of edge modes is ", order_v)
+
 plot_error = 0
 
 
@@ -50,7 +55,7 @@ kappa, omega, beta, f, g, sol_ex, u_ex = problem_definition(problem)
 grad_uex = ground_truth(mesh, dom_bnd, kappa, omega, beta, f, g, sol_ex, u_ex)
 
 # Solve ACMS system and compute H1 error
-h1_error, gfu_acms = acms_solution(mesh, dom_bnd, Bubble_modes, Edge_modes, order_v, kappa, omega, beta, f, g, grad_uex)
+h1_error, gfu_acms, h1_error_ex = acms_solution(mesh, dom_bnd, Bubble_modes, Edge_modes, order_v, kappa, omega, beta, f, g, grad_uex, sol_ex, u_ex)
 
 # Save error on file named "file_name.npy" 
 # It needs to be loaded to be readable
