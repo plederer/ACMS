@@ -15,7 +15,7 @@ from helping_functions import *
 from helmholtz_aux import *
 
 
-maxH=0.006
+maxH=0.0028
 
 #Generate mesh: unit disco with 8 subdomains
 mesh, dom_bnd = unit_disc(maxH)
@@ -33,8 +33,8 @@ problem = 2
 
 # ATTENTION: if the mesh is too coarse, we cannot have many bubbles/modes
 order_v = [1,2] 
-Bubble_modes = [1,2,8,16,32,64]
-Edge_modes = [1]#,8,16,32,64] 
+Bubble_modes = [2,4,8,16,32,64,128]
+Edge_modes = [2,4,8,16,32,64,128] 
 plot_error = 0
 
 
