@@ -22,8 +22,6 @@ from helmholtz_aux import *
 maxH = float(input("maxH: "))
 
 
-#Generate mesh: unit disco with 8 subdomains
-mesh, dom_bnd = unit_disc(maxH)
 
 # PROBLEM SETTING
 # PROBLEM = 1: plane wave solution (Example 5.1, Tables 5.2-5.5), 
@@ -44,22 +42,46 @@ print("Number of bubble modes is ", order_v)
 Edge_modes = list(map(int, input("Number of edge modes. Vector = ").split())) # Vector [2,4,8,16,32,64,128]
 print("Number of edge modes is ", order_v)
 
-plot_error = 0
+
+# Generates the mesh 
+# Creates variables associated with the problem
+# Computes a ground truth solution with FEM of order 3 on the generated mesh
+# Computes ACMS solution and saves the error 
+#       both with the ground truth solution and with the exact solution, if available
+# Saves the error on file named "file_name.npy" and plots it
+main(maxH, problem, order_v, Bubble_modes, Edge_modes)
 
 
-# Variables setting
-kappa, omega, beta, f, g, sol_ex, u_ex = problem_definition(problem)
 
-# Compute ground truth solution with FEM of order 3 on the initialised mesh
-# If available, the exact solution is used  (sol_ex == 1)  
-grad_uex = ground_truth(mesh, dom_bnd, kappa, omega, beta, f, g, sol_ex, u_ex)
 
-# Solve ACMS system and compute H1 error
-h1_error, gfu_acms, h1_error_ex = acms_solution(mesh, dom_bnd, Bubble_modes, Edge_modes, order_v, kappa, omega, beta, f, g, grad_uex, sol_ex, u_ex)
 
-# Save error on file named "file_name.npy" 
-# It needs to be loaded to be readable
-H1_error, file_name = save_error_file(problem, h1_error, order_v, Bubble_modes, Edge_modes)
 
-# Plot H1 error
-convergence_plots(plot_error, h1_error, mesh, Edge_modes, Bubble_modes,order_v)
+
+
+
+# #Generate mesh: unit disco with 8 subdomains
+# mesh, dom_bnd = unit_disc(maxH)
+
+
+# plot_error = 0
+
+# # Variables setting
+# kappa, omega, beta, f, g, sol_ex, u_ex = problem_definition(problem)
+
+# # Compute ground truth solution with FEM of order 3 on the initialised mesh
+# # If available, the exact solution is used  (sol_ex == 1)  
+# grad_uex = ground_truth(mesh, dom_bnd, kappa, omega, beta, f, g)
+
+# # Solve ACMS system and compute H1 error
+# h1_error, gfu_acms, h1_error_ex = acms_solution(problem, mesh, dom_bnd, Bubble_modes, Edge_modes, order_v, kappa, omega, beta, f, g, grad_uex, sol_ex, u_ex)
+
+# # Save error on file named "file_name.npy" 
+# # It needs to be loaded to be readable
+# print("Error with FEM solution as ground truth")
+# H1_error, file_name = save_error_file(problem, h1_error, order_v, Bubble_modes, Edge_modes, 0)
+# if sol_ex == 1:
+#     print("Error with exact solution")
+#     H1_error_ex, file_name = save_error_file(problem, h1_error_ex, order_v, Bubble_modes, Edge_modes, 1)
+
+# # Plot H1 error
+# convergence_plots(plot_error, h1_error, mesh, Edge_modes, Bubble_modes, order_v)
