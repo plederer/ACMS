@@ -16,6 +16,9 @@ import matplotlib.pyplot as plt
 from datetime import datetime
 from pathlib import Path
 
+
+
+
 ##################################################################
 ##################################################################
 
@@ -103,6 +106,29 @@ def problem_definition(problem):
         P.y = 1/3
         f = exp(-200 * ((x-P.x)**2 + (y-P.y)**2)) 
         g = 0
+        u_ex = 0
+        sol_ex = 0
+
+
+
+
+
+    elif problem == 3:  #Problem setting - BOUNDARY SOURCE
+            
+        class Point: 
+            def __init__(self):
+                self.x = 0
+                self.y = 0
+
+        omega = 16
+        kappa = omega
+        beta = 1
+        p = (-1/sqrt(2), 1/sqrt(2))
+        P = Point()
+        P.x = - 1/sqrt(2)
+        P.y = 1/sqrt(2)
+        f = 0 
+        g = exp(-200 * ((x-P.x)**2 + (y-P.y)**2))
         u_ex = 0
         sol_ex = 0
 

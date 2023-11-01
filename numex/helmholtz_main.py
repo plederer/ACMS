@@ -1,38 +1,20 @@
 # LIBRARIES
-
-from decimal import MAX_EMAX
-from ngsolve import *
-from netgen.geom2d import *
-
-import numpy 
-import scipy.linalg
-import scipy.sparse as sp
-
-from netgen.occ import *
-# from ngsolve.webgui import Draw
-import matplotlib.pyplot as plt
-
-from datetime import datetime
-from pathlib import Path
-
-from helping_functions import *
+from tkinter import N
 from helmholtz_aux import *
 
-
+# ATTENTION: if the mesh is too coarse, we cannot have many bubbles/modes
 maxH = float(input("maxH: "))
-
-
 
 # PROBLEM SETTING
 # PROBLEM = 1: plane wave solution (Example 5.1, Tables 5.2-5.5), 
 # exact solution available and adjustable kwave 
 # PROBLEM = 2: localised interior source (Example 5.2, Table 5.6)
 # no exact solution, use of bubbles
-# PROBLEM = 3: periodic structure (NOT YET IMPLEMENTED -> mesh needs to change)
+# PROBLEM = 3: localised boundary source (Example 5.3, Table 5.7)
+# periodic structure (NOT YET IMPLEMENTED -> mesh needs to change)
 
-problem = float(input("Problem. 1 = plane wave. 2 = local interior source. : "))
+problem = float(input("Choose the problem. \n 1 = plane wave. \n 2 = local interior source. \n 3 = localised boundary source. \n Problem =  "))
 
-# ATTENTION: if the mesh is too coarse, we cannot have many bubbles/modes
 order_v = list(map(int, input("Order of approximation. Vector = ").split())) # Vector [1, 2, 3]
 print("Order of approximation is ", order_v)
 
@@ -48,7 +30,7 @@ print("Number of edge modes is ", order_v)
 # Computes a ground truth solution with FEM of order 3 on the generated mesh
 # Computes ACMS solution and saves the error 
 #       both with the ground truth solution and with the exact solution, if available
-# Saves the error on file named "file_name.npy" and plots it
+# Saves the error on file named "file_name.npy" and plots it if specified (now always 0)
 main(maxH, problem, order_v, Bubble_modes, Edge_modes)
 
 
@@ -58,6 +40,26 @@ main(maxH, problem, order_v, Bubble_modes, Edge_modes)
 
 
 
+################################################################
+################################################################
+
+
+# from decimal import MAX_EMAX
+# from ngsolve import *
+# from netgen.geom2d import *
+
+# import numpy 
+# import scipy.linalg
+# import scipy.sparse as sp
+
+# from netgen.occ import *
+# # from ngsolve.webgui import Draw
+# import matplotlib.pyplot as plt
+
+# from datetime import datetime
+# from pathlib import Path
+
+# from helping_functions import *
 
 # #Generate mesh: unit disco with 8 subdomains
 # mesh, dom_bnd = unit_disc(maxH)
