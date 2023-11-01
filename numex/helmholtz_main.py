@@ -1,5 +1,5 @@
 # LIBRARIES
-from tkinter import N
+# from tkinter import N
 from helmholtz_aux import *
 
 # ATTENTION: if the mesh is too coarse, we cannot have many bubbles/modes
@@ -19,10 +19,10 @@ order_v = list(map(int, input("Order of approximation. Vector = ").split())) # V
 print("Order of approximation is ", order_v)
 
 Bubble_modes = list(map(int, input("Number of bubble modes. Vector = ").split())) # Vector [2,4,8,16,32,64,128]
-print("Number of bubble modes is ", order_v)
+print("Number of bubble modes is ", Bubble_modes)
 
 Edge_modes = list(map(int, input("Number of edge modes. Vector = ").split())) # Vector [2,4,8,16,32,64,128]
-print("Number of edge modes is ", order_v)
+print("Number of edge modes is ", Edge_modes)
 
 
 # Generates the mesh 
