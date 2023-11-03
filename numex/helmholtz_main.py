@@ -1,9 +1,5 @@
 # LIBRARIES
-# from tkinter import N
 from helmholtz_aux import *
-
-# ATTENTION: if the mesh is too coarse, we cannot have many bubbles/modes
-maxH = float(input("maxH: "))
 
 # PROBLEM SETTING
 # PROBLEM = 1: plane wave solution (Example 5.1, Tables 5.2-5.5), 
@@ -11,9 +7,13 @@ maxH = float(input("maxH: "))
 # PROBLEM = 2: localised interior source (Example 5.2, Table 5.6)
 # no exact solution, use of bubbles
 # PROBLEM = 3: localised boundary source (Example 5.3, Table 5.7)
+# no exact solution, 
 # periodic structure (NOT YET IMPLEMENTED -> mesh needs to change)
 
 problem = float(input("Choose the problem. \n 1 = plane wave. \n 2 = local interior source. \n 3 = localised boundary source. \n Problem =  "))
+
+# ATTENTION: if the mesh is too coarse, we cannot have many bubbles/modes
+maxH = float(input("maxH: "))
 
 order_v = list(map(int, input("Order of approximation. Vector = ").split())) # Vector [1, 2, 3]
 print("Order of approximation is ", order_v)
