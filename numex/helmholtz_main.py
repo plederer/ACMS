@@ -31,9 +31,10 @@ print("Number of edge modes is ", Edge_modes)
 # Computes ACMS solution and saves the error 
 #       both with the ground truth solution and with the exact solution, if available
 # Saves the error on file named "file_name.npy" and plots it if specified (now always 0)
-main(maxH, problem, order_v, Bubble_modes, Edge_modes)
 
-
+main_time = time.time()
+main(maxH, problem, order_v, Bubble_modes, Edge_modes) 
+print("Main computation total in --- %s seconds ---" % (time.time()  - main_time))
 
 
 

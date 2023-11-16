@@ -79,8 +79,8 @@ def unit_disc(maxH):
 def problem_definition(problem):
 
     if problem ==1:  #Problem setting - PLANE WAVE
-        
-        omega = 1
+
+        omega = float(input("Wavenumber k: "))
         kappa = omega
         k = kappa * CF((0.6,0.8)) #CF = CoefficientFunction
         beta = 1
@@ -203,7 +203,7 @@ def create_error_file(problem, maxH, order_v, Bubble_modes, Edge_modes, err_type
     problem_dict = {
         1 : "PW",
         2 : "LIS",
-        3 : "PerCrys"
+        3 : "LBS"
     }
 
     err_type_dict = {
@@ -219,7 +219,7 @@ def create_error_file(problem, maxH, order_v, Bubble_modes, Edge_modes, err_type
 
 
 
-def save_error_file(file_name, mesh, l2_error, h1_error, dim, gfu_ex, grad_uex):
+def save_error_file(file_name, dictionary, mesh, l2_error, h1_error, dim, gfu_ex, grad_uex):
     
     save_dir = Path('./Results') #Saves local folder name
     save_dir.mkdir(exist_ok=True) #Creates folder Results if it does not exists already
@@ -241,13 +241,19 @@ def save_error_file(file_name, mesh, l2_error, h1_error, dim, gfu_ex, grad_uex):
     l2_error_rel_3d = np.reshape(l2_error_rel, (dim))
     h1_error_rel = np.dot(h1_error, 1/h1_norm_FEM)
     h1_error_rel_3d = np.reshape(h1_error_rel, (dim))
-
-
+    
+    
     # Save both 3d objects in the same file. They are assigned names: H1_FEM_error, H1_FEM_Relative_error
-    np.savez(file_path, L2_error = l2_error_3d, L2_Relative_error = l2_error_rel_3d, H1_error = h1_error_3d, H1_Relative_error = h1_error_rel_3d)
+    np.savez(file_path, Dictionary = dictionary, L2_error = l2_error_3d, L2_Relative_error = l2_error_rel_3d, H1_error = h1_error_3d, H1_Relative_error = h1_error_rel_3d)
 
-    # Loading file to print errors
-    Errors = np.load(save_dir.joinpath(file_name + ".npz"))
+    # Loading file to print errors (allow_picke means we can have strings)
+    Errors = np.load(save_dir.joinpath(file_name + ".npz"), allow_pickle = True)
+    print(Errors['Dictionary'][()]['order'])
+    print(Errors['Dictionary'][()]['bubbles'])
+    print(Errors['Dictionary'][()]['edges'])
+    print(Errors['Dictionary'][()]['vertices'])
+    print(Errors['Dictionary'][()]['problem'])
+    print(Errors['Dictionary'][()]['wavenumber'])
     print("L2 error")
     print(Errors['L2_error'])
     print("L2 relative error")
@@ -284,6 +290,7 @@ def acms_solution(mesh, dom_bnd, Bubble_modes, Edge_modes, order_v, kappa, omega
     with TaskManager():
         for order in order_v:
             print(order)
+            start_time = time.time()
             V = H1(mesh, order = order, complex = True)
             u, v = V.TnT()
 
@@ -304,10 +311,15 @@ def acms_solution(mesh, dom_bnd, Bubble_modes, Edge_modes, order_v, kappa, omega
             acms = ACMS(order = order, mesh = mesh, bm = max_bm, em = max_em)
             acms.CalcHarmonicExtensions(kappa = kappa)
             acms.calc_basis()
-
+            
+            # print("Basis computation in --- %s seconds ---" % (time.time() - start_time))
+                        
+            
             for EM in Edge_modes:
                     for BM in Bubble_modes:
                         #Vc = H1(mesh, order = order, complex = True)
+                        start_time = time.time()
+                        
                         gfu = GridFunction(V)
                         basis = MultiVector(gfu.vec, 0)
 
@@ -329,32 +341,36 @@ def acms_solution(mesh, dom_bnd, Bubble_modes, Edge_modes, order_v, kappa, omega
 
                         num = len(basis)
                         dofs.append(num)
+                        
+                        # print("Basis assembly in --- %s seconds ---" % (time.time() - start_time))
 
-
+                        start_time = time.time()
+               
                         asmall = InnerProduct (basis, a.mat * basis, conjugate = False) #Complex
+                        ainvsmall = Matrix(numpy.linalg.inv(asmall))
 
-                        asmall_np = np.zeros((num, num), dtype=numpy.complex128)
-                        asmall_np = asmall.NumPy()
-
-                        # SetNumThreads(1)
-                        ainvs_small_np = numpy.linalg.inv(asmall_np)
-
-                        ainvsmall = Matrix(num,num,complex=True)
-
-
-                        for i in range(num):
-                            for j in range(num):
-                                ainvsmall[i,j] = ainvs_small_np[i,j]
+                        # asmall_np = np.zeros((num, num), dtype=numpy.complex128)
+                        # asmall_np = asmall.NumPy()
+                        # # SetNumThreads(1)
+                        # ainvs_small_np = numpy.linalg.inv(asmall_np)
+                        # ainvsmall = Matrix(num,num,complex=True)
+                        # for i in range(num):
+                        #     for j in range(num):
+                        #         ainvsmall[i,j] = ainvs_small_np[i,j]
 
                         f_small = InnerProduct(basis, l.vec, conjugate = False)
 
                         usmall = ainvsmall * f_small
+                        
+                        # print("Basis transformation and system resolution in --- %s seconds ---" % (time.time()  - start_time))
+                        
                         gfu.vec[:] = 0.0
 
                         gfu.vec.data = basis * usmall
                        # Draw(gfu-gfu_ex, mesh, "error")
 
                         print("finished_acms")
+                        start_time = time.time()
                         
                         l2_error_aux = compute_l2_error(gfu,  gfu_ex, mesh)
                         l2_error.append(l2_error_aux)
@@ -362,7 +378,8 @@ def acms_solution(mesh, dom_bnd, Bubble_modes, Edge_modes, order_v, kappa, omega
 
                         h1_error_aux = compute_h1_error(gfu, grad_uex, mesh)
                         h1_error.append(h1_error_aux)
-
+                        # print("Error computation in --- %s seconds ---" % (time.time()  - start_time))
+                        
                         if sol_ex == 1:
                             Du_ex = CF((u_ex.Diff(x), u_ex.Diff(y))) #If we have analytical solution defined
                             l2_error_ex_aux = compute_l2_error(gfu,  u_ex, mesh)
@@ -422,23 +439,40 @@ def main(maxH, problem, order_v, Bubble_modes, Edge_modes):
     # Variables setting
     kappa, omega, beta, f, g, sol_ex, u_ex = problem_definition(problem)
     plot_error = 0
-
+    
+    
     # #Generate mesh: unit disco with 8 subdomains
+    start_time = time.time()
     mesh, dom_bnd = unit_disc(maxH)
+    mesh_time = time.time()
+    # print("Mesh setup in --- %s seconds ---" % (mesh_time  - start_time))
 
+    dictionary = {
+        1            : ["The keys are: order, bubbles, edges, vertices, problem, wavenumber."],
+        'order'      : ["The order of approximation is",  order_v],
+        'bubbles'    : ["The number of bubble functions is", Bubble_modes],
+        'edges'      : ["The number of edge modes is", Edge_modes],
+        'vertices'   : ["The number of vertices is", mesh.nv],
+        'problem'    : ["Chosen problem", problem],
+        "wavenumber" : ["Chosen wavenumber is", kappa]
+    }
 
     # Compute ground truth solution with FEM of order 3 on the initialised mesh
+    
     gfu_ex, grad_uex = ground_truth(mesh, dom_bnd, kappa, omega, beta, f, g)
-
+    
     # Solve ACMS system and compute H1 error
+    start_time = time.time()
     gfu, l2_error, l2_error_ex, h1_error, h1_error_ex = acms_solution(mesh, dom_bnd, Bubble_modes, Edge_modes, order_v, kappa, omega, beta, f, g, gfu_ex, sol_ex, u_ex)
-
+    # print("ACMS computation in --- %s seconds ---" % (time.time()  - start_time))
+    
+    
     # Save both H1 and H1-relative errors on file named "file_name.npz" 
     # It needs to be loaded to be readable
     print("Error with FEM of order 3 as ground truth solution")
     file_name = create_error_file(problem, maxH, order_v, Bubble_modes, Edge_modes, 0)
     dim = (len(order_v), len(Edge_modes), len(Bubble_modes))
-    Errors_FEM = save_error_file(file_name, mesh, l2_error, h1_error, dim, gfu_ex, grad_uex)
+    Errors_FEM = save_error_file(file_name, dictionary, mesh, l2_error, h1_error, dim, gfu_ex, grad_uex)
     
     # Plot H1 error
     convergence_plots(plot_error, h1_error, mesh, Edge_modes, Bubble_modes, order_v)
@@ -449,7 +483,7 @@ def main(maxH, problem, order_v, Bubble_modes, Edge_modes):
         Du_ex = CF((u_ex.Diff(x), u_ex.Diff(y))) #If we have analytical solution defined
         print("Error with exact solution")
         file_name_exact = create_error_file(problem, maxH, order_v, Bubble_modes, Edge_modes, 1)
-        Errors_exact = save_error_file(file_name_exact, mesh, l2_error_ex, h1_error_ex, dim, u_ex, Du_ex)
+        Errors_exact = save_error_file(file_name_exact, dictionary, mesh, l2_error_ex, h1_error_ex, dim, u_ex, Du_ex)
 
         # Plot H1 error
         convergence_plots(plot_error, h1_error_ex, mesh, Edge_modes, Bubble_modes, order_v)
