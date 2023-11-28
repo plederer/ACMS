@@ -5,6 +5,9 @@ import scipy.linalg
 import scipy.sparse as sp
 import numpy as np
 
+import time
+
+
 ###############################################################
 
 """
@@ -50,7 +53,7 @@ Extension on edges: $E^{\Gamma} : H^{1/2}_{00}(e) \to H^1_D(\Omega)$ via $E^{\Ga
 # EXTENSIONS
 
 class ACMS:
-    def __init__(self, order, mesh, bm=0, em=0, dirichlet = ".*"):
+    def __init__(self, order, mesh, bm = 0, em = 0, dirichlet = ".*", bi = 0):
         self.order = order # Polynomial degree of approximation
         self.dirichlet = dirichlet
         self.mesh = mesh
@@ -66,6 +69,8 @@ class ACMS:
         self.basis_v = MultiVector(self.gfu.vec, 0)
         self.basis_e = MultiVector(self.gfu.vec, 0)
         self.basis_b = MultiVector(self.gfu.vec, 0)
+        
+        self.bi = bi 
 
     # Define harmonic extension on specific subdomain
     # Returns the Sobolev space H^1_0(\Omega_j), the stiffness matrix and its inverse
@@ -76,9 +81,9 @@ class ACMS:
         uharm, vharm = Vharm.TnT() # Trial and test functions
         aharm = BilinearForm(Vharm)
         #Setting bilinear form: - int (Grad u Grad v) d\Omega_j
-        aharm += grad(uharm)*grad(vharm)*dx(dom_name)
+        aharm += grad(uharm)*grad(vharm)*dx(definedon = self.mesh.Materials(dom_name), bonus_intorder = self.bi)
         if (kappa!= 0):
-            aharm += -kappa**2 * uharm*vharm*dx(dom_name)
+            aharm += -kappa**2 * uharm*vharm*dx(definedon = self.mesh.Materials(dom_name), bonus_intorder = self.bi)
         aharm.Assemble()
         aharm_inv = aharm.mat.Inverse(Vharm.FreeDofs(), inverse = "sparsecholesky")
 
@@ -114,7 +119,7 @@ class ACMS:
         t = specialcf.tangential(2)  # Object to be evaluated - Tangential vector along edge (2=dimension)
         uharm, vharm = Vharm.TnT()
         aharm = BilinearForm(Vharm)
-        aharm += (grad(uharm)*t) * (grad(vharm)*t) * ds(skeleton = True, definedon=self.mesh.Boundaries(edge_name))
+        aharm += (grad(uharm)*t) * (grad(vharm)*t) * ds(skeleton = True, definedon=self.mesh.Boundaries(edge_name), bonus_intorder = self.bi)
         aharm.Assemble()
         # Matrix in inverted only on internal dofs (FreeDofs) so it can be used for all edges
         aharm_inv = aharm.mat.Inverse(Vharm.FreeDofs(), inverse = "sparsecholesky")
@@ -175,11 +180,11 @@ class ACMS:
             aloc = BilinearForm(Vloc)
             # This allows us to take the normal derivative of a function that is in H1 and computing the integral only on edges
             # Otherwise NGSolve does not allow to take the trace of a function in H^{1/2}(e) - uloc is defined on edge
-            aloc += (grad(uloc)*t) * (grad(vloc)*t) * ds(skeleton=True, definedon=self.mesh.Boundaries(edge_name))
+            aloc += (grad(uloc)*t) * (grad(vloc)*t) * ds(skeleton=True, definedon = self.mesh.Boundaries(edge_name), bonus_intorder = self.bi)
             aloc.Assemble()
             #Setting bilinear form:  int u v de        
             mloc = BilinearForm(Vloc)
-            mloc += uloc.Trace() * vloc.Trace() * ds(edge_name)
+            mloc += uloc.Trace() * vloc.Trace() * ds(definedon = self.mesh.Boundaries(edge_name), bonus_intorder = self.bi)
             #mloc += uloc * vloc * ds(skeleton = True, edge_name)
             mloc.Assemble()
 
@@ -358,18 +363,20 @@ class ACMS:
             #Setting bilinear form: int (Grad u Grad v) d\Omega_j
             uloc, vloc = Vloc.TnT()
             aloc = BilinearForm(Vloc)
-            aloc += grad(uloc) * grad(vloc) * dx()
+            aloc += grad(uloc) * grad(vloc) * dx(bonus_intorder = self.bi)
             aloc.Assemble()
 
             #Setting bilinear form: int  u v d\Omega_j
             mloc = BilinearForm(Vloc)
-            mloc += uloc * vloc * dx()
+            mloc += uloc * vloc * dx(bonus_intorder = self.bi)
             mloc.Assemble()
 
             # Solving eigenvalue problem: AA x = ev MM x
             AA = sp.csr_matrix(aloc.mat.CSR())
             MM = sp.csr_matrix(mloc.mat.CSR())
+            start_time = time.time()
             ev, evec =scipy.sparse.linalg.eigs(A = AA, M = MM, k = self.bubble_modes, which='SM')
+            # print("Eigenvalue computation for bubbles in --- %s seconds ---" % (time.time()  - start_time))
             idx = ev.argsort()[::]   
             ev = ev[idx]
             evec = evec[:,idx]
@@ -392,9 +399,16 @@ class ACMS:
                 basis.Append(self.gfu.vec)
 
     def calc_basis(self):
-        self.calc_vertex_basis()
+        start_time = time.time()
+        self.calc_vertex_basis() 
+        vertex_time = time.time() 
+        # print("Vertex basis functions computation in --- %s seconds ---" % (vertex_time - start_time))
         self.calc_edge_basis()
+        edges_time = time.time() 
+        # print("Edge basis functions computation in --- %s seconds ---" % (edges_time - vertex_time))
         self.calc_bubble_basis()
+        bubbles_time = time.time() 
+        # print("Bubble basis functions computation in --- %s seconds ---" % (bubbles_time - edges_time))
         return self.basis_v, self.basis_e, self.basis_b
     
     def complex_basis(self):
