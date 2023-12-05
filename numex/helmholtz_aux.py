@@ -82,13 +82,13 @@ def problem_definition(problem):
 
     if problem ==1:  #Problem setting - PLANE WAVE
 
-        omega = 1 #float(input("Wavenumber k: "))
+        omega = float(input("Wavenumber k: "))
         kappa = omega
         k = kappa * CF((0.6,0.8)) #CF = CoefficientFunction
         beta = 1
         f = 0
         u_ex = exp(-1J * (k[0] * x + k[1] * y))
-        g = -1j * kappa * (k[0] * x + k[1] * y) * u_ex - 1j *beta * u_ex
+        g = -1j * (k[0] * x + k[1] * y) * u_ex - 1j *beta * kappa * u_ex
         Du_ex = CF((u_ex.Diff(x), u_ex.Diff(y)))
         sol_ex = 1
 
@@ -200,7 +200,7 @@ def compute_l2_error(gfu, gfu_ex, mesh):
 ##################################################################
 
 
-def create_error_file(problem, maxH, order_v, Bubble_modes, Edge_modes, err_type):
+def create_error_file(problem, kappa, maxH, order_v, Bubble_modes, Edge_modes, err_type):
     
     problem_dict = {
         1 : "PW",
@@ -213,8 +213,8 @@ def create_error_file(problem, maxH, order_v, Bubble_modes, Edge_modes, err_type
         1 : "EXACTsol"
     }
 
-    date_time = datetime.now().strftime("%Y%m%d-%H%M%S")
-    file_name = f"L2-H1_errors_{err_type_dict[err_type]}_{problem_dict[problem]}_meshH{maxH}_o{order_v[-1]}_b{Bubble_modes[-1]}_e{Edge_modes[-1]}_{date_time}"
+    date_time = datetime.now().strftime("%Y%m%d")
+    file_name = f"L2-H1_errors_{err_type_dict[err_type]}_{problem_dict[problem]}_wave{kappa}_meshH{maxH}_o{order_v[-1]}_b{Bubble_modes[-1]}_e{Edge_modes[-1]}_{date_time}"
     # print(file_name)
 
     return file_name
@@ -226,6 +226,7 @@ def save_error_file(file_name, dictionary, mesh, l2_error, h1_error, dim, ndofs,
     save_dir = Path('./Results') #Saves local folder name
     save_dir.mkdir(exist_ok=True) #Creates folder Results if it does not exists already
     file_path = save_dir.joinpath(file_name) # Full path where to save the results file (no .npy)
+    print(file_path)
     
     # 3 dimensional vector with a matrix in bubbles-edges for each order 
     # dim = len(order_v), len(Edge_modes), len(Bubble_modes)))
@@ -257,10 +258,10 @@ def save_error_file(file_name, dictionary, mesh, l2_error, h1_error, dim, ndofs,
     # print(Errors['Dictionary'][()]['vertices'])
     # print(Errors['Dictionary'][()]['problem'])
     # print(Errors['Dictionary'][()]['wavenumber'])
-    # print("Degrees of Freedom")
-    # print(Errors['DoFs'])
-    # print("System size")
-    # print(Errors['nDoFs'])
+    print("Degrees of Freedom")
+    print(Errors['DoFs'][0])
+    print("System size")
+    print(Errors['nDoFs'])
     
     # print("L2 error")
     # print(Errors['L2_error'])
@@ -397,9 +398,9 @@ def acms_solution(mesh, dom_bnd, Bubble_modes, Edge_modes, order_v, kappa, omega
                         # print("Error computation in --- %s seconds ---" % (time.time()  - start_time))
                         
                         if sol_ex == 1:
-                            Draw(gfu - u_ex, mesh, "Exact error")
-                            Draw(gfu, mesh, "ACMS solution")
-                            Draw(u_ex, mesh, "Exact solution")
+                            # Draw(gfu - u_ex, mesh, "Exact error")
+                            # Draw(gfu, mesh, "ACMS solution")
+                            # Draw(u_ex, mesh, "Exact solution")
                             Du_ex = CF((u_ex.Diff(x), u_ex.Diff(y))) #If we have analytical solution defined
                             l2_error_ex_aux = compute_l2_error(gfu,  u_ex, mesh)
                             l2_error_ex.append(l2_error_ex_aux)
@@ -492,23 +493,24 @@ def main(maxH, problem, order_v, Bubble_modes, Edge_modes):
     # Save both H1 and H1-relative errors on file named "file_name.npz" 
     # It needs to be loaded to be readable
     print("Error with FEM of order 3 as ground truth solution")
-    file_name = create_error_file(problem, maxH, order_v, Bubble_modes, Edge_modes, 0)
+    file_name = create_error_file(problem, kappa, maxH, order_v, Bubble_modes, Edge_modes, 0)
     dim = (len(order_v), len(Edge_modes), len(Bubble_modes))
     Errors_FEM = save_error_file(file_name, dictionary, mesh, l2_error, h1_error, dim, ndofs, dofs, gfu_ex, grad_uex)
     
     # Plot H1 error
-    convergence_plots(plot_error, dofs, h1_error, mesh, Edge_modes, Bubble_modes, order_v)
+    # convergence_plots(plot_error, dofs, h1_error, mesh, Edge_modes, Bubble_modes, order_v)
     
+    Errors_exact = Errors_FEM
     # If available, the exact solution is used  (sol_ex == 1)  
     if sol_ex == 1:
         H1_error_ex = []
         Du_ex = CF((u_ex.Diff(x), u_ex.Diff(y))) #If we have analytical solution defined
         print("Error with exact solution")
-        file_name_exact = create_error_file(problem, maxH, order_v, Bubble_modes, Edge_modes, 1)
+        file_name_exact = create_error_file(problem, kappa, maxH, order_v, Bubble_modes, Edge_modes, 1)
         Errors_exact = save_error_file(file_name_exact, dictionary, mesh, l2_error_ex, h1_error_ex, dim, ndofs, dofs, u_ex, Du_ex)
 
         # Plot H1 error
-        convergence_plots(plot_error, dofs, h1_error_ex, mesh, Edge_modes, Bubble_modes, order_v)
+        # convergence_plots(plot_error, dofs, h1_error_ex, mesh, Edge_modes, Bubble_modes, order_v)
 
     return Errors_FEM, Errors_exact
      

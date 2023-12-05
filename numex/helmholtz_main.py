@@ -13,17 +13,17 @@ from helmholtz_aux import *
 problem = 1 #float(input("Choose the problem. \n 1 = plane wave. \n 2 = local interior source. \n 3 = localised boundary source. \n Problem =  "))
 
 # ATTENTION: if the mesh is too coarse, we cannot have many bubbles/modes
-maxH = 0.05 #float(input("maxH: "))
+maxH = float(input("maxH: "))
+Href = int(input("Number of mesh refinements refH (0 is no refinements): "))
 
-order_v = [1,2,3] #list(map(int, input("Order of approximation. Vector = ").split())) # Vector [1, 2, 3]
+order_v = list(map(int, input("Order of approximation. Vector = ").split())) # Vector [1, 2, 3]
 print("Order of approximation is ", order_v)
 
-Bubble_modes = [1] #list(map(int, input("Number of bubble modes. Vector = ").split())) # Vector [2,4,8,16,32,64,128]
+Bubble_modes = [1]#list(map(int, input("Number of bubble modes. Vector = ").split())) # Vector [2,4,8,16,32,64,128]
 print("Number of bubble modes is ", Bubble_modes)
 
-Edge_modes = [8] #list(map(int, input("Number of edge modes. Vector = ").split())) # Vector [2,4,8,16,32,64,128]
+Edge_modes = list(map(int, input("Number of edge modes. Vector = ").split())) # Vector [2,4,8,16,32,64,128]
 print("Number of edge modes is ", Edge_modes)
-
 
 # Generates the mesh 
 # Creates variables associated with the problem
@@ -32,29 +32,31 @@ print("Number of edge modes is ", Edge_modes)
 #       both with the ground truth solution and with the exact solution, if available
 # Saves the error on file named "file_name.npy" and plots it if specified (now always 0)
 
+if Href == 0:
 
-# Errors_FEM, Errors_exact = main(maxH, problem, order_v, Bubble_modes, Edge_modes) 
+    Errors_FEM, Errors_exact = main(maxH, problem, order_v, Bubble_modes, Edge_modes) 
 
+elif Href > 0:
 
-plt.rcParams.update({'font.size':12})
+    plt.rcParams.update({'font.size':12})
 
-for h in maxH/(2**np.arange(0,3,1)):
-    print(h)
-    Errors_FEM, Errors_exact = main(h, problem, order_v, Bubble_modes, Edge_modes) 
-    
-    l2rel_error = np.reshape(Errors_exact['L2_Relative_error'], (len(Bubble_modes), len(order_v)*len(Edge_modes)))
-    System_dofs = Errors_exact['nDoFs']
-    print(l2rel_error[0])
-    print(System_dofs)
-    
-    plt.loglog(System_dofs, l2rel_error[0], label=('H=%.2f, $I_e$=%i' %(h, Edge_modes[0])), marker = 'o') 
-    
-plt.legend()
-plt.title('$L^2$ relative errors: p= %i,...,%i' %(order_v[0],order_v[-1]))
-plt.xlabel('System size / dofs')  
-plt.yticks([7*10**(-4), 6*10**(-4), 5*10**(-4), 4*10**(-4)], ['$7 \cdot 10^{-4}$','$6 \cdot 10^{-4}$','$5 \cdot 10^{-4}$','$4 \cdot 10^{-4}$'])
-plt.xticks([400,1000,5000,22000], [400,1000,5000,22000])
-plt.show()
+    for h in maxH/(2**np.arange(0, Href, 1)):
+        print(h)
+        Errors_FEM, Errors_exact = main(h, problem, order_v, Bubble_modes, Edge_modes) 
+        
+        l2rel_error = np.reshape(Errors_exact['L2_Relative_error'], (len(Bubble_modes), len(order_v)*len(Edge_modes)))
+        System_dofs = Errors_exact['nDoFs']
+        print(l2rel_error[0])
+        print(System_dofs)
+        
+        plt.loglog(System_dofs, l2rel_error[0], label=('H=%.2f, $I_e$=%i' %(h, Edge_modes[0])), marker = 'o') 
+        
+    plt.legend()
+    plt.title('$L^2$ relative errors: p= %i,...,%i' %(order_v[0],order_v[-1]))
+    plt.xlabel('System size / dofs')  
+    # plt.yticks([7*10**(-4), 6*10**(-4), 5*10**(-4), 4*10**(-4)], ['$7 \cdot 10^{-4}$','$6 \cdot 10^{-4}$','$5 \cdot 10^{-4}$','$4 \cdot 10^{-4}$'])
+    plt.xticks(System_dofs, System_dofs)
+    plt.show()
 
 
 
