@@ -78,11 +78,11 @@ def unit_disc(maxH):
 ##################################################################
 
 
-def problem_definition(problem):
+def problem_definition(problem, omega):
 
     if problem ==1:  #Problem setting - PLANE WAVE
 
-        omega = float(input("Wavenumber k: "))
+        # omega = float(input("Wavenumber k: "))
         kappa = omega
         k = kappa * CF((0.6,0.8)) #CF = CoefficientFunction
         beta = 1
@@ -99,7 +99,7 @@ def problem_definition(problem):
                 self.x = 0
                 self.y = 0
 
-        omega = 1
+        # omega = 1
         kappa = omega
         beta = 1
         p = (1/3, 1/3)
@@ -122,7 +122,7 @@ def problem_definition(problem):
                 self.x = 0
                 self.y = 0
 
-        omega = 16
+        # omega = 16
         kappa = omega
         beta = 1
         p = (-1/sqrt(2), 1/sqrt(2))
@@ -134,7 +134,7 @@ def problem_definition(problem):
         u_ex = 0
         sol_ex = 0
 
-    return kappa, omega, beta, f, g, sol_ex, u_ex
+    return kappa, beta, f, g, sol_ex, u_ex
 
 
 ##################################################################
@@ -226,7 +226,7 @@ def save_error_file(file_name, dictionary, mesh, l2_error, h1_error, dim, ndofs,
     save_dir = Path('./Results') #Saves local folder name
     save_dir.mkdir(exist_ok=True) #Creates folder Results if it does not exists already
     file_path = save_dir.joinpath(file_name) # Full path where to save the results file (no .npy)
-    print(file_path)
+    # print(file_path)
     
     # 3 dimensional vector with a matrix in bubbles-edges for each order 
     # dim = len(order_v), len(Edge_modes), len(Bubble_modes)))
@@ -248,7 +248,7 @@ def save_error_file(file_name, dictionary, mesh, l2_error, h1_error, dim, ndofs,
     
     
     # Save both 3d objects in the same file. They are assigned names: H1_FEM_error, H1_FEM_Relative_error
-    np.savez(file_path, Dictionary = dictionary, nDoFs = ndofs, DoFs = dofs_3d, L2_error = l2_error_3d, L2_Relative_error = l2_error_rel_3d, H1_error = h1_error_3d, H1_Relative_error = h1_error_rel_3d)
+    np.savez(file_path, FileName = file_path, Dictionary = dictionary, nDoFs = ndofs, DoFs = dofs_3d, L2_error = l2_error_3d, L2_Relative_error = l2_error_rel_3d, H1_error = h1_error_3d, H1_Relative_error = h1_error_rel_3d)
 
     # Loading file to print errors (allow_picke means we can have strings)
     Errors = np.load(save_dir.joinpath(file_name + ".npz"), allow_pickle = True)
@@ -262,6 +262,8 @@ def save_error_file(file_name, dictionary, mesh, l2_error, h1_error, dim, ndofs,
     print(Errors['DoFs'][0])
     print("System size")
     print(Errors['nDoFs'])
+    
+    print(Errors["FileName"])
     
     # print("L2 error")
     # print(Errors['L2_error'])
@@ -458,9 +460,9 @@ def convergence_plots(plot_error, dofs, h1_error, mesh, Edge_modes, Bubble_modes
 
 
 
-def main(maxH, problem, order_v, Bubble_modes, Edge_modes):
+def main(maxH, problem, omega, order_v, Bubble_modes, Edge_modes):
     # Variables setting
-    kappa, omega, beta, f, g, sol_ex, u_ex = problem_definition(problem)
+    kappa, beta, f, g, sol_ex, u_ex = problem_definition(problem, omega)
     plot_error = 0
     
     
