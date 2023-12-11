@@ -465,11 +465,8 @@ def main(maxH, problem, order_v, Bubble_modes, Edge_modes):
     
     
     # #Generate mesh: unit disco with 8 subdomains
-    start_time = time.time()
     mesh, dom_bnd = unit_disc(maxH)
-    mesh_time = time.time()
-    # print("Mesh setup in --- %s seconds ---" % (mesh_time  - start_time))
-
+   
     dictionary = {
         1            : ["The keys are: order, bubbles, edges, vertices, problem, wavenumber."],
         'order'      : ["The order of approximation is",  order_v],
@@ -485,7 +482,6 @@ def main(maxH, problem, order_v, Bubble_modes, Edge_modes):
     gfu_ex, grad_uex = ground_truth(mesh, dom_bnd, kappa, omega, beta, f, g)
     
     # Solve ACMS system and compute H1 error
-    start_time = time.time()
     gfu, ndofs, dofs, l2_error, l2_error_ex, h1_error, h1_error_ex = acms_solution(mesh, dom_bnd, Bubble_modes, Edge_modes, order_v, kappa, omega, beta, f, g, gfu_ex, sol_ex, u_ex)
     # print("ACMS computation in --- %s seconds ---" % (time.time()  - start_time))
     
@@ -498,7 +494,7 @@ def main(maxH, problem, order_v, Bubble_modes, Edge_modes):
     Errors_FEM = save_error_file(file_name, dictionary, mesh, l2_error, h1_error, dim, ndofs, dofs, gfu_ex, grad_uex)
     
     # Plot H1 error
-    # convergence_plots(plot_error, dofs, h1_error, mesh, Edge_modes, Bubble_modes, order_v)
+    convergence_plots(plot_error, dofs, h1_error, mesh, Edge_modes, Bubble_modes, order_v)
     
     Errors_exact = Errors_FEM
     # If available, the exact solution is used  (sol_ex == 1)  
@@ -510,7 +506,7 @@ def main(maxH, problem, order_v, Bubble_modes, Edge_modes):
         Errors_exact = save_error_file(file_name_exact, dictionary, mesh, l2_error_ex, h1_error_ex, dim, ndofs, dofs, u_ex, Du_ex)
 
         # Plot H1 error
-        # convergence_plots(plot_error, dofs, h1_error_ex, mesh, Edge_modes, Bubble_modes, order_v)
+        convergence_plots(plot_error, dofs, h1_error_ex, mesh, Edge_modes, Bubble_modes, order_v)
 
     return Errors_FEM, Errors_exact
      
