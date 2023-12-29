@@ -191,6 +191,12 @@ class ACMS:
             # Solving eigenvalue problem: AA x = ev MM x
             AA = sp.csr_matrix(aloc.mat.CSR())
             MM = sp.csr_matrix(mloc.mat.CSR())
+            
+            #Control on the maximum number of used edges, so it does not crash
+            if Vloc.ndof-1 <= self.edge_modes:
+                print("Maximum number of edge modes exeeded - All edge modes are used")
+                self.edge_modes = Vloc.ndof-2
+                
             ev, evec =sp.linalg.eigs(A = AA, M = MM, k = self.edge_modes, which='SM')
             idx = ev.argsort()[::]   
             ev = ev[idx]
@@ -374,9 +380,13 @@ class ACMS:
             # Solving eigenvalue problem: AA x = ev MM x
             AA = sp.csr_matrix(aloc.mat.CSR())
             MM = sp.csr_matrix(mloc.mat.CSR())
-            start_time = time.time()
+            
+            #Control on the maximum number of used edges, so it does not crash
+            if Vloc.ndof-1 <= self.bubble_modes:
+                print("Maximum number of bubble modes exeeded - All bubble modes are used")
+                self.bubble_modes = Vloc.ndof-2
+                
             ev, evec =scipy.sparse.linalg.eigs(A = AA, M = MM, k = self.bubble_modes, which='SM')
-            # print("Eigenvalue computation for bubbles in --- %s seconds ---" % (time.time()  - start_time))
             idx = ev.argsort()[::]   
             ev = ev[idx]
             evec = evec[:,idx]
