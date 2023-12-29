@@ -271,9 +271,9 @@ def acms_solution(mesh, dom_bnd, Bubble_modes, Edge_modes, order_v, kappa, omega
                 # Control on number of modes - Need to reshape the whole system
                 max_em = acms.edge_modes
                 max_bm = acms.bubble_modes
-                # Edge_modes = [em for em in Edge_modes if em <= max_em]
+                Edge_modes = [em for em in Edge_modes if em <= max_em]
                 # print(Edge_modes)
-                # Bubble_modes = [bm for bm in Bubble_modes if bm <= max_bm]
+                Bubble_modes = [bm for bm in Bubble_modes if bm <= max_bm]
                 # print(Bubble_modes)
 
                 for EM in Edge_modes:
