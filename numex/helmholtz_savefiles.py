@@ -91,11 +91,11 @@ def create_latex_table(dictionary):
 
 
 
-file_path = f"./Results/L2-H1_errors_EXACTsol_PW_wave1.0_meshH0.4_o3_b1_e2_20231222.npz"
+# file_path = f"./Results/L2-H1_errors_EXACTsol_PW_wave1.0_meshH0.4_o3_b1_e2_20231222.npz"
 
-dictionary = process_file(file_path)
+# dictionary = process_file(file_path)
 
-latex_table = create_latex_table(dictionary)
+# latex_table = create_latex_table(dictionary)
 # print(latex_table)
 
 

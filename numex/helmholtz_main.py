@@ -63,7 +63,7 @@ elif Href > 0:
     # #The figure is saved with the same name as the last created file (namely with the finest meshsize)
     # plt.show()
 
-print(Errors["Dictionary"][()]['meshsize'])
+# print(Errors["Dictionary"][()]['meshsize'])
 
 # file_path = f"./Results/" + file_name + ".npz"
 # table_dictionary = process_file(file_path)
