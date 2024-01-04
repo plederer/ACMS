@@ -272,7 +272,10 @@ def acms_solution(mesh, dom_bnd, Bubble_modes, Edge_modes, order_v, kappa, omega
                 max_em = acms.edge_modes
                 max_bm = acms.bubble_modes
                 Edge_modes = [em for em in Edge_modes if em <= max_em]
-                # print(Edge_modes)
+                # max_em = Edge_modes[-1]
+                print(Edge_modes)
+                print(max_em)
+                print(len(acms.basis_e))
                 Bubble_modes = [bm for bm in Bubble_modes if bm <= max_bm]
                 # print(Bubble_modes)
 
