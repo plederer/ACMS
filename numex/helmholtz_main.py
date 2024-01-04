@@ -26,6 +26,15 @@ print("Number of bubble modes is ", Bubble_modes)
 Edge_modes = list(map(int, input("Number of edge modes. Vector = ").split())) # Vector [2,4,8,16,32,64,128]
 print("Number of edge modes is ", Edge_modes)
 
+# for testing
+# problem = 1
+# omega = 1
+# Href = 0
+# maxH = 0.1
+# order_v = [1,2]
+# Bubble_modes = [1]
+# Edge_modes = [1,8]
+
 # Generates the mesh 
 # Creates variables associated with the problem
 # Computes a ground truth solution with FEM of order 3 on the generated mesh

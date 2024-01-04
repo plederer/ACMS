@@ -164,9 +164,21 @@ class ACMS:
     ###############################################################
     # EDGE MODES
 
+    def CalcMaxEdgeModes(self):
+        for edge_name in self.mesh.GetBoundaries():
+            vertex_dofs = self.V.GetDofs(self.mesh.BBoundaries(".*")) # Global vertices (coarse mesh)
+            fd = self.V.GetDofs(self.mesh.Boundaries(edge_name)) & (~vertex_dofs) 
+            base_space = H1(self.mesh, order = self.order, dirichlet = self.dirichlet) # Creating Sobolev space
+            Vloc = Compress(base_space, fd)
+
+            if Vloc.ndof - 1 <= self.edge_modes:
+                print("Maximum number of edge modes exceeded - All edge modes are used")
+                self.edge_modes = Vloc.ndof - 2
+            
     def calc_edge_basis(self, basis=None):
         if (basis == None):
             basis = self.basis_e
+        self.CalcMaxEdgeModes()
         for edge_name in self.mesh.GetBoundaries():
             vertex_dofs = self.V.GetDofs(self.mesh.BBoundaries(".*")) # Global vertices (coarse mesh)
             fd = self.V.GetDofs(self.mesh.Boundaries(edge_name)) & (~vertex_dofs) 
@@ -193,9 +205,9 @@ class ACMS:
             MM = sp.csr_matrix(mloc.mat.CSR())
             
             #Control on the maximum number of used edges, so it does not crash
-            if Vloc.ndof - 1 <= self.edge_modes:
-                print("Maximum number of edge modes exeeded - All edge modes are used")
-                self.edge_modes = Vloc.ndof - 2
+            # if Vloc.ndof - 1 <= self.edge_modes:
+            #     print("Maximum number of edge modes exeeded - All edge modes are used")
+            #     self.edge_modes = Vloc.ndof - 2
                 
             ev, evec =sp.linalg.eigs(A = AA, M = MM, k = self.edge_modes, which='SM')
             idx = ev.argsort()[::]   

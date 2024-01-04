@@ -214,7 +214,6 @@ def compute_l2_error(gfu, gfu_fem, mesh):
 ##################################################################
 ##################################################################
   
-
 def acms_solution(mesh, dom_bnd, Bubble_modes, Edge_modes, order_v, kappa, omega, beta, f, g, gfu_fem, sol_ex, u_ex):
     #  ACMS RESOLUTION
 
@@ -248,7 +247,7 @@ def acms_solution(mesh, dom_bnd, Bubble_modes, Edge_modes, order_v, kappa, omega
             
             ndofs.append(V.ndof)
             
-            if V.ndof < 100000:
+            if V.ndof < 1000000:
                 
                 a = BilinearForm(V)
                 a += grad(u) * grad(v) * dx()
@@ -264,19 +263,20 @@ def acms_solution(mesh, dom_bnd, Bubble_modes, Edge_modes, order_v, kappa, omega
                 gfu = GridFunction(V)
                 #Computing full basis with max number of modes 
                 # bi = bonus int order - should match the curved mesh order
+                # print("max = ", max_em)
                 acms = ACMS(order = order, mesh = mesh, bm = max_bm, em = max_em, bi = 10)
                 acms.CalcHarmonicExtensions(kappa = kappa)
                 acms.calc_basis()
                 
                 # Control on number of modes - Need to reshape the whole system
-                max_em = acms.edge_modes
-                max_bm = acms.bubble_modes
-                Edge_modes = [em for em in Edge_modes if em <= max_em]
+                # max_em = acms.edge_modes
+                # max_bm = acms.bubble_modes
+                # Edge_modes_loc = [em for em in Edge_modes if em <= max_em]
                 # max_em = Edge_modes[-1]
-                print(Edge_modes)
-                print(max_em)
-                print(len(acms.basis_e))
-                Bubble_modes = [bm for bm in Bubble_modes if bm <= max_bm]
+                # print(Edge_modes)
+                # print("max = ", max_em)
+                # print(len(acms.basis_e))
+                # Bubble_modes_loc = [bm for bm in Bubble_modes if bm <= max_bm]
                 # print(Bubble_modes)
 
                 for EM in Edge_modes:
@@ -285,47 +285,59 @@ def acms_solution(mesh, dom_bnd, Bubble_modes, Edge_modes, order_v, kappa, omega
                             #Vc = H1(mesh, order = order, complex = True)
                             # start_time = time.time()
 
-                            gfu = GridFunction(V)
-                            basis = MultiVector(gfu.vec, 0)
+                            if (EM <= acms.edge_modes) and (BM <= acms.bubble_modes):
+                                gfu = GridFunction(V)
+                                basis = MultiVector(gfu.vec, 0)
 
-                            for bv in acms.basis_v:
-                                gfu.vec.FV()[:] = bv
-                                basis.Append(gfu.vec)
-
-                            for e, label in enumerate(mesh.GetBoundaries()):
-                                for i in range(EM):
-                                    gfu.vec.FV()[:] = acms.basis_e[e * max_em + i]
+                                for bv in acms.basis_v:
+                                    gfu.vec.FV()[:] = bv
                                     basis.Append(gfu.vec)
 
+                                for e, label in enumerate(mesh.GetBoundaries()):
+                                    for i in range(EM):
+                                        gfu.vec.FV()[:] = acms.basis_e[e * acms.edge_modes + i]
+                                        basis.Append(gfu.vec)
 
-                            for d, dom in enumerate(mesh.GetMaterials()):
-                                for i in range(BM):
-                                    gfu.vec.FV()[:] = acms.basis_b[d * max_bm + i]
-                                    basis.Append(gfu.vec)
+
+                                for d, dom in enumerate(mesh.GetMaterials()):
+                                    for i in range(BM):
+                                        gfu.vec.FV()[:] = acms.basis_b[d * acms.bubble_modes + i]
+                                        basis.Append(gfu.vec)
 
 
-                            num = len(basis)
-                            dofs.append(num)
+                                num = len(basis)
+                                dofs.append(num)
 
-                            asmall = InnerProduct (basis, a.mat * basis, conjugate = False) #Complex
-                            ainvsmall = Matrix(numpy.linalg.inv(asmall))
-                            f_small = InnerProduct(basis, l.vec, conjugate = False)
-                            usmall = ainvsmall * f_small
-                            gfu.vec[:] = 0.0
-                            gfu.vec.data = basis * usmall
-                            print("finished_acms")
+                                asmall = InnerProduct (basis, a.mat * basis, conjugate = False) #Complex
+                                ainvsmall = Matrix(numpy.linalg.inv(asmall))
+                                f_small = InnerProduct(basis, l.vec, conjugate = False)
+                                usmall = ainvsmall * f_small
+                                gfu.vec[:] = 0.0
+                                gfu.vec.data = basis * usmall
+                                print("finished_acms")
 
-                            l2_error_aux = compute_l2_error(gfu, gfu_fem, mesh)
-                            l2_error.append(l2_error_aux)
-                            h1_error_aux = compute_h1_error(gfu, grad_fem, mesh)
-                            h1_error.append(h1_error_aux)
+                                l2_error_aux = compute_l2_error(gfu, gfu_fem, mesh)
+                                l2_error.append(l2_error_aux)
+                                h1_error_aux = compute_h1_error(gfu, grad_fem, mesh)
+                                h1_error.append(h1_error_aux)
 
-                            if sol_ex == 1:
-                                Du_ex = CF((u_ex.Diff(x), u_ex.Diff(y))) #If we have analytical solution defined
-                                l2_error_ex_aux = compute_l2_error(gfu,  u_ex, mesh)
-                                l2_error_ex.append(l2_error_ex_aux)
-                                h1_error_ex_aux = compute_h1_error(gfu, Du_ex, mesh)
-                                h1_error_ex.append(h1_error_ex_aux)
+                                if sol_ex == 1:
+                                    Du_ex = CF((u_ex.Diff(x), u_ex.Diff(y))) #If we have analytical solution defined
+                                    l2_error_ex_aux = compute_l2_error(gfu,  u_ex, mesh)
+                                    l2_error_ex.append(l2_error_ex_aux)
+                                    h1_error_ex_aux = compute_h1_error(gfu, Du_ex, mesh)
+                                    h1_error_ex.append(h1_error_ex_aux)
+                            else:
+                                l2_error.append(0)
+                                h1_error.append(0)
+                                dofs.append(V.ndof)
+                                ndofs.append(V.ndof)
+
+                                if sol_ex == 1:
+                                    l2_error_ex.append(0)
+                                    h1_error_ex.append(0)
+                            
+
 
                 if sol_ex == 1:
                     Iu.Set(u_ex, dual=True)
@@ -337,18 +349,21 @@ def acms_solution(mesh, dom_bnd, Bubble_modes, Edge_modes, order_v, kappa, omega
                     
                     
             # elif V.ndof >= 1000:
-            #     for EM in Edge_modes:
-            #         for BM in Bubble_modes:
-            #             l2_error.append(0)
-            #             h1_error.append(0)
+            else:
+                for EM in Edge_modes:
+                    for BM in Bubble_modes:
+                        l2_error.append(0)
+                        h1_error.append(0)
+                        dofs.append(V.ndof)
+                        ndofs.append(V.ndof)
 
-            #             if sol_ex == 1:
-            #                 l2_error_ex.append(0)
-            #                 h1_error_ex.append(0)
+                        if sol_ex == 1:
+                            l2_error_ex.append(0)
+                            h1_error_ex.append(0)
                             
-            #     if sol_ex == 1:
-            #         l2_error_NodInt.append(0)
-            #         h1_error_NodInt.append(0)
+                if sol_ex == 1:
+                    l2_error_NodInt.append(0)
+                    h1_error_NodInt.append(0)
     
     dim = (len(order_v), len(Edge_modes), len(Bubble_modes))
     
