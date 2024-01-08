@@ -179,6 +179,7 @@ class ACMS:
         if (basis == None):
             basis = self.basis_e
         self.CalcMaxEdgeModes()
+        
         for edge_name in self.mesh.GetBoundaries():
             vertex_dofs = self.V.GetDofs(self.mesh.BBoundaries(".*")) # Global vertices (coarse mesh)
             fd = self.V.GetDofs(self.mesh.Boundaries(edge_name)) & (~vertex_dofs) 
@@ -203,11 +204,6 @@ class ACMS:
             # Solving eigenvalue problem: AA x = ev MM x
             AA = sp.csr_matrix(aloc.mat.CSR())
             MM = sp.csr_matrix(mloc.mat.CSR())
-            
-            #Control on the maximum number of used edges, so it does not crash
-            # if Vloc.ndof - 1 <= self.edge_modes:
-            #     print("Maximum number of edge modes exeeded - All edge modes are used")
-            #     self.edge_modes = Vloc.ndof - 2
                 
             ev, evec =sp.linalg.eigs(A = AA, M = MM, k = self.edge_modes, which='SM')
             idx = ev.argsort()[::]   
@@ -227,9 +223,7 @@ class ACMS:
             for e in evec: # Going over eigenvectors
                 # Vloc.Embed(e.real, gfu.vec)
                 self.gfu.vec[:]=0.0
-                self.gfu.vec.data = Eloc.T * e.real # Grid funciton on full mesh
-                #Mapping components?
-                
+                self.gfu.vec.data = Eloc.T * e.real # Grid funciton on full mesh                
 
                 nb_dom = self.mesh.Boundaries(edge_name).Neighbours(VOL) # It gives volumes that are neighbours of my edge
                 gfu_edge = self.gfu.vec.CreateVector()
@@ -370,9 +364,23 @@ class ACMS:
     ###############################################################
     # BUBBLE FUNCTIONS
 
+    def CalcMaxBubbleModes(self):
+        for mat_name in self.mesh.GetMaterials(): # Subdomains labels
+            # DOFS that are in the interior of the subdomain (excludes edges)
+            fd = self.V.GetDofs(self.mesh.Materials(mat_name)) & self.V.FreeDofs()
+            Vloc = Compress(H1(self.mesh, order = self.order, dirichlet = self.dirichlet), fd)
+            
+            #Control on the maximum number of used edges, so it does not crash
+            if Vloc.ndof - 1 <= self.bubble_modes:
+                print("Maximum number of bubble modes exeeded - All bubble modes are used")
+                self.bubble_modes = Vloc.ndof - 2
+
+    
     def calc_bubble_basis(self, basis=None):
         if (basis == None):
             basis = self.basis_b
+        self.CalcMaxBubbleModes()
+            
         for mat_name in self.mesh.GetMaterials(): # Subdomains labels
             # DOFS that are in the interior of the subdomain (excludes edges)
             fd = self.V.GetDofs(self.mesh.Materials(mat_name)) & self.V.FreeDofs()
@@ -393,10 +401,6 @@ class ACMS:
             AA = sp.csr_matrix(aloc.mat.CSR())
             MM = sp.csr_matrix(mloc.mat.CSR())
             
-            #Control on the maximum number of used edges, so it does not crash
-            if Vloc.ndof - 1 <= self.bubble_modes:
-                print("Maximum number of bubble modes exeeded - All bubble modes are used")
-                self.bubble_modes = Vloc.ndof - 2
                 
             ev, evec =scipy.sparse.linalg.eigs(A = AA, M = MM, k = self.bubble_modes, which='SM')
             idx = ev.argsort()[::]   
