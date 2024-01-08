@@ -8,38 +8,106 @@ from netgen.geom2d import *
 
 import scipy.sparse as sp
 
+
+
+##################################################################
+##################################################################
+##################################################################
+##################################################################   
+
+
+def process_file(file_path: str):
+ 
+    #Save all variables
+    errors = np.load(file_path, allow_pickle=True)
+    
+    # Retrieve problem type - see if we have exact solution or not
+    problem = errors["Dictionary"][()]["problem"][1]
+
+    if problem == 1:
+        dictionary = process_file_exact(errors, verbose = False)
+        latex_table = create_latex_table_exact(dictionary)
+
+    else:
+        dictionary = process_file_FEM(errors, verbose = False)
+        latex_table = create_latex_table_FEM(dictionary)
+
+    print(latex_table)
+    return 
+
+
+
+
+
+
 ##################################################################
 ##################################################################
 ##################################################################
 ##################################################################
 
-def process_file(file_path: str, verbose=False):
+
+def process_file_FEM(errors, verbose = False):
     
     # # Retrieve h
-    index_h = file_path.find("meshH") + 5
-    index_us = file_path[index_h:].find("_")
-    h = float(file_path[index_h:index_h + index_us])
+#     index_h = file_path.find("meshH") + 5
+#     index_us = file_path[index_h:].find("_")
+#     h = float(file_path[index_h:index_h + index_us])
     
-    #Save all variables
-    errors = np.load(file_path, allow_pickle=True)
-    
-    # Retrieve h
-    # h = errors["Dictionary"][()]["meshsize"][1]
-    
-    # Retrive order (p)
+    # Retrieve variables
+    h = errors["Dictionary"][()]["meshsize"][1]
     order = errors["Dictionary"][()]["order"][1]
-    
-    # Retrieve vertices (#V)
     vertices = errors["Dictionary"][()]["vertices"][1]
-    
-    # Retrive edges (S_Gamma)
     edges = errors["Dictionary"][()]["edges"][1]
-    
-    # Retrive DOFs
     DoFs = list(errors["nDoFs"])
     
-    # Retrieve L2_errors
-    L2_errors = errors["L2_Relative_error"]
+      
+    # Retrieve L2 ACMS errors against FEM solution
+    L2_ACMS_FEM_errors = errors["L2_Relative_error"]
+    
+   
+    if verbose:
+        print(f"{h=}")
+        print(f"{order=}")
+        print(f"{vertices=}")
+        print(f"{edges=}")
+        print(f"{DoFs=}")
+        print(f"{L2_ACMS_FEM_errors=}")
+        
+    assert len(order) == len(DoFs)
+    
+    return {
+        "h"                     : h,
+        "order"                 : order,
+        "vertices"              : vertices,
+        "edges"                 : edges,
+        "DoFs"                  : DoFs,
+        "L2_ACMS_FEM_errors"    : L2_ACMS_FEM_errors,
+    }
+
+ ##################################################################
+##################################################################
+##################################################################
+##################################################################  
+
+
+def process_file_exact(errors, verbose = False):
+
+    # Retrieve variables
+    h = errors["Dictionary"][()]["meshsize"][1]
+    order = errors["Dictionary"][()]["order"][1]
+    vertices = errors["Dictionary"][()]["vertices"][1]
+    edges = errors["Dictionary"][()]["edges"][1]
+    DoFs = list(errors["nDoFs"])
+    
+       
+    # Retrieve L2 ACMS errors against exact solution
+    L2_ACMS_errors = errors["L2_Relative_error"]
+    
+    # Retrieve L2 FEM errors against exact solution
+    L2_FEM_errors = errors["FEMex_L2RelEr"][0]
+    
+    # Retrieve L2 errors of Nodal Interpolant
+    L2_error_NodInterp = errors["L2Error_NodalInterpolant"][0]
     
     if verbose:
         print(f"{h=}")
@@ -47,29 +115,48 @@ def process_file(file_path: str, verbose=False):
         print(f"{vertices=}")
         print(f"{edges=}")
         print(f"{DoFs=}")
-        print(f"{L2_errors=}")
+        print(f"{L2_ACMS_errors=}")
+        print(f"{L2_FEM_errors=}")
+        print(f"{L2_error_NodInterp=}")
         
     assert len(order) == len(DoFs)
     
     return {
-        "h"         : h,
-        "order"     : order,
-        "vertices"  : vertices,
-        "edges"     : edges,
-        "DoFs"      : DoFs,
-        "L2_errors" : L2_errors
+        "h"                     : h,
+        "order"                 : order,
+        "vertices"              : vertices,
+        "edges"                 : edges,
+        "DoFs"                  : DoFs,
+        "L2_ACMS_errors"        : L2_ACMS_errors,
+        "L2_FEM_errors"         : L2_FEM_errors,
+        "L2_error_NodInterp"    : L2_error_NodInterp
     }
 
-    # print(Errors['H1_Relative_error'])
-    # print(Errors['FEM_L2REl'])
+ 
 
-def number_BLL(x):
+    
+ ##################################################################
+##################################################################
+##################################################################
+##################################################################   
+    
+    
+def number_LTX(x):
     from math import log10, floor
     e = floor(log10(abs(x)))
     i = x / 10**e
     return f"{i:4.3f} {{\\cdot}} 10^{{{e}}}"
 
-def create_latex_table(dictionary):
+
+
+##################################################################
+##################################################################
+##################################################################
+##################################################################
+
+
+def create_latex_table_FEM(dictionary):
+    
     num_columns = 4 + len(dictionary["edges"])
     position_gamma = 4 + len(dictionary["edges"]) // 2
     table_header = "\\begin{table}[h!]\n\\caption{}\n" \
@@ -79,24 +166,54 @@ def create_latex_table(dictionary):
         "h & $\\# V$ & DoFs & $p$ & " \
         + " & ".join(["\\multicolumn{1}{c}{" + str(e) + "}" for e in dictionary["edges"]]) \
         + " \\\\\n\\toprule\\\\\n"
+    
     table_content = ""
-    for p,dofs,l2_errors in zip(dictionary["order"], dictionary["DoFs"], dictionary["L2_errors"]):
+    for p,dofs, L2_ACMS_FEM_errors in zip(dictionary["order"], dictionary["DoFs"], dictionary["L2_ACMS_FEM_errors"]):
         line = f"${dictionary['h']}$ & ${dictionary['vertices']}$ & ${dofs}$ & ${p}$ "
-        for l2_err in l2_errors:
-            line += f"& ${number_BLL(l2_err[0])}$ "
+        
+        for l2_err in L2_ACMS_FEM_errors:
+            line += f"& ${number_LTX(l2_err[0])}$ "
         table_content += line + "\\\\\n"
+    
+    table_end = "\\bottomrule\n\\end{tabular}\n\\end{table}"
+    table = table_header + table_content + table_end
+    return table
+
+
+##################################################################
+##################################################################
+##################################################################
+##################################################################
+
+def create_latex_table_exact(dictionary):
+    
+    num_columns = 6 + len(dictionary["edges"])
+    position_gamma = 6 + len(dictionary["edges"]) // 2
+    table_header = "\\begin{table}[h!]\n\\caption{}\n" \
+        "\\centering\\small\\setlength\\tabcolsep{0.55em}\n" \
+        "\\begin{tabular}{ " + "c "*num_columns + "}\n" \
+        "\\toprule\n & \\multicolumn{" + str(position_gamma) + "}{c}{$|S_\\Gamma|$}\\\\\n" \
+        "h & $\\# V$ & DoFs & $p$ & $L^2_{FEM}$ & $L^2_{\mathcal{I}_h}$ & " \
+        + " & ".join(["\\multicolumn{1}{c}{" + str(e) + "}" for e in dictionary["edges"]]) \
+        + " \\\\\n\\toprule\\\\\n"
+    
+    table_content = ""
+    for p,dofs, l2_ACMS_errors in zip(dictionary["order"], dictionary["DoFs"], dictionary["L2_ACMS_errors"]):
+        line = f"${dictionary['h']}$ & ${dictionary['vertices']}$ & ${dofs}$ & ${p}$ " \
+            f"& ${number_LTX(dictionary['L2_FEM_errors'])}$ & ${number_LTX(dictionary['L2_error_NodInterp'])}$ " 
+        
+        for l2_err in l2_ACMS_errors:
+            line += f"& ${number_LTX(l2_err[0])}$ "
+        table_content += line + "\\\\\n"
+    
     table_end = "\\bottomrule\n\\end{tabular}\n\\end{table}"
     table = table_header + table_content + table_end
     return table
 
 
 
-# file_path = f"./Results/L2-H1_errors_EXACTsol_PW_wave1.0_meshH0.4_o3_b1_e2_20231222.npz"
 
-# dictionary = process_file(file_path)
 
-# latex_table = create_latex_table(dictionary)
-# print(latex_table)
 
 
 ##################################################################
@@ -152,7 +269,7 @@ def save_error_file(file_name, dictionary, mesh, l2_error, h1_error, dim, ndofs,
     np.savez(file_path, FileName = file_path, Dictionary = dictionary, nDoFs = ndofs, DoFs = dofs_3d, L2_error = l2_error_3d, L2_Relative_error = l2_error_rel_3d, H1_error = h1_error_3d, H1_Relative_error = h1_error_rel_3d)
     
     Errors = np.load(save_dir.joinpath(file_name + ".npz"), allow_pickle = True)
-    
+    print(Errors["FileName"])
     return Errors
 
 
@@ -208,7 +325,15 @@ def save_error_file_exact(file_name, dictionary, mesh, l2_error, h1_error, l2_er
 
     # Loading file to print errors (allow_picke means we can have strings)
     Errors = np.load(save_dir.joinpath(file_name + ".npz"), allow_pickle = True)
-    # print(Errors['Dictionary'][()]['order'])
+    
+
+    return Errors
+
+##################################################################
+##################################################################
+##################################################################
+##################################################################
+# print(Errors['Dictionary'][()]['order'])
     # print(Errors['Dictionary'][()]['bubbles'])
     # print(Errors['Dictionary'][()]['edges'])
     # print(Errors['Dictionary'][()]['vertices'])
@@ -217,25 +342,14 @@ def save_error_file_exact(file_name, dictionary, mesh, l2_error, h1_error, l2_er
 #     print("Degrees of Freedom")
 #     print(Errors['DoFs'][0])
 #     print("System size")
-#     print(Errors['nDoFs'])
-    
-    print(Errors["FileName"])
-    
+#     print(Errors['nDoFs'])    
     # print("L2 error")
     # print(Errors['L2_error'])
-    print("L2 relative error")
-    print(Errors['L2_Relative_error'])
+    # print("L2 relative error")
+    # print(Errors['L2_Relative_error'])
     # print("H1 error")
     # print(Errors['H1_error'])
-    print("L2 nodal interpolant error")
-    print(Errors['L2Error_NodalInterpolant'])
-    print(Errors['H1Error_NodalInterpolant'])
+    # print("L2 nodal interpolant error")
+    # print(Errors['L2Error_NodalInterpolant'])
+    # print(Errors['H1Error_NodalInterpolant'])
 
-
-
-    return Errors
-
-##################################################################
-##################################################################
-##################################################################
-##################################################################

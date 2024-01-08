@@ -44,38 +44,28 @@ print("Number of edge modes is ", Edge_modes)
 
 
 
-if Href == 0:
 
-    file_name, Errors = main(maxH, problem, omega, order_v, Bubble_modes, Edge_modes) 
+# plt.rcParams.update({'font.size':12})
 
-elif Href > 0:
+for h in maxH/(2**np.arange(0, Href + 1 , 1)):
+    print(h)
+    file_name, Errors = main(h, problem, omega, order_v, Bubble_modes, Edge_modes) 
     
-    # plt.rcParams.update({'font.size':12})
-
-    for h in maxH/(2**np.arange(0, Href, 1)):
-        print(h)
-        file_name, Errors = main(h, problem, omega, order_v, Bubble_modes, Edge_modes) 
-        
-    #     Bubble_modes_aux = Errors['Dictionary'][()]['bubbles'][1]
-    #     print(Bubble_modes_aux)
-    #     Edge_modes_aux = Errors['Dictionary'][()]['edges'][1]
-    #     print(Edge_modes_aux)
-    #     l2rel_error = np.reshape(Errors['L2_Relative_error'], (len(Bubble_modes_aux), len(order_v)*len(Edge_modes_aux)))
-    #     System_dofs = Errors['nDoFs']
-    #     plt.loglog(System_dofs, l2rel_error[0], label=('H=%.2f, $I_e$=%i' %(h, Edge_modes_aux[0])), marker = 'o') 
+    file_path = f"./Results/" + file_name + ".npz"
+    dictionary = process_file(file_path)
     
-    # plt.legend()
-    # plt.title('$L^2$ relative errors: p= %i,...,%i' %(order_v[0],order_v[-1]))
-    # plt.xlabel('System size / dofs')  
-    # plt.xticks(System_dofs, System_dofs)
-    # plt.savefig('./'+str(Errors["FileName"])+".png")
-    # #The figure is saved with the same name as the last created file (namely with the finest meshsize)
-    # plt.show()
+#     Bubble_modes_aux = Errors['Dictionary'][()]['bubbles'][1]
+#     print(Bubble_modes_aux)
+#     Edge_modes_aux = Errors['Dictionary'][()]['edges'][1]
+#     print(Edge_modes_aux)
+#     l2rel_error = np.reshape(Errors['L2_Relative_error'], (len(Bubble_modes_aux), len(order_v)*len(Edge_modes_aux)))
+#     System_dofs = Errors['nDoFs']
+#     plt.loglog(System_dofs, l2rel_error[0], label=('H=%.2f, $I_e$=%i' %(h, Edge_modes_aux[0])), marker = 'o') 
 
-# print(Errors["Dictionary"][()]['meshsize'])
-
-# file_path = f"./Results/" + file_name + ".npz"
-# table_dictionary = process_file(file_path)
-
-# latex_table = create_latex_table(table_dictionary)
-# print(latex_table)
+# plt.legend()
+# plt.title('$L^2$ relative errors: p= %i,...,%i' %(order_v[0],order_v[-1]))
+# plt.xlabel('System size / dofs')  
+# plt.xticks(System_dofs, System_dofs)
+# plt.savefig('./'+str(Errors["FileName"])+".png")
+# #The figure is saved with the same name as the last created file (namely with the finest meshsize)
+# plt.show()
