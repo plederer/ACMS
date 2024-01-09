@@ -267,17 +267,7 @@ def acms_solution(mesh, dom_bnd, Bubble_modes, Edge_modes, order_v, kappa, omega
                 acms = ACMS(order = order, mesh = mesh, bm = max_bm, em = max_em, bi = 10)
                 acms.CalcHarmonicExtensions(kappa = kappa)
                 acms.calc_basis()
-                
-                # Control on number of modes - Need to reshape the whole system
-                # max_em = acms.edge_modes
-                # max_bm = acms.bubble_modes
-                # Edge_modes_loc = [em for em in Edge_modes if em <= max_em]
-                # max_em = Edge_modes[-1]
-                # print(Edge_modes)
-                # print("max = ", max_em)
-                # print(len(acms.basis_e))
-                # Bubble_modes_loc = [bm for bm in Bubble_modes if bm <= max_bm]
-                # print(Bubble_modes)
+            
 
                 for EM in Edge_modes:
 
@@ -331,7 +321,7 @@ def acms_solution(mesh, dom_bnd, Bubble_modes, Edge_modes, order_v, kappa, omega
                                 l2_error.append(0)
                                 h1_error.append(0)
                                 dofs.append(V.ndof)
-                                ndofs.append(V.ndof)
+                                # ndofs.append(V.ndof)
 
                                 if sol_ex == 1:
                                     l2_error_ex.append(0)
@@ -344,11 +334,9 @@ def acms_solution(mesh, dom_bnd, Bubble_modes, Edge_modes, order_v, kappa, omega
                     l2_error_NodInt_aux = compute_l2_error(Iu,  u_ex, mesh)
                     l2_error_NodInt.append(l2_error_NodInt_aux)
                     h1_error_NodInt_aux = compute_h1_error(Iu, Du_ex, mesh)
-                    print(h1_error_NodInt_aux)
                     h1_error_NodInt.append(h1_error_NodInt_aux)
                     
                     
-            # elif V.ndof >= 1000:
             else:
                 for EM in Edge_modes:
                     for BM in Bubble_modes:
@@ -365,7 +353,6 @@ def acms_solution(mesh, dom_bnd, Bubble_modes, Edge_modes, order_v, kappa, omega
                     l2_error_NodInt.append(0)
                     h1_error_NodInt.append(0)
     
-    dim = (len(order_v), len(Edge_modes), len(Bubble_modes))
     
     return ndofs, dofs, Edge_modes, Bubble_modes, l2_error, l2_error_ex, h1_error, h1_error_ex, l2_error_NodInt, h1_error_NodInt
 

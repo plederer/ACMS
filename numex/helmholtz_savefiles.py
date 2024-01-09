@@ -143,9 +143,14 @@ def process_file_exact(errors, verbose = False):
     
 def number_LTX(x):
     from math import log10, floor
-    e = floor(log10(abs(x)))
-    i = x / 10**e
-    return f"{i:4.3f} {{\\cdot}} 10^{{{e}}}"
+    if x == 0:
+        string = f"0"
+    else:
+        e = floor(log10(abs(x)))
+        i = x / 10**e
+        string = f"{i:4.3f} {{\\cdot}} 10^{{{e}}}"
+    return string
+
 
 
 
