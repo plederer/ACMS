@@ -26,14 +26,13 @@ def process_file(file_path: str):
 
     if problem == 1:
         dictionary = process_file_exact(errors, verbose = False)
-        latex_table = create_latex_table_exact(dictionary)
+        table_header, table_content, table_end = create_latex_table_exact(dictionary)
 
     else:
         dictionary = process_file_FEM(errors, verbose = False)
-        latex_table = create_latex_table_FEM(dictionary)
+        table_header, table_content, table_end = create_latex_table_FEM(dictionary)
 
-    print(latex_table)
-    return 
+    return table_header, table_content, table_end
 
 
 
@@ -181,8 +180,8 @@ def create_latex_table_FEM(dictionary):
         table_content += line + "\\\\\n"
     
     table_end = "\\bottomrule\n\\end{tabular}\n\\end{table}"
-    table = table_header + table_content + table_end
-    return table
+    # table = table_header + table_content + table_end
+    return table_header, table_content, table_end
 
 
 ##################################################################
@@ -212,8 +211,8 @@ def create_latex_table_exact(dictionary):
         table_content += line + "\\\\\n"
     
     table_end = "\\bottomrule\n\\end{tabular}\n\\end{table}"
-    table = table_header + table_content + table_end
-    return table
+    # table = table_header + table_content + table_end
+    return table_header, table_content, table_end
 
 
 

@@ -43,17 +43,22 @@ print("Number of edge modes is ", Edge_modes)
 # Saves the error on file named "file_name.npy" and plots it if specified (now always 0)
 
 
-
-
-# plt.rcParams.update({'font.size':12})
+table_content_aux = ""
 
 for h in maxH/(2**np.arange(0, Href + 1 , 1)):
     print(h)
     file_name, Errors = main(h, problem, omega, order_v, Bubble_modes, Edge_modes) 
     
     file_path = f"./Results/" + file_name + ".npz"
-    dictionary = process_file(file_path)
+    table_header, table_content, table_end = process_file(file_path)
+    table_content_aux += table_content
     
+print(table_header + table_content_aux + table_end)    
+
+
+
+
+# plt.rcParams.update({'font.size':12})
 #     Bubble_modes_aux = Errors['Dictionary'][()]['bubbles'][1]
 #     print(Bubble_modes_aux)
 #     Edge_modes_aux = Errors['Dictionary'][()]['edges'][1]
