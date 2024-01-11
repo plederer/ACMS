@@ -54,6 +54,7 @@ def process_file_FEM(errors, verbose = False):
     
     # Retrieve variables
     h = errors["Dictionary"][()]["meshsize"][1]
+    kwave = errors["Dictionary"][()]["wavenumber"][1]
     order = errors["Dictionary"][()]["order"][1]
     vertices = errors["Dictionary"][()]["vertices"][1]
     edges = errors["Dictionary"][()]["edges"][1]
@@ -66,6 +67,7 @@ def process_file_FEM(errors, verbose = False):
    
     if verbose:
         print(f"{h=}")
+        print(f"{kwave=}")
         print(f"{order=}")
         print(f"{vertices=}")
         print(f"{edges=}")
@@ -76,6 +78,7 @@ def process_file_FEM(errors, verbose = False):
     
     return {
         "h"                     : h,
+        "kwave"                 : kwave,
         "order"                 : order,
         "vertices"              : vertices,
         "edges"                 : edges,
@@ -93,6 +96,7 @@ def process_file_exact(errors, verbose = False):
 
     # Retrieve variables
     h = errors["Dictionary"][()]["meshsize"][1]
+    kwave = errors["Dictionary"][()]["wavenumber"][1]
     order = errors["Dictionary"][()]["order"][1]
     vertices = errors["Dictionary"][()]["vertices"][1]
     edges = errors["Dictionary"][()]["edges"][1]
@@ -110,6 +114,7 @@ def process_file_exact(errors, verbose = False):
     
     if verbose:
         print(f"{h=}")
+        print(f"{kwave=}")
         print(f"{order=}")
         print(f"{vertices=}")
         print(f"{edges=}")
@@ -122,6 +127,7 @@ def process_file_exact(errors, verbose = False):
     
     return {
         "h"                     : h,
+        "kwave"                 : kwave,
         "order"                 : order,
         "vertices"              : vertices,
         "edges"                 : edges,
@@ -163,7 +169,7 @@ def create_latex_table_FEM(dictionary):
     
     num_columns = 4 + len(dictionary["edges"])
     position_gamma = 4 + len(dictionary["edges"]) // 2
-    table_header = "\\begin{table}[h!]\n\\caption{}\n" \
+    table_header = "\\begin{table}[h!]\n\\caption{$\\kappa = " + str(dictionary['kwave']) + "$}\n" \
         "\\centering\\small\\setlength\\tabcolsep{0.55em}\n" \
         "\\begin{tabular}{ " + "c "*num_columns + "}\n" \
         "\\toprule\n & \\multicolumn{" + str(position_gamma) + "}{c}{$|S_\\Gamma|$}\\\\\n" \
@@ -193,7 +199,7 @@ def create_latex_table_exact(dictionary):
     
     num_columns = 6 + len(dictionary["edges"])
     position_gamma = 6 + len(dictionary["edges"]) // 2
-    table_header = "\\begin{table}[h!]\n\\caption{}\n" \
+    table_header = "\\begin{table}[h!]\n\\caption{$\\kappa = " + str(dictionary['kwave']) + "$}\n" \
         "\\centering\\small\\setlength\\tabcolsep{0.55em}\n" \
         "\\begin{tabular}{ " + "c "*num_columns + "}\n" \
         "\\toprule\n & \\multicolumn{" + str(position_gamma) + "}{c}{$|S_\\Gamma|$}\\\\\n" \
