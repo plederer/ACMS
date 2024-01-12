@@ -16,7 +16,7 @@ import scipy.sparse as sp
 ##################################################################   
 
 
-def process_file(file_path: str):
+def process_file(file_path: str, ACMS_flag):
  
     #Save all variables
     errors = np.load(file_path, allow_pickle=True)
@@ -24,7 +24,7 @@ def process_file(file_path: str):
     # Retrieve problem type - see if we have exact solution or not
     problem = errors["Dictionary"][()]["problem"][1]
 
-    if problem == 1:
+    if ACMS_flag == 1:
         dictionary = process_file_exact(errors, verbose = False)
         table_header, table_content, table_end = create_latex_table_exact(dictionary)
 
@@ -107,10 +107,10 @@ def process_file_exact(errors, verbose = False):
     L2_ACMS_errors = errors["L2_Relative_error"]
     
     # Retrieve L2 FEM errors against exact solution
-    L2_FEM_errors = errors["FEMex_L2RelEr"][0]
+    L2_FEM_errors = errors["FEMex_L2RelEr"]
     
     # Retrieve L2 errors of Nodal Interpolant
-    L2_error_NodInterp = errors["L2Error_NodalInterpolant"][0]
+    L2_error_NodInterp = errors["L2Error_NodalInterpolant"]
     
     if verbose:
         print(f"{h=}")
@@ -208,10 +208,10 @@ def create_latex_table_exact(dictionary):
         + " \\\\\n\\toprule\\\\\n"
     
     table_content = ""
-    for p,dofs, l2_ACMS_errors in zip(dictionary["order"], dictionary["DoFs"], dictionary["L2_ACMS_errors"]):
+    for p,dofs, l2_FEM_errors, l2_NodInt, l2_ACMS_errors in zip(dictionary["order"], dictionary["DoFs"], dictionary["L2_FEM_errors"], dictionary["L2_error_NodInterp"], dictionary["L2_ACMS_errors"]):
         line = f"${dictionary['h']}$ & ${dictionary['vertices']}$ & ${dofs}$ & ${p}$ " \
-            f"& ${number_LTX(dictionary['L2_FEM_errors'])}$ & ${number_LTX(dictionary['L2_error_NodInterp'])}$ " 
-        
+            f"& ${number_LTX(l2_FEM_errors)}$ & ${number_LTX(l2_NodInt)}$ " 
+                 
         for l2_err in l2_ACMS_errors:
             line += f"& ${number_LTX(l2_err[0])}$ "
         table_content += line + "\\\\\n"

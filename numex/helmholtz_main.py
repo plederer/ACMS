@@ -50,8 +50,8 @@ for h in maxH/(2**np.arange(0, Href + 1 , 1)):
     file_name, Errors = main(h, problem, omega, order_v, Bubble_modes, Edge_modes) 
     
     file_path = f"./Results/" + file_name + ".npz"
-    table_header, table_content, table_end = process_file(file_path)
-    table_content_aux += table_content
+    table_header, table_content, table_end = process_file(file_path, 1)
+    table_content_aux += table_content + "\\\\\n"
     
 print(table_header + table_content_aux + table_end)    
 

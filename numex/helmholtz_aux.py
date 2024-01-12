@@ -151,9 +151,9 @@ def ground_truth(mesh, dom_bnd, kappa, omega, beta, f, g, ord):
     #  RESOLUTION OF GROUND TRUTH SOLUTION
     #Computing the FEM solution /  ground truth solution with higher resolution
     
-    SetNumThreads(8)
+    # SetNumThreads(8)
     with TaskManager():
-        V = H1(mesh, order = 3, complex = True)
+        V = H1(mesh, order = ord, complex = True)
         u, v = V.TnT()
 
         a = BilinearForm(V)
@@ -223,21 +223,23 @@ def acms_solution(mesh, dom_bnd, Bubble_modes, Edge_modes, order_v, kappa, omega
     h1_error_ex = []
     l2_error_NodInt = []
     h1_error_NodInt = []
+    l2_error_FEMex = []
+    h1_error_FEMex = []
     dofs =[]
     ndofs = []
     max_bm = Bubble_modes[-1]
     max_em = Edge_modes[-1]
 
-    # GROUND TRUTH SOLUTION
-    grad_fem = Grad(gfu_fem)
-    
-    
-    
+        
     SetNumThreads(8)
 
     with TaskManager():
         for order in order_v:
             print(order)
+            
+            #FEM solution with same order of approximation
+            gfu_fem, grad_fem = ground_truth(mesh, dom_bnd, kappa, omega, beta, f, g, order)
+            
             # start_time = time.time()
             V = H1(mesh, order = order, complex = True)
             
@@ -335,7 +337,11 @@ def acms_solution(mesh, dom_bnd, Bubble_modes, Edge_modes, order_v, kappa, omega
                     l2_error_NodInt.append(l2_error_NodInt_aux)
                     h1_error_NodInt_aux = compute_h1_error(Iu, Du_ex, mesh)
                     h1_error_NodInt.append(h1_error_NodInt_aux)
-                    
+                    #Error with FEM
+                    l2_error_FEMex_aux = compute_l2_error(gfu_fem,  u_ex, mesh)
+                    l2_error_FEMex.append(l2_error_FEMex_aux)
+                    h1_error_FEMex_aux = compute_h1_error(gfu_fem, Du_ex, mesh)
+                    h1_error_FEMex.append(h1_error_FEMex_aux)
                     
             else:
                 for EM in Edge_modes:
@@ -348,13 +354,15 @@ def acms_solution(mesh, dom_bnd, Bubble_modes, Edge_modes, order_v, kappa, omega
                         if sol_ex == 1:
                             l2_error_ex.append(0)
                             h1_error_ex.append(0)
+                            l2_error_FEMex.append(0)
+                            h1_error_FEMex.append(0)
                             
                 if sol_ex == 1:
                     l2_error_NodInt.append(0)
                     h1_error_NodInt.append(0)
     
-    
-    return ndofs, dofs, Edge_modes, Bubble_modes, l2_error, l2_error_ex, h1_error, h1_error_ex, l2_error_NodInt, h1_error_NodInt
+        
+    return ndofs, dofs, l2_error, l2_error_ex, h1_error, h1_error_ex, l2_error_NodInt, h1_error_NodInt, l2_error_FEMex, h1_error_FEMex
 
 
 
@@ -384,7 +392,8 @@ def main(maxH, problem, omega, order_v, Bubble_modes, Edge_modes):
     gfu_fem, grad_fem = ground_truth(mesh, dom_bnd, kappa, omega, beta, f, g, order_v[-1])
     
     # Solve ACMS system and compute H1 error
-    ndofs, dofs, Edge_modes, Bubble_modes, l2_error_fem, l2_error_ex, h1_error_fem, h1_error_ex, l2_error_NodInt, h1_error_NodInt = acms_solution(mesh, dom_bnd, Bubble_modes, Edge_modes, order_v, kappa, omega, beta, f, g, gfu_fem, sol_ex, u_ex)    
+    
+    ndofs, dofs, l2_error_fem, l2_error_ex, h1_error_fem, h1_error_ex, l2_error_NodInt, h1_error_NodInt, l2_error_FEMex, h1_error_FEMex = acms_solution(mesh, dom_bnd, Bubble_modes, Edge_modes, order_v, kappa, omega, beta, f, g, gfu_fem, sol_ex, u_ex)    
     
     # Save both H1 and H1-relative errors on file named "file_name.npz" 
     # It needs to be loaded to be readable
@@ -411,8 +420,8 @@ def main(maxH, problem, omega, order_v, Bubble_modes, Edge_modes):
         print("Error with exact solution")
         Du_ex = CF((u_ex.Diff(x), u_ex.Diff(y))) #If we have analytical solution defined
         #Error with FEM
-        l2_error_FEMex = compute_l2_error(gfu_fem,  u_ex, mesh)
-        h1_error_FEMex = compute_h1_error(gfu_fem, Du_ex, mesh)
+        # l2_error_FEMex = compute_l2_error(gfu_fem,  u_ex, mesh)
+        # h1_error_FEMex = compute_h1_error(gfu_fem, Du_ex, mesh)
         file_name = create_error_file(problem, kappa, maxH, order_v, Bubble_modes, Edge_modes, 1)
         Errors = save_error_file_exact(file_name, dictionary, mesh, l2_error_ex, h1_error_ex, l2_error_fem, h1_error_fem, l2_error_FEMex, h1_error_FEMex, l2_error_NodInt, h1_error_NodInt, dim, ndofs, dofs, u_ex, Du_ex, gfu_fem, grad_fem)
         convergence_plots(plot_error, dofs, h1_error_ex, mesh, Edge_modes, Bubble_modes, order_v)
