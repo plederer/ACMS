@@ -323,7 +323,6 @@ def acms_solution(mesh, dom_bnd, Bubble_modes, Edge_modes, order_v, kappa, omega
                                 l2_error.append(0)
                                 h1_error.append(0)
                                 dofs.append(V.ndof)
-                                # ndofs.append(V.ndof)
 
                                 if sol_ex == 1:
                                     l2_error_ex.append(0)
@@ -349,7 +348,7 @@ def acms_solution(mesh, dom_bnd, Bubble_modes, Edge_modes, order_v, kappa, omega
                         l2_error.append(0)
                         h1_error.append(0)
                         dofs.append(V.ndof)
-                        ndofs.append(V.ndof)
+                        # ndofs.append(V.ndof)
 
                         if sol_ex == 1:
                             l2_error_ex.append(0)
