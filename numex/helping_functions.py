@@ -47,13 +47,23 @@ Extension on edges: $E^{\Gamma} : H^{1/2}_{00}(e) \to H^1_D(\Omega)$ via $E^{\Ga
 """
 
 
+def GetVertexNeighbours(vname, mesh):
+    m = mesh.BBoundaries(vname).Neighbours(VOL).Mask()
+    nb = BitArray(len(m))
+    nb.Clear()
+    for r in range(len(m)):
+        if m[r] == 1:
+            nb |= mesh.Materials(mesh.GetMaterials()[r]).Mask()
+    return nb
+
+
 
 
 ###############################################################
 # EXTENSIONS
 
 class ACMS:
-    def __init__(self, order, mesh, bm = 0, em = 0, dirichlet = ".*", bi = 0):
+    def __init__(self, order, mesh, bm = 0, em = 0, dirichlet = ".*", bi = 0, alpha = 1):
         self.order = order # Polynomial degree of approximation
         self.dirichlet = dirichlet
         self.mesh = mesh
@@ -70,6 +80,8 @@ class ACMS:
         self.basis_e = MultiVector(self.gfu.vec, 0)
         self.basis_b = MultiVector(self.gfu.vec, 0)
         
+        self.alpha = alpha
+
         self.bi = bi 
 
     # Define harmonic extension on specific subdomain
@@ -81,7 +93,7 @@ class ACMS:
         uharm, vharm = Vharm.TnT() # Trial and test functions
         aharm = BilinearForm(Vharm)
         #Setting bilinear form: - int (Grad u Grad v) d\Omega_j
-        aharm += grad(uharm)*grad(vharm)*dx(definedon = self.mesh.Materials(dom_name), bonus_intorder = self.bi)
+        aharm += self.alpha * grad(uharm)*grad(vharm)*dx(definedon = self.mesh.Materials(dom_name), bonus_intorder = self.bi)
         if (kappa!= 0):
             aharm += -kappa**2 * uharm*vharm*dx(definedon = self.mesh.Materials(dom_name), bonus_intorder = self.bi)
         aharm.Assemble()
@@ -138,12 +150,18 @@ class ACMS:
 
     # Function that computes the harmonic extensions on all subdomains and on all edges (of coarse mesh)
     # Returns vol_extensions and edge_extensions
-    def CalcHarmonicExtensions(self, kappa = 0):
-        for dom_name in self.mesh.GetMaterials():
+    def CalcHarmonicExtensions(self, kappa = 0, edge_names = None):
+        if edge_names == None:
+            edge_names = self.mesh.GetBoundaries()
+        
+        # remove double entries
+        mats = tuple( dict.fromkeys(self.mesh.GetMaterials()) )
+
+        for dom_name in mats:
             Vharm, aharm, aharm_inv, E = self.GetHarmonicExtensionDomain(dom_name, kappa = kappa)
             self.vol_extensions[dom_name] = [Vharm, aharm, aharm_inv, E]
 
-        for edge_name in self.mesh.GetBoundaries():
+        for edge_name in edge_names:
             Vharm, aharm, aharm_inv, E = self.GetHarmonicExtensionEdge(edge_name, kappa = kappa)
             self.edge_extensions[edge_name] = [Vharm, aharm, aharm_inv, E]
 
@@ -175,12 +193,15 @@ class ACMS:
                 print("Maximum number of edge modes exceeded - All edge modes are used")
                 self.edge_modes = Vloc.ndof - 2
             
-    def calc_edge_basis(self, basis=None):
+    def calc_edge_basis(self, edges = None, basis=None):
+        if (edges == None):
+            edges = self.mesh.GetBoundaries()
+
         if (basis == None):
             basis = self.basis_e
         self.CalcMaxEdgeModes()
         
-        for edge_name in self.mesh.GetBoundaries():
+        for edge_name in edges:
             vertex_dofs = self.V.GetDofs(self.mesh.BBoundaries(".*")) # Global vertices (coarse mesh)
             fd = self.V.GetDofs(self.mesh.Boundaries(edge_name)) & (~vertex_dofs) 
             # Vertices on a specific edge with boundaries removed (global vertices)
@@ -250,7 +271,7 @@ class ACMS:
                         # Vharm.Embed(gfu_extension.vec, gfu_edge)
                         gfu_edge.data = E.T * gfu_extension.vec
                         self.gfu.vec.data += gfu_edge # Boundary value stored
-
+     
                 basis.Append(self.gfu.vec)
 
 
@@ -278,15 +299,20 @@ class ACMS:
     ###############################################################
     # VERTEX BASIS
 
-    def calc_vertex_basis(self, basis=None):
+    def calc_vertex_basis(self, verts = None, basis=None):
+        if (verts == None):
+            verts = self.mesh.GetBBoundaries()
+
         if (basis == None):
             basis = self.basis_v
-        for j, vertex_name in enumerate(self.mesh.GetBBoundaries()):
+        for j, vertex_name in enumerate(verts):
             gfu_vertex = self.gfu.vec.CreateVector() # Initialise grid function for vertices
             fd = self.V.GetDofs(self.mesh.BBoundaries(vertex_name)) # Gets coarse vertex representation on full mesh
 
             nb_edges = self.mesh.BBoundaries(vertex_name).Neighbours(BND) # Neighbouring edges (geometric object - region)
             nb_dom = self.mesh.BBoundaries(vertex_name).Neighbours(VOL) # Neighbouring subdomains (geometric object - region)
+            # nb_dom = GetVertexNeighbours(vertex_name, self.mesh)
+            # print(nb_dom)
 
             self.gfu.vec[:] = 0
             self.gfu.vec[np.nonzero(fd)[0]] = 1  # Set the grid function to one in the current vertex
@@ -389,7 +415,7 @@ class ACMS:
             #Setting bilinear form: int (Grad u Grad v) d\Omega_j
             uloc, vloc = Vloc.TnT()
             aloc = BilinearForm(Vloc)
-            aloc += grad(uloc) * grad(vloc) * dx(bonus_intorder = self.bi)
+            aloc += self.alpha * grad(uloc) * grad(vloc) * dx(bonus_intorder = self.bi)
             aloc.Assemble()
 
             #Setting bilinear form: int  u v d\Omega_j
@@ -424,12 +450,13 @@ class ACMS:
                 self.gfu.vec.data = E.T * e.real # Grid funciton on full mesh
                 basis.Append(self.gfu.vec)
 
-    def calc_basis(self):
+
+    def calc_basis(self, verts = None, edges = None):
         start_time = time.time()
-        self.calc_vertex_basis() 
+        self.calc_vertex_basis(verts = verts) 
         vertex_time = time.time() 
         # print("Vertex basis functions computation in --- %s seconds ---" % (vertex_time - start_time))
-        self.calc_edge_basis()
+        self.calc_edge_basis(edges = edges)
         edges_time = time.time() 
         # print("Edge basis functions computation in --- %s seconds ---" % (edges_time - vertex_time))
         self.calc_bubble_basis()

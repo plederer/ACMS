@@ -26,90 +26,248 @@ import time
 
 def unit_disc(maxH):
     
-    l = sqrt(2) # Edge of square
-    r = 1 # Circle radius
+    if True:
+        l = sqrt(2) # Edge of square
+        r = 1 # Circle radius
 
-    circ = WorkPlane().Circle(0, 0, r).Face()
-    rect = WorkPlane().Rotate(45).RectangleC(l, l).Face()
-    quadUR = MoveTo(r/2,r/2).RectangleC(r, r).Face()
-    quadUL = MoveTo(-r/2,r/2).RectangleC(r, r).Face()
-    quadLR = MoveTo(r/2,-r/2).RectangleC(r, r).Face()
-    quadLL = MoveTo(-r/2,-r/2).RectangleC(r, r).Face()
+        circ = WorkPlane().Circle(0, 0, r).Face()
+        rect = WorkPlane().Rotate(45).RectangleC(l, l).Face()
+        quadUR = MoveTo(r/2,r/2).RectangleC(r, r).Face()
+        quadUL = MoveTo(-r/2,r/2).RectangleC(r, r).Face()
+        quadLR = MoveTo(r/2,-r/2).RectangleC(r, r).Face()
+        quadLL = MoveTo(-r/2,-r/2).RectangleC(r, r).Face()
 
-    triangleUR = rect - quadUR 
-    triangleUL = rect - quadUL
-    triangleLR = rect - quadLR
-    triangleLL = rect - quadLL
+        triangleUR = rect - quadUR 
+        triangleUL = rect - quadUL
+        triangleLR = rect - quadLR
+        triangleLL = rect - quadLL
 
-    circ.edges.name = "dom_bnd"
+        dom_bnd = ""
+        
+        # print(circ.edges)
+        # for ei,e in enumerate(circ.edges):
+        #     bnd_name = "dom_bnd_" + str(ei)
+        circ.edges.name = "dom_bnd"
+        # dom_bnd += bnd_name + "|"
 
-    outer = circ - rect
+        # dom_bnd = dom_bnd[:-1]
+        # print(dom_bnd)
+        outer = circ - rect
 
-    shape = Glue([outer, triangleUR, triangleUL, triangleLR, triangleLL])
+        shape = Glue([outer, triangleUR, triangleUL, triangleLR, triangleLL])
 
 
-    # DrawGeo(shape)
+        # DrawGeo(shape)
 
-    mesh = Mesh(OCCGeometry(shape, dim=2).GenerateMesh(maxh = maxH))
-    mesh.Curve(10)
-    # DrawGeo(mesh)
+        mesh = Mesh(OCCGeometry(shape, dim=2).GenerateMesh(maxh = maxH))
+        mesh.Curve(10)
+        # DrawGeo(mesh)
+        
+        nmat = len(mesh.GetMaterials())
+        nbnd = len(mesh.GetBoundaries())
+        nvert = len(mesh.GetBBoundaries())
 
-    print(mesh.nv)
-    # print(mesh.GetMaterials()) # 8 subdomains
-    # print(mesh.GetBoundaries()) # 12 edges
-    # print(mesh.GetBBoundaries()) # 5 vertices
+        for i in range(nmat):
+            mesh.ngmesh.SetMaterial(i+1,"D" + str(i))
 
-    dom_bnd = "dom_bnd"
+        dom_bnd = ""
+
+        bi = 0
+        for i in range(nbnd):
+            if not "dom_bnd" in mesh.ngmesh.GetBCName(i): # != "dom_bnd":
+                mesh.ngmesh.SetBCName(i,"E" + str(i))
+            else:
+                mesh.ngmesh.SetBCName(i,"dom_bnd_" + str(bi))
+                dom_bnd += "dom_bnd_" + str(bi) + "|"
+                bi+=1
+        dom_bnd = dom_bnd[:-1]
+        # print(dom_bnd)
+        
+        for i in range(nvert):
+            mesh.ngmesh.SetCD2Name(i+1,"V" + str(i))
+
+            
+        # print(mesh.nv)
+        # print(mesh.GetMaterials()) # 8 subdomains
+        # print(mesh.GetBoundaries()) # 12 edges
+        # print(mesh.GetBBoundaries()) # 5 vertices
+
+        # quit()
+        return mesh, dom_bnd    
+    else:
+        # # GEOMETRY
+        geo = SplineGeometry()
+        Points = [(0,-1), (1,-1), (1,0), 
+                (1,1), (0,1), (-1,1),
+                (-1,0), (-1,-1), (0,0)]
+
+        bcs_edge = ["c0", "c1", "c2", "c3", 
+                    "m0", "m1", "m2", "m3",
+                    "m4", "m5", "m6", "m7"]
+
+        for i, pnt in enumerate(Points):
+            geo.AddPoint(*pnt, name = "V" + str(i))
+
+        geo.Append(["spline3", 0, 1, 2], leftdomain=1, rightdomain=0, bc="c0")
+        geo.Append(["spline3", 2, 3, 4], leftdomain=2, rightdomain=0, bc="c1")
+        geo.Append(["spline3", 4, 5, 6], leftdomain=3, rightdomain=0, bc="c2")
+        geo.Append(["spline3", 6, 7, 0], leftdomain=4, rightdomain=0, bc="c3")
+        geo.Append(["line", 0, 2], leftdomain=5, rightdomain=1, bc="m0")
+        geo.Append(["line", 2, 4], leftdomain=6, rightdomain=2, bc="m1")
+        geo.Append(["line", 4, 6], leftdomain=7, rightdomain=3, bc="m2")
+        geo.Append(["line", 6, 0], leftdomain=8, rightdomain=4, bc="m3")
+
+        geo.Append(["line", 8, 0], leftdomain=5, rightdomain=8, bc="m4")
+        geo.Append(["line", 8, 2], leftdomain=6, rightdomain=5, bc="m5")
+        geo.Append(["line", 8, 4], leftdomain=7, rightdomain=6, bc="m6")
+        geo.Append(["line", 8, 6], leftdomain=8, rightdomain=7, bc="m7")
+
+        # geo = SplineGeometry()
+        # geo.AddCircle ( (0, 0), r=1, leftdomain=1, rightdomain=0, )
+        dom_bnd = "c0|c1|c2|c3"
+        
+        ngmesh = geo.GenerateMesh(maxh = maxH)
+
+        mesh = Mesh(ngmesh)
+        mesh.Curve(order = 10)
+        for i in range(8):
+            mesh.ngmesh.SetMaterial(i+1,"D" + str(i))
+    
+        # Draw(mesh)
+        # print(mesh.nv)
+        print(mesh.GetMaterials())
+        print(mesh.GetBoundaries())
+        print(mesh.GetBBoundaries())
+        
+        
+
+        return mesh, dom_bnd
+
+
+def crystal_geometry(maxH):
         
     
+    #Crystal mesh
+    r = 0.25 # radius of inclusion
+    Nx = 4 # number of cells in x
+    Ny = 3 # number of cells in y
+    domain = [MoveTo(i,j).RectangleC(1.0,1.0).Face() for i in range(Nx) for j in range(Ny)]
+    inclusion = [MoveTo(0,0).Circle(i,j, r).Face() for i in range(Nx) for j in range(Ny)]
+    outer = [domain[j*Nx+i]-inclusion[j*Nx+i] for i in range(Nx) for j in range(Ny)]
+    inner = [domain[j*Nx+i]*inclusion[j*Nx+i] for i in range(Nx) for j in range(Ny)]
+    o_plus_i = [outer[j*Nx+i] + inclusion[j*Nx+i] for i in range(Nx) for j in range(Ny)] 
+
+    for i in range(Nx):
+        for j in range(Ny):
+            outer[j*Nx+i].faces.name = "outer"+str(j*Nx+i)
+            inner[j*Nx+i].faces.name="inner"+str(j*Nx+i)
+            inner[j*Nx+i].faces.edges.name="inner_edge"+str(j*Nx+i)
+            inner[j*Nx+i].faces.vertices.name="inner_vertex"+str(j*Nx+i)
+            # o_plus_i[j*Nx+i].faces.name="sum"+str(j*Nx+i)
+
+    outershapes = [out_dom for out_dom in outer]
+    innershapes = [in_dom for in_dom in inner]
+    sumshapes = [dom for dom in o_plus_i]
+    crystalshape = Glue(outershapes + innershapes)
+    # crystalshape = Glue(o_plus_i)
+    # geo = OCCGeometry(crystalshape, dim=2)
+    # Draw(geo)
+    # input()
     
     
-    # # GEOMETRY
-    # geo = SplineGeometry()
-    # Points = [(0,-1), (1,-1), (1,0), 
-    #         (1,1), (0,1), (-1,1),
-    #         (-1,0), (-1,-1), (0,0)]
+    # crystalshape.edges.Max(X).name = "dom_bnd"
+    # crystalshape.edges.Min(X).name = "dom_bnd"
+    # crystalshape.edges.Max(Y).name = "dom_bnd"
+    # crystalshape.edges.Min(Y).name = "dom_bnd"
+    # print(crystalshape.edges)
+    # quit()
+    # dom_bnd = "right|left|top|bottom"
+    
+    mesh = Mesh(OCCGeometry(crystalshape, dim=2).GenerateMesh(maxh = maxH))
+    mesh.Curve(10)
 
-    # bcs_edge = ["c0", "c1", "c2", "c3", 
-    #             "m0", "m1", "m2", "m3",
-    #             "m4", "m5", "m6", "m7"]
+    nmat = len(mesh.GetMaterials())
+    nbnd = len(mesh.GetBoundaries())
+    nvert = len(mesh.GetBBoundaries())
+    
+    # for i in range(nmat):
+    #         mesh.ngmesh.SetMaterial(i+1,"D" + str(i))
+            
+    dom_bnd = ""
+    
 
-    # for i, pnt in enumerate(Points):
-    #     geo.AddPoint(*pnt, name = "V" + str(i))
+    bi = 0
+    for i in range(nbnd):
+        if not "dom_bnd" in mesh.ngmesh.GetBCName(i): # != "dom_bnd":
+            if not "inner_edge" in mesh.ngmesh.GetBCName(i): # != "dom_bnd":
+                mesh.ngmesh.SetBCName(i,"E" + str(i))
+        else:
+            mesh.ngmesh.SetBCName(i,"dom_bnd_" + str(bi))
+            dom_bnd += "dom_bnd_" + str(bi) + "|"
+            bi+=1
+    dom_bnd = dom_bnd[:-1]
+    
+    for i in range(nvert):
+        if not "inner_vertex" in mesh.ngmesh.GetCD2Name(i):
+            mesh.ngmesh.SetCD2Name(i+1,"V" + str(i))
 
-    # geo.Append(["spline3", 0, 1, 2], leftdomain=1, rightdomain=0, bc="c0")
-    # geo.Append(["spline3", 2, 3, 4], leftdomain=2, rightdomain=0, bc="c1")
-    # geo.Append(["spline3", 4, 5, 6], leftdomain=3, rightdomain=0, bc="c2")
-    # geo.Append(["spline3", 6, 7, 0], leftdomain=4, rightdomain=0, bc="c3")
-    # geo.Append(["line", 0, 2], leftdomain=5, rightdomain=1, bc="m0")
-    # geo.Append(["line", 2, 4], leftdomain=6, rightdomain=2, bc="m1")
-    # geo.Append(["line", 4, 6], leftdomain=7, rightdomain=3, bc="m2")
-    # geo.Append(["line", 6, 0], leftdomain=8, rightdomain=4, bc="m3")
-
-    # geo.Append(["line", 8, 0], leftdomain=5, rightdomain=8, bc="m4")
-    # geo.Append(["line", 8, 2], leftdomain=6, rightdomain=5, bc="m5")
-    # geo.Append(["line", 8, 4], leftdomain=7, rightdomain=6, bc="m6")
-    # geo.Append(["line", 8, 6], leftdomain=8, rightdomain=7, bc="m7")
-
-    # # geo = SplineGeometry()
-    # # geo.AddCircle ( (0, 0), r=1, leftdomain=1, rightdomain=0, )
-
-    # ngmesh = geo.GenerateMesh(maxh = maxH)
-
-    # mesh = Mesh(ngmesh)
-    # mesh.Curve(order = 10)
-    # for i in range(8):
-    #     mesh.ngmesh.SetMaterial(i+1,"om" + str(i))
-
+    
     # Draw(mesh)
-    # print(mesh.nv)
-    # # print(mesh.GetMaterials())
-    # # print(mesh.GetBoundaries())
-    # # print(mesh.GetBBoundaries())
-
-    # dom_bnd = "c0|c1|c2|c3"
-
     return mesh, dom_bnd
+
+
+# mesh, dom = crystal_geometry(0.1)
+
+# ########################
+# # definition of diffusion coefficient
+# coeffs = {}
+# alpha_outer = 10
+# alpha_inner = 1
+
+# for d in range(len(mesh.GetMaterials())):
+#     dom_name = mesh.ngmesh.GetMaterial(d+1) 
+#     if "outer" in dom_name:
+#         coeffs[dom_name] = alpha_outer
+#     else:
+#         coeffs[dom_name] = alpha_inner
+
+# alpha = mesh.MaterialCF(coeffs, default=0)
+
+# V = L2(mesh, order = 0)
+# gfalpha = GridFunction(L2(mesh, order = 0))
+# gfalpha.Set(alpha)
+
+# ########################
+# # rename inner domains 
+# # give them the same name as the outer one has
+# # inner name just used 
+# nmat = len(mesh.GetMaterials())
+
+# for d in range(nmat):
+#     if "inner" in mesh.ngmesh.GetMaterial(d+1):
+#         mesh.ngmesh.SetMaterial(d+1, "outer" + str(d-int(nmat/2)))
+
+# ########################
+
+# dir_edges = ""
+# edge_basis = []
+# for e in range(len(mesh.GetBoundaries())):
+#     if not "inner_edge" in mesh.ngmesh.GetBCName(e):
+#         dir_edges += mesh.ngmesh.GetBCName(e) + "|"
+#         edge_basis.append(mesh.ngmesh.GetBCName(e))
+
+# dir_edges = dir_edges[:-1]
+
+# vertex_basis = []
+# for v in range(len(mesh.GetBBoundaries())):
+#     if not "inner_vertex" in mesh.ngmesh.GetCD2Name(v):
+#         vertex_basis.append(mesh.ngmesh.GetCD2Name(v))
+
+# # for testing 
+# acms = ACMS(order = 3, mesh = mesh, bm = 1, em = 1, bi = 10, dirichlet = dir_edges, alpha = gfalpha)
+# acms.CalcHarmonicExtensions(kappa = 1)
+
+# acms.calc_basis(verts= vertex_basis, edges = edge_basis)
 
 
 ##################################################################
@@ -308,6 +466,7 @@ def acms_solution(mesh, dom_bnd, Bubble_modes, Edge_modes, order_v, kappa, omega
                 acms.CalcHarmonicExtensions(kappa = kappa)
                 acms.calc_basis()
             
+                Draw(gfu, mesh, "basis")
 
                 for EM in Edge_modes:
 
@@ -318,7 +477,7 @@ def acms_solution(mesh, dom_bnd, Bubble_modes, Edge_modes, order_v, kappa, omega
                             if (EM <= acms.edge_modes) and (BM <= acms.bubble_modes):
                                 gfu = GridFunction(V)
                                 basis = MultiVector(gfu.vec, 0)
-
+                                
                                 for bv in acms.basis_v:
                                     gfu.vec.FV()[:] = bv
                                     basis.Append(gfu.vec)
@@ -327,7 +486,6 @@ def acms_solution(mesh, dom_bnd, Bubble_modes, Edge_modes, order_v, kappa, omega
                                     for i in range(EM):
                                         gfu.vec.FV()[:] = acms.basis_e[e * acms.edge_modes + i]
                                         basis.Append(gfu.vec)
-
 
                                 for d, dom in enumerate(mesh.GetMaterials()):
                                     for i in range(BM):
@@ -350,7 +508,7 @@ def acms_solution(mesh, dom_bnd, Bubble_modes, Edge_modes, order_v, kappa, omega
                                 l2_error.append(l2_error_aux)
                                 h1_error_aux = compute_h1_error(gfu, grad_fem, mesh)
                                 h1_error.append(h1_error_aux)
-
+                                
                                 if sol_ex == 1:
                                     Du_ex = CF((u_ex.Diff(x), u_ex.Diff(y))) #If we have analytical solution defined
                                     l2_error_ex_aux = compute_l2_error(gfu,  u_ex, mesh)

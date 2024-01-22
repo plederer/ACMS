@@ -10,30 +10,30 @@ from helmholtz_aux import *
 # no exact solution, 
 # periodic structure (NOT YET IMPLEMENTED -> mesh needs to change)
 
-problem = float(input("Choose the problem. \n 1 = plane wave. \n 2 = local interior source. \n 3 = localised boundary source. \n Problem =  "))
-omega = float(input("Wavenumber k: "))
+# problem = float(input("Choose the problem. \n 1 = plane wave. \n 2 = local interior source. \n 3 = localised boundary source. \n Problem =  "))
+# omega = float(input("Wavenumber k: "))
 
-# ATTENTION: if the mesh is too coarse, we cannot have many bubbles/modes
-maxH = float(input("maxH: "))
-Href = int(input("Number of mesh refinements refH (0 is no refinements): "))
+# # ATTENTION: if the mesh is too coarse, we cannot have many bubbles/modes
+# maxH = float(input("maxH: "))
+# Href = int(input("Number of mesh refinements refH (0 is no refinements): "))
 
-order_v = list(map(int, input("Order of approximation. Vector = ").split())) # Vector [1, 2, 3]
-print("Order of approximation is ", order_v)
+# order_v = list(map(int, input("Order of approximation. Vector = ").split())) # Vector [1, 2, 3]
+# print("Order of approximation is ", order_v)
 
-Bubble_modes = list(map(int, input("Number of bubble modes. Vector = ").split())) # Vector [2,4,8,16,32,64,128]
-print("Number of bubble modes is ", Bubble_modes)
+# Bubble_modes = list(map(int, input("Number of bubble modes. Vector = ").split())) # Vector [2,4,8,16,32,64,128]
+# print("Number of bubble modes is ", Bubble_modes)
 
-Edge_modes = list(map(int, input("Number of edge modes. Vector = ").split())) # Vector [2,4,8,16,32,64,128]
-print("Number of edge modes is ", Edge_modes)
+# Edge_modes = list(map(int, input("Number of edge modes. Vector = ").split())) # Vector [2,4,8,16,32,64,128]
+# print("Number of edge modes is ", Edge_modes)
 
 # for testing
-# problem = 1
-# omega = 1
-# Href = 0
-# maxH = 0.1
-# order_v = [1,2]
-# Bubble_modes = [1]
-# Edge_modes = [1,8]
+problem = 1
+omega = 1
+Href = 0
+maxH = 0.1
+order_v = [1,2]
+Bubble_modes = [1]
+Edge_modes = [1,8]
 
 # Generates the mesh 
 # Creates variables associated with the problem
