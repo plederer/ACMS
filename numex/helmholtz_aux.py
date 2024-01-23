@@ -145,36 +145,46 @@ def unit_disc(maxH):
 
 
 def crystal_geometry(maxH):
-        
-    
     #Crystal mesh
     r = 0.25 # radius of inclusion
     Nx = 4 # number of cells in x
     Ny = 3 # number of cells in y
+    dd = [(i,j) for i in range(Nx) for j in range(Ny)]
+    print(dd)
     domain = [MoveTo(i,j).RectangleC(1.0,1.0).Face() for i in range(Nx) for j in range(Ny)]
     inclusion = [MoveTo(0,0).Circle(i,j, r).Face() for i in range(Nx) for j in range(Ny)]
-    outer = [domain[j*Nx+i]-inclusion[j*Nx+i] for i in range(Nx) for j in range(Ny)]
-    inner = [domain[j*Nx+i]*inclusion[j*Nx+i] for i in range(Nx) for j in range(Ny)]
-    o_plus_i = [outer[j*Nx+i] + inclusion[j*Nx+i] for i in range(Nx) for j in range(Ny)] 
+    outer = [domain[i*Ny+j]-inclusion[i*Ny+j] for i in range(Nx) for j in range(Ny)]
+    inner = [domain[i*Ny+j]*inclusion[i*Ny+j] for i in range(Nx) for j in range(Ny)]
+    
 
     for i in range(Nx):
         for j in range(Ny):
-            outer[j*Nx+i].faces.name = "outer"+str(j*Nx+i)
-            inner[j*Nx+i].faces.name="inner"+str(j*Nx+i)
-            inner[j*Nx+i].faces.edges.name="inner_edge"+str(j*Nx+i)
-            inner[j*Nx+i].faces.vertices.name="inner_vertex"+str(j*Nx+i)
+            outer[i*Ny+j].faces.name = "outer"+str(j*Nx+i)
+            inner[i*Ny+j].faces.name="inner"+str(j*Nx+i)
+            inner[i*Ny+j].faces.edges.name="inner_edge"+str(j*Nx+i)
+            inner[i*Ny+j].faces.vertices.name="inner_vertex"+str(j*Nx+i)
+            if (j == 0) :
+                outer[i*Ny+j].faces.edges.Min(Y).name = "dom_bnd"
+            if (j == (Ny-1)) :
+                outer[i*Ny+j].faces.edges.Max(Y).name = "dom_bnd"
+            if (i == 0):
+                outer[i*Ny+j].faces.edges.Min(X).name = "dom_bnd"
+            if (i == (Ny)) :
+                outer[i*Ny+j].faces.edges.Max(X).name = "dom_bnd"
             # o_plus_i[j*Nx+i].faces.name="sum"+str(j*Nx+i)
 
     outershapes = [out_dom for out_dom in outer]
     innershapes = [in_dom for in_dom in inner]
-    sumshapes = [dom for dom in o_plus_i]
+    # sumshapes = [dom for dom in o_plus_i]
     crystalshape = Glue(outershapes + innershapes)
     # crystalshape = Glue(o_plus_i)
     # geo = OCCGeometry(crystalshape, dim=2)
     # Draw(geo)
     # input()
     
-    
+    # for e in crystalshape.edges:
+    #     e.Max(X).name = "dom_bnd"
+    # print("maxh = ", crystalshape.edges.Max(X))
     # crystalshape.edges.Max(X).name = "dom_bnd"
     # crystalshape.edges.Min(X).name = "dom_bnd"
     # crystalshape.edges.Max(Y).name = "dom_bnd"
@@ -217,9 +227,14 @@ def crystal_geometry(maxH):
 
 
 # mesh, dom = crystal_geometry(0.1)
-
-# ########################
-# # definition of diffusion coefficient
+# print(mesh.GetBoundaries())
+# gfu = GridFunction(H1(mesh, order = 1, dirichlet = dom))
+# gfu.Set(1, BND)
+# Draw(gfu, mesh, "gfu")
+# input()
+# quit()
+########################
+# definition of diffusion coefficient
 # coeffs = {}
 # alpha_outer = 10
 # alpha_inner = 1
@@ -263,17 +278,17 @@ def crystal_geometry(maxH):
 #     if not "inner_vertex" in mesh.ngmesh.GetCD2Name(v):
 #         vertex_basis.append(mesh.ngmesh.GetCD2Name(v))
 
-# # for testing 
+# for testing 
 # acms = ACMS(order = 3, mesh = mesh, bm = 1, em = 1, bi = 10, dirichlet = dir_edges, alpha = gfalpha)
 # acms.CalcHarmonicExtensions(kappa = 1)
 
 # acms.calc_basis(verts= vertex_basis, edges = edge_basis)
 
 
-##################################################################
-##################################################################
-##################################################################
-##################################################################
+#################################################################
+#################################################################
+#################################################################
+#################################################################
 
 
 
