@@ -13,33 +13,6 @@ import time
 """
 **Extension operators**
 
-We need an extension from $\Gamma$ to $\Omega$, which is obtained by combining the extensions of functions from $\partial\Omega_j$ to $\Omega_j$.
-
-For a given $\tau \in H^{1/2}(\partial \Omega_j)$, let $\tilde \tau \in H^1(\Omega_j)$ be any function satisfying $\tilde\tau_{\mid\partial\Omega_j}=\tau$.
-Then, we indicate by $\tilde\tau_0 \in H_0^1(\Omega_j)$ the solution to
-
-\begin{align} 
-    \mathcal{A}_{j} (\tilde\tau_0, v)-(\kappa^2 \tilde\tau_0, v)_{\Omega_j} = -\left(\mathcal{A}_j(\tilde\tau,v)-(\kappa^2 \tilde\tau, v)_{\Omega_j}\right) \quad \forall  v\in  H_0^1(\Omega_j).
-\end{align}
-
-We characterize the $\mathcal{A}$-harmonic extension $E^{j}:H^{1/2}(\partial \Omega_j) \to H^1(\Omega_j)$ by setting 
-    $E^{j}\tau := \tilde\tau+\tilde\tau_0$.
-
-**Lemma** The extension operator $E^{j}:H^{1/2}(\partial \Omega_j) \to H^1(\Omega_j)$ is bounded, that is,
-    \begin{equation}
-        \|E^{j}\tau\|_{\mathcal{B}}\leq (1+\frac{1}{\beta^j})\|\tilde\tau\|_{\mathcal{B}},
-    \end{equation}
-    where $\tilde \tau\in H^1(\Omega_j)$ is any extension of $\tau\in \ H^{1/2}(\partial \Omega_j)$.
-    
-
-We note the following orthogonality relation, which is a crucial property for the construction of the ACMS  spaces: for all bubble functions $b_i^j \in H_0^1(\Omega_j)$, we have
-\begin{align}
-		\mathcal{A}_{j}(E^j \tau,b_i^j)-(\kappa^2 E^j \tau,b_i^j)_{\Omega_j}=0.
-\end{align}
-
-Assume that $e=\partial\Omega_j \cap \partial\Omega_i\in \mathcal{E}$ is a common edge of $\Omega_i$ and $\Omega_j$. Let $\tau \in H^{1/2}(\Gamma)$, which, by restriction, implies $\tau\in H^{1/2}(\partial \Omega_j)$ and $\tau\in H^{1/2}(\partial \Omega_i)$.
-
-
 Extension on interface: $E^{\Gamma} : H^{1/2}(\Gamma) \to H^1_D(\Omega)$ by $(E^{\Gamma} \tau)_{\mid\Omega_j} = E^{j} \tau_{\mid \partial \Omega_j}$, for all $j = 1,\ldots,J$. 
 
 Extension on edges: $E^{\Gamma} : H^{1/2}_{00}(e) \to H^1_D(\Omega)$ via $E^{\Gamma} \tau = E^{\Gamma} E_0^e\tau$, where $E_0^e: H^{1/2}_{00}(e)  \to H^{1/2}(\Gamma)$ denotes the extension by zero to the interface $\Gamma$.
@@ -63,11 +36,11 @@ def GetVertexNeighbours(vname, mesh):
 # EXTENSIONS
 
 class ACMS:
-    def __init__(self, order, mesh, bm = 0, em = 0, dirichlet = ".*", bi = 0, alpha = 1):
+    def __init__(self, order, mesh, bm = 0, em = 0, mesh_info = None, bi = 0, alpha = 1):
         self.order = order # Polynomial degree of approximation
-        self.dirichlet = dirichlet
+        self.dirichlet = mesh_info["dir_edges"]
         self.mesh = mesh
-        self.V = H1(mesh, order = order, dirichlet = dirichlet)
+        self.V = H1(mesh, order = order, dirichlet = self.dirichlet)
         self.gfu = GridFunction(self.V)
 
         self.edge_extensions = {}
@@ -81,6 +54,10 @@ class ACMS:
         self.basis_b = MultiVector(self.gfu.vec, 0)
         
         self.alpha = alpha
+        self.verts = mesh_info["verts"]
+        self.edges = mesh_info["edges"]
+        self.doms = list( dict.fromkeys(mesh.GetMaterials()) )
+        
 
         self.bi = bi 
 
@@ -170,10 +147,7 @@ class ACMS:
     """
     **Edge basis**
 
-    Same for elliptic or Helmholtz case (changes the extension).
-
-    Let us consider $e\in\mathcal{E}$ and denote by $\partial_e$ the tangential derivative, i.e., differentiation along $e$.
-    We define the edge modes as solutions to the following weak formulation of the edge-Laplace eigenvalue problems: for each $e\in\mathcal{E}$, for $i \in \mathbb{N}$, find $(\tau^e_i,\lambda^e_i)\in H^{1/2}_{00}(e) \times\mathbb{R}$ such that
+    For each $e\in\mathcal{E}$, for $i \in \mathbb{N}$, find $(\tau^e_i,\lambda^e_i)\in H^{1/2}_{00}(e) \times\mathbb{R}$ such that
     \begin{align}
     (\partial_e \tau^e_i,\partial_e \eta)_e =\lambda^e_i ( \tau^e_i, \eta)_e \quad \text{for all } \eta\in H^{1/2}_{00}(e).
     \end{align}
@@ -183,8 +157,15 @@ class ACMS:
     # EDGE MODES
 
     def CalcMaxEdgeModes(self):
-        for edge_name in self.mesh.GetBoundaries():
-            vertex_dofs = self.V.GetDofs(self.mesh.BBoundaries(".*")) # Global vertices (coarse mesh)
+        for edge_name in self.edges:
+            dirverts = ""
+            for v in self.verts:
+                dirverts += v + "|"
+
+            dirverts = dirverts[:-1]
+            # vertex_dofs = self.V.GetDofs(self.mesh.BBoundaries(".*")) # Global vertices (coarse mesh)
+            vertex_dofs = self.V.GetDofs(self.mesh.BBoundaries(dirverts)) # Global vertices (coarse mesh)
+
             fd = self.V.GetDofs(self.mesh.Boundaries(edge_name)) & (~vertex_dofs) 
             base_space = H1(self.mesh, order = self.order, dirichlet = self.dirichlet) # Creating Sobolev space
             Vloc = Compress(base_space, fd)
@@ -193,15 +174,12 @@ class ACMS:
                 print("Maximum number of edge modes exceeded - All edge modes are used")
                 self.edge_modes = Vloc.ndof - 2
             
-    def calc_edge_basis(self, edges = None, basis=None):
-        if (edges == None):
-            edges = self.mesh.GetBoundaries()
-
+    def calc_edge_basis(self, basis=None):
         if (basis == None):
             basis = self.basis_e
         self.CalcMaxEdgeModes()
         
-        for edge_name in edges:
+        for edge_name in self.edges:
             vertex_dofs = self.V.GetDofs(self.mesh.BBoundaries(".*")) # Global vertices (coarse mesh)
             fd = self.V.GetDofs(self.mesh.Boundaries(edge_name)) & (~vertex_dofs) 
             # Vertices on a specific edge with boundaries removed (global vertices)
@@ -271,7 +249,8 @@ class ACMS:
                         # Vharm.Embed(gfu_extension.vec, gfu_edge)
                         gfu_edge.data = E.T * gfu_extension.vec
                         self.gfu.vec.data += gfu_edge # Boundary value stored
-     
+                # Draw(self.gfu, self.mesh, "basis")
+                # input()
                 basis.Append(self.gfu.vec)
 
 
@@ -299,13 +278,10 @@ class ACMS:
     ###############################################################
     # VERTEX BASIS
 
-    def calc_vertex_basis(self, verts = None, basis=None):
-        if (verts == None):
-            verts = self.mesh.GetBBoundaries()
-
+    def calc_vertex_basis(self, basis=None):
         if (basis == None):
             basis = self.basis_v
-        for j, vertex_name in enumerate(verts):
+        for j, vertex_name in enumerate(self.verts):
             gfu_vertex = self.gfu.vec.CreateVector() # Initialise grid function for vertices
             fd = self.V.GetDofs(self.mesh.BBoundaries(vertex_name)) # Gets coarse vertex representation on full mesh
 
@@ -343,6 +319,7 @@ class ACMS:
                     gfu_vertex.data = E.T * gfu_extension.vec
                     self.gfu.vec.data += gfu_vertex # Storing the current extension
             
+            
             gfu_edge = self.gfu.vec.CreateVector()
             
             # Then extend to subdomains
@@ -363,7 +340,7 @@ class ACMS:
                     # Vharm.Embed(gfu_extension.vec, gfu_edge)
                     gfu_edge.data = E.T * gfu_extension.vec
                     self.gfu.vec.data += gfu_edge
-
+            
             if (Norm(self.gfu.vec) > 1):
                 basis.Append(self.gfu.vec)
 
@@ -373,13 +350,6 @@ class ACMS:
 
     """
     **Bubble functions**
-
-
-    **Elliptic case:** Let us define the local bilinear form $\mathcal{A}{j}: H^1(\Omega_j) \times H^1(\Omega_j) \to \mathbb{R}$ with domain of integration $\Omega_j$ instead of $\Omega$.
-    Since $\mathcal{A}_{j}$ is symmetric, we can consider the eigenproblems: for $j=1,...,J$ and $i \in \mathbb{N}$, find $(b_i^j,\lambda_i^j)\in H_0^1(\Omega_j) \times \mathbb{R}$ such that
-    \begin{align}
-        \mathcal{A}_{j}(b_i^j,v)= \lambda_i^j ( b_i^j,v)_{\Omega_j} \quad \forall v \in H_0^1(\Omega_j).
-    \end{align}
 
     **Helmholtz case:** Let us define the local sesquilinear form $\mathcal{A}{j}: H^1(\Omega_j) \times H^1(\Omega_j) \to \mathbb{C}$ with domain of integration $\Omega_j$ instead of $\Omega$.
     Since $\mathcal{A}_{j}$ is Hermitian, we can consider the eigenproblems: for $j=1,...,J$ and $i \in \mathbb{N}$, find $(b_i^j,\lambda_i^j)\in H)0^1(\Omega_j) \times \mathbb{R}$ such that
@@ -391,7 +361,7 @@ class ACMS:
     # BUBBLE FUNCTIONS
 
     def CalcMaxBubbleModes(self):
-        for mat_name in self.mesh.GetMaterials(): # Subdomains labels
+        for mat_name in self.doms: #self.mesh.GetMaterials(): # Subdomains labels
             # DOFS that are in the interior of the subdomain (excludes edges)
             fd = self.V.GetDofs(self.mesh.Materials(mat_name)) & self.V.FreeDofs()
             Vloc = Compress(H1(self.mesh, order = self.order, dirichlet = self.dirichlet), fd)
@@ -407,7 +377,7 @@ class ACMS:
             basis = self.basis_b
         self.CalcMaxBubbleModes()
             
-        for mat_name in self.mesh.GetMaterials(): # Subdomains labels
+        for mat_name in self.doms: # Subdomains labels
             # DOFS that are in the interior of the subdomain (excludes edges)
             fd = self.V.GetDofs(self.mesh.Materials(mat_name)) & self.V.FreeDofs()
             Vloc = Compress(H1(self.mesh, order = self.order, dirichlet = self.dirichlet), fd)
@@ -449,14 +419,14 @@ class ACMS:
                 # Vloc.Embed(e.real, gfu.vec)
                 self.gfu.vec.data = E.T * e.real # Grid funciton on full mesh
                 basis.Append(self.gfu.vec)
+            
 
-
-    def calc_basis(self, verts = None, edges = None):
+    def calc_basis(self):
         start_time = time.time()
-        self.calc_vertex_basis(verts = verts) 
+        self.calc_vertex_basis() 
         vertex_time = time.time() 
         # print("Vertex basis functions computation in --- %s seconds ---" % (vertex_time - start_time))
-        self.calc_edge_basis(edges = edges)
+        self.calc_edge_basis()
         edges_time = time.time() 
         # print("Edge basis functions computation in --- %s seconds ---" % (edges_time - vertex_time))
         self.calc_bubble_basis()

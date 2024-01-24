@@ -32,9 +32,9 @@ ACMS_flag = 0
 omega = 1
 Href = 0
 maxH = 0.1
-order_v = [1,2]
+order_v = [2]
 Bubble_modes = [1]
-Edge_modes = [1,8]
+Edge_modes = [8]
 
 
 # Generates the mesh 

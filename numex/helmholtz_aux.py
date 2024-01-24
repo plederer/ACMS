@@ -27,6 +27,24 @@ import time
 ##################################################################
 ##################################################################
 
+def GetMeshinfo(mesh):
+    dir_edges = ""
+    edge_basis = []
+
+    for e in range(len(mesh.GetBoundaries())):
+        if not "inner_edge" in mesh.ngmesh.GetBCName(e):
+            dir_edges += mesh.ngmesh.GetBCName(e) + "|"
+            edge_basis.append(mesh.ngmesh.GetBCName(e))
+
+    dir_edges = dir_edges[:-1]
+
+    vertex_basis = []
+    for v in range(len(mesh.GetBBoundaries())):
+        if not "inner_vertex" in mesh.ngmesh.GetCD2Name(v):
+            vertex_basis.append(mesh.ngmesh.GetCD2Name(v))
+
+    return {"dir_edges": dir_edges, "verts": vertex_basis, "edges": edge_basis }
+    # return dir_edges, vertex_basis, edge_basis
 
 def unit_disc(maxH):
     
@@ -96,10 +114,12 @@ def unit_disc(maxH):
         # print(mesh.GetBoundaries()) # 12 edges
         # print(mesh.GetBBoundaries()) # 5 vertices
 
-        alpha = mesh.MaterialCF(1, default=0)
-        
-        
-        return mesh, dom_bnd, alpha
+        alpha = 1 #mesh.MaterialCF(1, default=0)
+
+        mesh_info = GetMeshinfo(mesh)
+
+        return mesh, dom_bnd, alpha, mesh_info
+
     
     else: #Old mesh definition
         # # GEOMETRY
@@ -154,10 +174,11 @@ def unit_disc(maxH):
 def crystal_geometry(maxH):
     #Crystal mesh
     r = 0.25 # radius of inclusion
-    Nx = 4 # number of cells in x
-    Ny = 3 # number of cells in y
-    dd = [(i,j) for i in range(Nx) for j in range(Ny)]
-    print(dd)
+
+    Nx = 2 # number of cells in x
+    Ny = 2 # number of cells in y
+    # dd = [(i,j) for i in range(Nx) for j in range(Ny)]
+    # print(dd)
     domain = [MoveTo(i,j).RectangleC(1.0,1.0).Face() for i in range(Nx) for j in range(Ny)]
     inclusion = [MoveTo(0,0).Circle(i,j, r).Face() for i in range(Nx) for j in range(Ny)]
     outer = [domain[i*Ny+j]-inclusion[i*Ny+j] for i in range(Nx) for j in range(Ny)]
@@ -166,19 +187,22 @@ def crystal_geometry(maxH):
 
     for i in range(Nx):
         for j in range(Ny):
-            outer[i*Ny+j].faces.name = "outer"+str(j*Nx+i)
-            inner[i*Ny+j].faces.name="inner"+str(j*Nx+i)
-            inner[i*Ny+j].faces.edges.name="inner_edge"+str(j*Nx+i)
-            inner[i*Ny+j].faces.vertices.name="inner_vertex"+str(j*Nx+i)
+            outer[i*Ny+j].faces.name = "outer"+str(i*Ny+j)
+            inner[i*Ny+j].faces.name="inner"+str(i*Ny+j)
+            inner[i*Ny+j].faces.edges.name="inner_edge"+str(i*Ny+j)
+            inner[i*Ny+j].faces.vertices.name="inner_vertex"+str(i*Ny+j)
             if (j == 0) :
                 outer[i*Ny+j].faces.edges.Min(Y).name = "dom_bnd"
             if (j == (Ny-1)) :
                 outer[i*Ny+j].faces.edges.Max(Y).name = "dom_bnd"
             if (i == 0):
                 outer[i*Ny+j].faces.edges.Min(X).name = "dom_bnd"
-            if (i == (Ny)) :
+            if (i == (Nx-1)) :
                 outer[i*Ny+j].faces.edges.Max(X).name = "dom_bnd"
-            # o_plus_i[j*Nx+i].faces.name="sum"+str(j*Nx+i)
+    
+    # # umber of layer on the top and the bottom
+    # Nyl = 2
+
 
     outershapes = [out_dom for out_dom in outer]
     innershapes = [in_dom for in_dom in inner]
@@ -229,15 +253,10 @@ def crystal_geometry(maxH):
             mesh.ngmesh.SetCD2Name(i+1,"V" + str(i))
 
 
-    # return mesh, dom_bnd
-
-
-    # mesh, dom = crystal_geometry(0.1)
-
     # ########################
     # definition of diffusion coefficient
     coeffs = {}
-    alpha_outer = 10
+    alpha_outer = 1
     alpha_inner = 1
 
     for d in range(len(mesh.GetMaterials())):
@@ -247,8 +266,13 @@ def crystal_geometry(maxH):
         else:
             coeffs[dom_name] = alpha_inner
 
-    alpha = mesh.MaterialCF(coeffs, default=0)
+    alpha_cf = mesh.MaterialCF(coeffs, default=0)
     
+    alpha = GridFunction(L2(mesh, order = 0))
+    alpha.Set(alpha_cf)
+    # alpha.Set(1, definedon = mesh.Materials("inner5|outer5"))
+    # Draw(alpha, mesh, "alpha")
+    # input()
     # ########################
     # rename inner domains 
     # give them the same name as the outer one has
@@ -258,8 +282,31 @@ def crystal_geometry(maxH):
     for d in range(nmat):
         if "inner" in mesh.ngmesh.GetMaterial(d+1):
             mesh.ngmesh.SetMaterial(d+1, "outer" + str(d-int(nmat/2)))
+
+    mesh_info = GetMeshinfo(mesh)
     
-    return mesh, dom_bnd, alpha
+    # print(mesh.GetMaterials())
+    # print(mesh.GetBoundaries())
+
+    # V = H1(mesh, order = 1, dirichlet = dom_bnd)
+    # gfu = GridFunction(V)
+    # gfu.Set(1, BND)
+    # Draw(gfu)
+    # input()
+    # print(dom_bnd)
+    # quit()
+    alpha = 1
+    return mesh, dom_bnd, alpha, mesh_info
+
+
+
+# mesh, dom, alpha = crystal_geometry(0.1)
+
+# Draw(mesh)
+# print(dom)
+# Draw(alpha, mesh, "alpha")
+
+# input()
 
 # V = L2(mesh, order = 0)
 # gfalpha = GridFunction(L2(mesh, order = 0))
@@ -269,19 +316,6 @@ def crystal_geometry(maxH):
 
 # ########################
 
-# dir_edges = ""
-# edge_basis = []
-# for e in range(len(mesh.GetBoundaries())):
-#     if not "inner_edge" in mesh.ngmesh.GetBCName(e):
-#         dir_edges += mesh.ngmesh.GetBCName(e) + "|"
-#         edge_basis.append(mesh.ngmesh.GetBCName(e))
-
-# dir_edges = dir_edges[:-1]
-
-# vertex_basis = []
-# for v in range(len(mesh.GetBBoundaries())):
-#     if not "inner_vertex" in mesh.ngmesh.GetCD2Name(v):
-#         vertex_basis.append(mesh.ngmesh.GetCD2Name(v))
 
 # for testing 
 # acms = ACMS(order = 3, mesh = mesh, bm = 1, em = 1, bi = 10, dirichlet = dir_edges, alpha = gfalpha)
@@ -302,7 +336,7 @@ def problem_definition(problem, maxH, omega):
     if problem ==1:  #Problem setting - PLANE WAVE
         
         # #Generate mesh: unit disco with 8 subdomains
-        mesh, dom_bnd, alpha = unit_disc(maxH)
+        mesh, dom_bnd, alpha, mesh_info = unit_disc(maxH)
     
         kappa = omega
         k = kappa * CF((0.6,0.8)) #CF = CoefficientFunction
@@ -312,11 +346,14 @@ def problem_definition(problem, maxH, omega):
         g = -1j * (k[0] * x + k[1] * y) * u_ex - 1j *beta * kappa * u_ex
         Du_ex = CF((u_ex.Diff(x), u_ex.Diff(y)))
         sol_ex = 1
+        dir_edges = ".*"
+
+        
 
     elif problem == 2:  #Problem setting - INTERIOR SOURCE
 
         # #Generate mesh: unit disco with 8 subdomains
-        mesh, dom_bnd, alpha = unit_disc(maxH)
+        mesh, dom_bnd, alpha, mesh_info = unit_disc(maxH)
             
         class Point: 
             def __init__(self):
@@ -334,12 +371,13 @@ def problem_definition(problem, maxH, omega):
         g = 0
         u_ex = 0
         sol_ex = 0
+        dir_edges = ".*"
 
 
     elif problem == 3:  #Problem setting - BOUNDARY SOURCE
 
         # #Generate mesh: unit disco with 8 subdomains
-        mesh, dom_bnd, alpha = unit_disc(maxH)
+        mesh, dom_bnd, alpha, mesh_info = unit_disc(maxH)
             
         class Point: 
             def __init__(self):
@@ -357,12 +395,13 @@ def problem_definition(problem, maxH, omega):
         g = exp(-200 * ((x-P.x)**2 + (y-P.y)**2))
         u_ex = 0
         sol_ex = 0
+        dir_edges = ".*"
 
 
     elif problem == 4:  #Problem setting - PERIODIC CRYSTAL
 
         # #Generate mesh: unit disco with 8 subdomains
-        mesh, dom_bnd, alpha = crystal_geometry(maxH)
+        mesh, dom_bnd, alpha, mesh_info = crystal_geometry(maxH)
         
         class Point: 
             def __init__(self):
@@ -371,19 +410,26 @@ def problem_definition(problem, maxH, omega):
 
         # omega = 100
         kappa = omega
-        k = kappa * CF((0.6,0.8)) #CF = CoefficientFunction
+        # k = kappa * CF((0.6,0.8)) #CF = CoefficientFunction
+        k = kappa * CF((1,0)) #CF = CoefficientFunction
         beta = 1
         # p = (0, 1/2)
         P = Point()
-        P.x = 0
-        P.y = 1/2
+        P.x = -0.5
+        P.y = 1
         f = 0 
-        g = exp(-1j * (k[0] * x + k[1] * y)) * exp(-100 * ((x-P.x)**2 + (y-P.y)**2))
+        # g = exp(-1j * (k[0] * x + k[1] * y)) * exp(-100 * ((x-P.x)**2 + (y-P.y)**2))
+        g = exp(-100 * ((x-P.x)**2 + (y-P.y)**2))
+        # g = x #exp(-100 * ((x-P.x)**2 + (y-P.y)**2))
+        Draw(g, mesh, "g")
+        # input()
         u_ex = 0
         sol_ex = 0
+        # print(mesh_info)
+        # quit()
 
 
-    return mesh, dom_bnd, alpha, kappa, beta, f, g, sol_ex, u_ex
+    return mesh, dom_bnd, alpha, kappa, beta, f, g, sol_ex, u_ex, mesh_info
 
 
 ##################################################################
@@ -400,12 +446,13 @@ def ground_truth(mesh, dom_bnd, alpha, kappa, omega, beta, f, g, ord):
     # SetNumThreads(8)
     with TaskManager():
         V = H1(mesh, order = ord, complex = True)
+        
         u, v = V.TnT()
 
         a = BilinearForm(V)
         a += alpha * grad(u) * grad(v) * dx() 
-        a += - kappa**2 * u * v * dx()  
-        a += -1J * omega * beta * u * v * ds(dom_bnd)
+        a += - kappa**2 * u * v * dx()
+        a += -1J * omega * beta * u * v * ds(dom_bnd, bonus_intorder = 10)
         a.Assemble()
 
         l = LinearForm(V)
@@ -418,6 +465,8 @@ def ground_truth(mesh, dom_bnd, alpha, kappa, omega, beta, f, g, ord):
         gfu_fem.vec.data = ainv * l.vec
         print("FEM finished")
 
+        Draw(gfu_fem, mesh,"ufem")
+        # input()
         grad_fem = Grad(gfu_fem)
     
     return gfu_fem, grad_fem
@@ -460,7 +509,7 @@ def compute_l2_error(gfu, gfu_fem, mesh):
 ##################################################################
 ##################################################################
   
-def acms_solution(mesh, dom_bnd, alpha, Bubble_modes, Edge_modes, order_v, kappa, omega, beta, f, g, gfu_fem, sol_ex, u_ex):
+def acms_solution(mesh, dom_bnd, alpha, Bubble_modes, Edge_modes, order_v, kappa, omega, beta, f, g, gfu_fem, sol_ex, u_ex, mesh_info):
     #  ACMS RESOLUTION
 
     l2_error = []
@@ -512,12 +561,13 @@ def acms_solution(mesh, dom_bnd, alpha, Bubble_modes, Edge_modes, order_v, kappa
                 #Computing full basis with max number of modes 
                 # bi = bonus int order - should match the curved mesh order
                 # print("max = ", max_em)
-                acms = ACMS(order = order, mesh = mesh, bm = max_bm, em = max_em, bi = 10)
+                acms = ACMS(order = order, mesh = mesh, bm = max_bm, em = max_em, bi = 10, mesh_info = mesh_info)
+                #dirichlet = mesh_info["dir_edges"])
                 acms.CalcHarmonicExtensions(kappa = kappa)
                 acms.calc_basis()
             
-                Draw(gfu, mesh, "basis")
-
+                # Draw(gfu, mesh, "basis")
+                # print("sadfsadfaf")
                 for EM in Edge_modes:
 
                         for BM in Bubble_modes:
@@ -531,29 +581,52 @@ def acms_solution(mesh, dom_bnd, alpha, Bubble_modes, Edge_modes, order_v, kappa
                                 for bv in acms.basis_v:
                                     gfu.vec.FV()[:] = bv
                                     basis.Append(gfu.vec)
-
-                                for e, label in enumerate(mesh.GetBoundaries()):
+                                    
+                                # print(acms.edge_modes)
+                                for e, label in enumerate(mesh_info["edges"]):
                                     for i in range(EM):
                                         gfu.vec.FV()[:] = acms.basis_e[e * acms.edge_modes + i]
                                         basis.Append(gfu.vec)
 
-                                for d, dom in enumerate(mesh.GetMaterials()):
+                                doms = list( dict.fromkeys(mesh.GetMaterials()) )
+                                # print(doms)
+                                for d, dom in enumerate(doms):
                                     for i in range(BM):
                                         gfu.vec.FV()[:] = acms.basis_b[d * acms.bubble_modes + i]
                                         basis.Append(gfu.vec)
 
+                                # input()
+                                print("finished basis")
+                                # print("asdfasdffinished_acms")
 
                                 num = len(basis)
+                                print("ndofs = ", num)
+                                Draw(gfu, mesh, "basis")
+                                for b in range(num):
+                                    gfu.vec.FV()[:] = basis[b]
+                                    Redraw()
+                                    print("b = ", b)
+                                    print(Norm(gfu.vec))
+                                    input()
+                                # input()
                                 dofs.append(num)
 
                                 asmall = InnerProduct (basis, a.mat * basis, conjugate = False) #Complex
+                                # print(asmall)
+                                quit()
+                                print("finished asmall")
+                                
                                 ainvsmall = Matrix(numpy.linalg.inv(asmall))
+                                print("finished inverse")
                                 f_small = InnerProduct(basis, l.vec, conjugate = False)
                                 usmall = ainvsmall * f_small
                                 gfu.vec[:] = 0.0
                                 gfu.vec.data = basis * usmall
+                                Draw(gfu, mesh, "uacms")
                                 print("finished_acms")
-
+                                input()
+                                
+                                
                                 l2_error_aux = compute_l2_error(gfu, gfu_fem, mesh)
                                 l2_error.append(l2_error_aux)
                                 h1_error_aux = compute_h1_error(gfu, grad_fem, mesh)
@@ -624,7 +697,7 @@ def acms_solution(mesh, dom_bnd, alpha, Bubble_modes, Edge_modes, order_v, kappa
 
 def main(maxH, problem, omega, order_v, Bubble_modes, Edge_modes):
     # Variables setting
-    mesh, dom_bnd, alpha, kappa, beta, f, g, sol_ex, u_ex = problem_definition(problem, maxH, omega)
+    mesh, dom_bnd, alpha, kappa, beta, f, g, sol_ex, u_ex, mesh_info = problem_definition(problem, maxH, omega)
     plot_error = 0
     Draw(mesh)
     
@@ -633,7 +706,7 @@ def main(maxH, problem, omega, order_v, Bubble_modes, Edge_modes):
     
     # Solve ACMS system and compute H1 error
     
-    ndofs, dofs, l2_error_fem, l2_error_ex, h1_error_fem, h1_error_ex, l2_error_NodInt, h1_error_NodInt, l2_error_FEMex, h1_error_FEMex = acms_solution(mesh, dom_bnd, alpha, Bubble_modes, Edge_modes, order_v, kappa, omega, beta, f, g, gfu_fem, sol_ex, u_ex)    
+    ndofs, dofs, l2_error_fem, l2_error_ex, h1_error_fem, h1_error_ex, l2_error_NodInt, h1_error_NodInt, l2_error_FEMex, h1_error_FEMex = acms_solution(mesh, dom_bnd, alpha, Bubble_modes, Edge_modes, order_v, kappa, omega, beta, f, g, gfu_fem, sol_ex, u_ex, mesh_info)    
     
     # Save both H1 and H1-relative errors on file named "file_name.npz" 
     # It needs to be loaded to be readable
