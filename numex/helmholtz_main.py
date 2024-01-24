@@ -27,13 +27,15 @@ from helmholtz_aux import *
 # print("Number of edge modes is ", Edge_modes)
 
 # for testing
-problem = 1
+problem = 4
+ACMS_flag = 0
 omega = 1
 Href = 0
 maxH = 0.1
 order_v = [1,2]
 Bubble_modes = [1]
 Edge_modes = [1,8]
+
 
 # Generates the mesh 
 # Creates variables associated with the problem
@@ -50,7 +52,7 @@ for h in maxH/(2**np.arange(0, Href + 1 , 1)):
     file_name, Errors = main(h, problem, omega, order_v, Bubble_modes, Edge_modes) 
     
     file_path = f"./Results/" + file_name + ".npz"
-    table_header, table_content, table_end = process_file(file_path, 1)
+    table_header, table_content, table_end = process_file(file_path, ACMS_flag)
     table_content_aux += table_content + "\\\\\n"
     
 print(table_header + table_content_aux + table_end)    
