@@ -3,11 +3,15 @@
 from ngsolve import *
 from netgen.geom2d import *
 
+
 import numpy 
 import scipy.linalg
 import scipy.sparse as sp
 
 from netgen.occ import *
+from ngsolve.webgui import Draw
+from netgen.webgui import Draw as DrawGeo
+
 from helping_functions import *
 from helmholtz_savefiles import *
 
@@ -26,7 +30,7 @@ import time
 
 def unit_disc(maxH):
     
-    if True:
+    if True: #New mesh definition
         l = sqrt(2) # Edge of square
         r = 1 # Circle radius
 
@@ -61,7 +65,7 @@ def unit_disc(maxH):
 
         mesh = Mesh(OCCGeometry(shape, dim=2).GenerateMesh(maxh = maxH))
         mesh.Curve(10)
-        # DrawGeo(mesh)
+        Draw(mesh)
         
         nmat = len(mesh.GetMaterials())
         nbnd = len(mesh.GetBoundaries())
@@ -92,9 +96,12 @@ def unit_disc(maxH):
         # print(mesh.GetBoundaries()) # 12 edges
         # print(mesh.GetBBoundaries()) # 5 vertices
 
-        # quit()
-        return mesh, dom_bnd    
-    else:
+        alpha = mesh.MaterialCF(1, default=0)
+        
+        
+        return mesh, dom_bnd, alpha
+    
+    else: #Old mesh definition
         # # GEOMETRY
         geo = SplineGeometry()
         Points = [(0,-1), (1,-1), (1,0), 
@@ -167,7 +174,7 @@ def crystal_geometry(maxH):
 
     outershapes = [out_dom for out_dom in outer]
     innershapes = [in_dom for in_dom in inner]
-    sumshapes = [dom for dom in o_plus_i]
+    # sumshapes = [dom for dom in o_plus_i]
     crystalshape = Glue(outershapes + innershapes)
     # crystalshape = Glue(o_plus_i)
     # geo = OCCGeometry(crystalshape, dim=2)
@@ -197,7 +204,7 @@ def crystal_geometry(maxH):
     
 
     bi = 0
-    for i in range(nbnd):
+    for i in range(nbnd): #
         if not "dom_bnd" in mesh.ngmesh.GetBCName(i): # != "dom_bnd":
             if not "inner_edge" in mesh.ngmesh.GetBCName(i): # != "dom_bnd":
                 mesh.ngmesh.SetBCName(i,"E" + str(i))
@@ -207,45 +214,48 @@ def crystal_geometry(maxH):
             bi+=1
     dom_bnd = dom_bnd[:-1]
     
-    for i in range(nvert):
+    for i in range(nvert): #Removing vertices on circles
         if not "inner_vertex" in mesh.ngmesh.GetCD2Name(i):
             mesh.ngmesh.SetCD2Name(i+1,"V" + str(i))
 
-    
-    # Draw(mesh)
-    return mesh, dom_bnd
+
+    # return mesh, dom_bnd
 
 
 # mesh, dom = crystal_geometry(0.1)
 
 # ########################
-# # definition of diffusion coefficient
-# coeffs = {}
-# alpha_outer = 10
-# alpha_inner = 1
+    # definition of diffusion coefficient
+    coeffs = {}
+    alpha_outer = 10
+    alpha_inner = 1
 
-# for d in range(len(mesh.GetMaterials())):
-#     dom_name = mesh.ngmesh.GetMaterial(d+1) 
-#     if "outer" in dom_name:
-#         coeffs[dom_name] = alpha_outer
-#     else:
-#         coeffs[dom_name] = alpha_inner
+    for d in range(len(mesh.GetMaterials())):
+        dom_name = mesh.ngmesh.GetMaterial(d+1) 
+        if "outer" in dom_name:
+            coeffs[dom_name] = alpha_outer
+        else:
+            coeffs[dom_name] = alpha_inner
 
-# alpha = mesh.MaterialCF(coeffs, default=0)
+    alpha = mesh.MaterialCF(coeffs, default=0)
+    
+    # ########################
+    # rename inner domains 
+    # give them the same name as the outer one has
+    # inner name just used 
+    # nmat = len(mesh.GetMaterials())
+
+    for d in range(nmat):
+        if "inner" in mesh.ngmesh.GetMaterial(d+1):
+            mesh.ngmesh.SetMaterial(d+1, "outer" + str(d-int(nmat/2)))
+    
+    return mesh, dom_bnd, alpha
 
 # V = L2(mesh, order = 0)
 # gfalpha = GridFunction(L2(mesh, order = 0))
 # gfalpha.Set(alpha)
 
-# ########################
-# # rename inner domains 
-# # give them the same name as the outer one has
-# # inner name just used 
-# nmat = len(mesh.GetMaterials())
 
-# for d in range(nmat):
-#     if "inner" in mesh.ngmesh.GetMaterial(d+1):
-#         mesh.ngmesh.SetMaterial(d+1, "outer" + str(d-int(nmat/2)))
 
 # ########################
 
@@ -277,11 +287,13 @@ def crystal_geometry(maxH):
 
 
 
-def problem_definition(problem, omega):
+def problem_definition(problem, maxH, omega):
 
     if problem ==1:  #Problem setting - PLANE WAVE
-
-        # omega = float(input("Wavenumber k: "))
+        
+        # #Generate mesh: unit disco with 8 subdomains
+        mesh, dom_bnd, alpha = unit_disc(maxH)
+    
         kappa = omega
         k = kappa * CF((0.6,0.8)) #CF = CoefficientFunction
         beta = 1
@@ -292,6 +304,9 @@ def problem_definition(problem, omega):
         sol_ex = 1
 
     elif problem == 2:  #Problem setting - INTERIOR SOURCE
+
+        # #Generate mesh: unit disco with 8 subdomains
+        mesh, dom_bnd, alpha = unit_disc(maxH)
             
         class Point: 
             def __init__(self):
@@ -311,10 +326,10 @@ def problem_definition(problem, omega):
         sol_ex = 0
 
 
-
-
-
     elif problem == 3:  #Problem setting - BOUNDARY SOURCE
+
+        # #Generate mesh: unit disco with 8 subdomains
+        mesh, dom_bnd, alpha = unit_disc(maxH)
             
         class Point: 
             def __init__(self):
@@ -333,7 +348,32 @@ def problem_definition(problem, omega):
         u_ex = 0
         sol_ex = 0
 
-    return kappa, beta, f, g, sol_ex, u_ex
+
+    elif problem == 4:  #Problem setting - PERIODIC CRYSTAL
+
+        # #Generate mesh: unit disco with 8 subdomains
+        mesh, dom_bnd, alpha = crystal_geometry(maxH)
+        
+        class Point: 
+            def __init__(self):
+                self.x = 0
+                self.y = 0
+
+        # omega = 100
+        kappa = omega
+        k = kappa * CF((0.6,0.8)) #CF = CoefficientFunction
+        beta = 1
+        # p = (0, 1/2)
+        P = Point()
+        P.x = 0
+        P.y = 1/2
+        f = 0 
+        g = exp(-1j * (k[0] * x + k[1] * y)) * exp(-100 * ((x-P.x)**2 + (y-P.y)**2))
+        u_ex = 0
+        sol_ex = 0
+
+
+    return mesh, dom_bnd, alpha, kappa, beta, f, g, sol_ex, u_ex
 
 
 ##################################################################
@@ -343,7 +383,7 @@ def problem_definition(problem, omega):
 
 
 
-def ground_truth(mesh, dom_bnd, kappa, omega, beta, f, g, ord):
+def ground_truth(mesh, dom_bnd, alpha, kappa, omega, beta, f, g, ord):
     #  RESOLUTION OF GROUND TRUTH SOLUTION
     #Computing the FEM solution /  ground truth solution with higher resolution
     
@@ -353,7 +393,7 @@ def ground_truth(mesh, dom_bnd, kappa, omega, beta, f, g, ord):
         u, v = V.TnT()
 
         a = BilinearForm(V)
-        a += grad(u) * grad(v) * dx() 
+        a += alpha * grad(u) * grad(v) * dx() 
         a += - kappa**2 * u * v * dx()  
         a += -1J * omega * beta * u * v * ds(dom_bnd)
         a.Assemble()
@@ -410,7 +450,7 @@ def compute_l2_error(gfu, gfu_fem, mesh):
 ##################################################################
 ##################################################################
   
-def acms_solution(mesh, dom_bnd, Bubble_modes, Edge_modes, order_v, kappa, omega, beta, f, g, gfu_fem, sol_ex, u_ex):
+def acms_solution(mesh, dom_bnd, alpha, Bubble_modes, Edge_modes, order_v, kappa, omega, beta, f, g, gfu_fem, sol_ex, u_ex):
     #  ACMS RESOLUTION
 
     l2_error = []
@@ -434,7 +474,7 @@ def acms_solution(mesh, dom_bnd, Bubble_modes, Edge_modes, order_v, kappa, omega
             print(order)
             
             #FEM solution with same order of approximation
-            gfu_fem, grad_fem = ground_truth(mesh, dom_bnd, kappa, omega, beta, f, g, order)
+            gfu_fem, grad_fem = ground_truth(mesh, dom_bnd, alpha, kappa, omega, beta, f, g, order)
             
             # start_time = time.time()
             V = H1(mesh, order = order, complex = True)
@@ -448,7 +488,7 @@ def acms_solution(mesh, dom_bnd, Bubble_modes, Edge_modes, order_v, kappa, omega
             if V.ndof < 1000000:
                 
                 a = BilinearForm(V)
-                a += grad(u) * grad(v) * dx()
+                a += alpha * grad(u) * grad(v) * dx()
                 a += - kappa**2 * u * v * dx()
                 a += -1J * omega * beta * u * v * ds(dom_bnd, bonus_intorder = 10)
                 a.Assemble()
@@ -574,21 +614,16 @@ def acms_solution(mesh, dom_bnd, Bubble_modes, Edge_modes, order_v, kappa, omega
 
 def main(maxH, problem, omega, order_v, Bubble_modes, Edge_modes):
     # Variables setting
-    kappa, beta, f, g, sol_ex, u_ex = problem_definition(problem, omega)
+    mesh, dom_bnd, alpha, kappa, beta, f, g, sol_ex, u_ex = problem_definition(problem, maxH, omega)
     plot_error = 0
+    Draw(mesh)
     
-    
-    # #Generate mesh: unit disco with 8 subdomains
-    mesh, dom_bnd = unit_disc(maxH)
-
-
-    # Compute ground truth solution with FEM of order 3 on the initialised mesh
-    
-    gfu_fem, grad_fem = ground_truth(mesh, dom_bnd, kappa, omega, beta, f, g, order_v[-1])
+    # Compute ground truth solution with FEM of order max on the initialised mesh
+    gfu_fem, grad_fem = ground_truth(mesh, dom_bnd, alpha, kappa, omega, beta, f, g, order_v[-1])
     
     # Solve ACMS system and compute H1 error
     
-    ndofs, dofs, l2_error_fem, l2_error_ex, h1_error_fem, h1_error_ex, l2_error_NodInt, h1_error_NodInt, l2_error_FEMex, h1_error_FEMex = acms_solution(mesh, dom_bnd, Bubble_modes, Edge_modes, order_v, kappa, omega, beta, f, g, gfu_fem, sol_ex, u_ex)    
+    ndofs, dofs, l2_error_fem, l2_error_ex, h1_error_fem, h1_error_ex, l2_error_NodInt, h1_error_NodInt, l2_error_FEMex, h1_error_FEMex = acms_solution(mesh, dom_bnd, alpha, Bubble_modes, Edge_modes, order_v, kappa, omega, beta, f, g, gfu_fem, sol_ex, u_ex)    
     
     # Save both H1 and H1-relative errors on file named "file_name.npz" 
     # It needs to be loaded to be readable
@@ -606,7 +641,7 @@ def main(maxH, problem, omega, order_v, Bubble_modes, Edge_modes):
     
     
     if sol_ex == 0:
-        print("Error with FEM of order 3 as ground truth solution")
+        print("Error with FEM of order max as ground truth solution")
         file_name = create_error_file(problem, kappa, maxH, order_v, Bubble_modes, Edge_modes, 0)
         Errors = save_error_file(file_name, dictionary, mesh, l2_error_fem, h1_error_fem, dim, ndofs, dofs, gfu_fem, grad_fem)
         convergence_plots(plot_error, dofs, h1_error_fem, mesh, Edge_modes, Bubble_modes, order_v)
