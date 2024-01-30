@@ -4,6 +4,8 @@ from ngsolve import *
 import scipy.linalg
 import scipy.sparse as sp
 import numpy as np
+# from ngsolve.webgui import Draw
+# from netgen.webgui import Draw as DrawGeo
 
 import time
 
@@ -70,9 +72,9 @@ class ACMS:
         uharm, vharm = Vharm.TnT() # Trial and test functions
         aharm = BilinearForm(Vharm)
         #Setting bilinear form: - int (Grad u Grad v) d\Omega_j
-        aharm += self.alpha * grad(uharm)*grad(vharm)*dx(definedon = self.mesh.Materials(dom_name), bonus_intorder = self.bi)
+        aharm += grad(uharm)*grad(vharm)*dx(definedon = self.mesh.Materials(dom_name), bonus_intorder = self.bi) #Why no alpha here works?
         if (kappa!= 0):
-            aharm += -kappa**2 * uharm*vharm*dx(definedon = self.mesh.Materials(dom_name), bonus_intorder = self.bi)
+            aharm += -kappa**2 * self.alpha * uharm*vharm*dx(definedon = self.mesh.Materials(dom_name), bonus_intorder = self.bi)
         aharm.Assemble()
         aharm_inv = aharm.mat.Inverse(Vharm.FreeDofs(), inverse = "sparsecholesky")
 
@@ -249,6 +251,8 @@ class ACMS:
                         # Vharm.Embed(gfu_extension.vec, gfu_edge)
                         gfu_edge.data = E.T * gfu_extension.vec
                         self.gfu.vec.data += gfu_edge # Boundary value stored
+                
+                
                 # Draw(self.gfu, self.mesh, "basis")
                 # input()
                 basis.Append(self.gfu.vec)
@@ -419,6 +423,7 @@ class ACMS:
                 # Vloc.Embed(e.real, gfu.vec)
                 self.gfu.vec.data = E.T * e.real # Grid funciton on full mesh
                 basis.Append(self.gfu.vec)
+            
             
 
     def calc_basis(self):

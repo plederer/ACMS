@@ -1,5 +1,6 @@
 # LIBRARIES
 from helmholtz_aux import *
+# import netgen.gui
 
 # PROBLEM SETTING
 # PROBLEM = 1: plane wave solution (Example 5.1, Tables 5.2-5.5), 
@@ -30,11 +31,11 @@ from helmholtz_aux import *
 problem = 4
 ACMS_flag = 0
 omega = 1
-Href = 0
-maxH = 0.1
-order_v = [2]
+Href = 3
+maxH = 0.025
+order_v = [1,2,3]
 Bubble_modes = [1]
-Edge_modes = [8]
+Edge_modes = [1,2,4,8]
 
 
 # Generates the mesh 
