@@ -72,9 +72,9 @@ class ACMS:
         uharm, vharm = Vharm.TnT() # Trial and test functions
         aharm = BilinearForm(Vharm)
         #Setting bilinear form: - int (Grad u Grad v) d\Omega_j
-        aharm += grad(uharm)*grad(vharm)*dx(definedon = self.mesh.Materials(dom_name), bonus_intorder = self.bi) #Why no alpha here works?
+        aharm += self.alpha * grad(uharm)*grad(vharm)*dx(definedon = self.mesh.Materials(dom_name), bonus_intorder = self.bi) #Why no alpha here works?
         if (kappa!= 0):
-            aharm += -kappa**2 * self.alpha * uharm*vharm*dx(definedon = self.mesh.Materials(dom_name), bonus_intorder = self.bi)
+            aharm += -kappa**2 * uharm*vharm*dx(definedon = self.mesh.Materials(dom_name), bonus_intorder = self.bi)
         aharm.Assemble()
         aharm_inv = aharm.mat.Inverse(Vharm.FreeDofs(), inverse = "sparsecholesky")
 

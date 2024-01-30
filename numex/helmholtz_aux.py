@@ -259,7 +259,8 @@ def crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer, alpha_inner):
     
     # print(mesh.GetMaterials())
     # print(mesh.GetBoundaries())
-
+    # print(mesh.GetBBoundaries())
+    # input()
     # alpha = 1
     return mesh, dom_bnd, alpha, mesh_info
 
@@ -338,15 +339,16 @@ def problem_definition(problem, maxH, omega):
 
     elif problem == 4:  #Problem setting - PERIODIC CRYSTAL - Squared Inclusions
         r  = 0.05  # radius of inclusion
-        Lx = 0.1 
-        Ly = 0.1 
 
-        Nx = 3 # number of cells in x
-        Ny = 3 # number of cells in y
+        Nx = 9 # number of cells in x
+        Ny = 9 # number of cells in y
+
+        Lx = 1/9 
+        Ly = 1/9
         
         incl = 0 # squared
         alpha_outer = 1
-        alpha_inner = 1#12
+        alpha_inner = 12
         
         mesh, dom_bnd, alpha, mesh_info = crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer, alpha_inner)
         
@@ -358,12 +360,12 @@ def problem_definition(problem, maxH, omega):
         P.x = -Lx/2
         P.y = (Ny-1)/2 * Ly
 
-        omega = 10
+        # omega = 10
         kappa = omega
         k = kappa * CF((1,0)) #CF = CoefficientFunction
         beta = 1 
         f = 0 
-        g = exp(-1j * (k[0] * x + k[1] * y)) * exp(-100 * ((x-P.x)**2 + (y-P.y)**2)) #Paper test
+        g = exp(-1J * (k[0] * x + k[1] * y)) * exp(-100 * ((x-P.x)**2 + (y-P.y)**2)) #Paper test
         Draw(g, mesh, "g")
         u_ex = 0
         sol_ex = 0
@@ -586,9 +588,9 @@ def acms_solution(mesh, dom_bnd, alpha, Bubble_modes, Edge_modes, order_v, kappa
                                 gfu.vec.data = basis * usmall
                                 Draw(gfu, mesh, "uacms")
                                 print("finished_acms")
-                                # input()
+                                input()
                                 
-                                
+                                print("Energy = ", sqrt(Integrate(gfu_fem**2, mesh)))
                                 l2_error_aux = compute_l2_error(gfu, gfu_fem, mesh)
                                 l2_error.append(l2_error_aux)
                                 h1_error_aux = compute_h1_error(gfu, grad_fem, mesh)
