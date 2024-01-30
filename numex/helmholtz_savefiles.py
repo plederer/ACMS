@@ -239,7 +239,8 @@ def create_error_file(problem, kappa, maxH, order_v, Bubble_modes, Edge_modes, e
         1 : "PW",
         2 : "LIS",
         3 : "LBS",
-        4 : "Crystal"
+        4 : "CrystalQuad",
+        5 : "CrystalCirc"
     }
 
     err_type_dict = {
