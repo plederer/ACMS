@@ -28,11 +28,11 @@ import netgen.gui
 # print("Number of edge modes is ", Edge_modes)
 
 # for testing
-problem = 4
+problem = 5
 ACMS_flag = 0
 omega = 100
-Href = 1
-maxH = 0.025 # * 4
+Href = 0
+maxH = 0.05 #025 # * 4
 order_v = [1]
 Bubble_modes = [1]
 Edge_modes = [4]

@@ -158,7 +158,7 @@ def unit_disc(maxH):
         return mesh, dom_bnd
 
 
-def crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer, alpha_inner):
+def crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer, alpha_inner, defects = np.ones((0,0))):
     #Crystal mesh
     # r  = 0.05 #1.26 # radius of inclusion
     # Lx = 0.1 #4.84 #"c"
@@ -167,31 +167,66 @@ def crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer, alpha_inner):
     # Nx = 9 # number of cells in x
     # Ny = 9 # number of cells in y
 
+
+    if len(defects) == 0:
+        defects = np.ones((Nx,Ny))
+
+    # 0 = full crystal
+    # 1 = air defect in crystal
+    # 2 = air
+
+    crystaltype = [["outer","outer"], 
+                   ["outer","inner"],
+                   ["inner", "inner"]]
+
     domain = [MoveTo(Lx*i,Ly*j).RectangleC(Lx,Ly).Face() for i in range(Nx) for j in range(Ny)]
     
     if incl ==1: #Circular inclusion
         inclusion = [MoveTo(0,0).Circle(Lx*i,Ly*j, r).Face() for i in range(Nx) for j in range(Ny)]
     else: #Square inclusion
         inclusion = [MoveTo(Lx*i,Ly*j).RectangleC(r, r).Face() for i in range(Nx) for j in range(Ny)]
-        
-    outer = [domain[i*Ny+j]-inclusion[i*Ny+j] for i in range(Nx) for j in range(Ny)]
-    inner = [domain[i*Ny+j]*inclusion[i*Ny+j] for i in range(Nx) for j in range(Ny)]
-    
 
+    # outer = [domain[i*Ny+j]-inclusion[i*Ny+j] for i in range(Nx) for j in range(Ny)]
+    # inner = [domain[i*Ny+j]*inclusion[i*Ny+j] for i in range(Nx) for j in range(Ny)]
+    outer = []
+    inner = []
     for i in range(Nx):
         for j in range(Ny):
-            outer[i*Ny+j].faces.name = "outer"+str(i*Ny+j)
-            inner[i*Ny+j].faces.name="inner"+str(i*Ny+j)
-            inner[i*Ny+j].faces.edges.name="inner_edge"+str(i*Ny+j)
-            inner[i*Ny+j].faces.vertices.name="inner_vertex"+str(i*Ny+j)
+            outerdom = domain[i*Ny+j]
+            # outerdom.faces.name = "outer"+str(i*Ny+j)
+            outerdom.faces.name = crystaltype[int(defects[i,j])][0]+str(i*Ny+j)
+            outerdom = outerdom - inclusion[i*Ny+j]    
+
+            innerdom = domain[i*Ny+j]*inclusion[i*Ny+j]
+            innerdom.faces.edges.name="inner_edge"+str(i*Ny+j)
+            innerdom.faces.vertices.name="inner_vertex"+str(i*Ny+j)
+            innerdom.faces.name=crystaltype[int(defects[i,j])][1]+str(i*Ny+j)
+
             if (j == 0) :
-                outer[i*Ny+j].faces.edges.Min(Y).name = "dom_bnd"
+                outerdom.faces.edges.Min(Y).name = "dom_bnd"
             if (j == (Ny-1)) :
-                outer[i*Ny+j].faces.edges.Max(Y).name = "dom_bnd"
+                outerdom.faces.edges.Max(Y).name = "dom_bnd"
             if (i == 0):
-                outer[i*Ny+j].faces.edges.Min(X).name = "dom_bnd"
+                outerdom.faces.edges.Min(X).name = "dom_bnd"
             if (i == (Nx-1)) :
-                outer[i*Ny+j].faces.edges.Max(X).name = "dom_bnd"
+                outerdom.faces.edges.Max(X).name = "dom_bnd"
+            outer.append(outerdom)
+            inner.append(innerdom)
+
+    # for i in range(Nx):
+    #     for j in range(Ny):
+    #         outer[i*Ny+j].faces.name = "outer"+str(i*Ny+j)
+    #         inner[i*Ny+j].faces.name="inner"+str(i*Ny+j)
+    #         inner[i*Ny+j].faces.edges.name="inner_edge"+str(i*Ny+j)
+    #         inner[i*Ny+j].faces.vertices.name="inner_vertex"+str(i*Ny+j)
+    #         if (j == 0) :
+    #             outer[i*Ny+j].faces.edges.Min(Y).name = "dom_bnd"
+    #         if (j == (Ny-1)) :
+    #             outer[i*Ny+j].faces.edges.Max(Y).name = "dom_bnd"
+    #         if (i == 0):
+    #             outer[i*Ny+j].faces.edges.Min(X).name = "dom_bnd"
+    #         if (i == (Nx-1)) :
+    #             outer[i*Ny+j].faces.edges.Max(X).name = "dom_bnd"
     
     # # umber of layer on the top and the bottom
     # Nyl = 2
@@ -199,7 +234,13 @@ def crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer, alpha_inner):
 
     outershapes = [out_dom for out_dom in outer]
     innershapes = [in_dom for in_dom in inner]
-
+    
+    # if layerH > 0:
+    #     layerdom = MoveTo(-Lx/2-layerH, -Ly/2-layerH).Rectangle(Lx*Nx + 2*layerH, Ly*Ny + 2*layerH).Face()
+    #     innercrystal = Glue(outershapes + innershapes)
+    #     layer = layerdom - innercrystal
+    #     crystalshape = Glue([layer,innercrystal])
+    # else:
     crystalshape = Glue(outershapes + innershapes)
     mesh = Mesh(OCCGeometry(crystalshape, dim=2).GenerateMesh(maxh = maxH))
     mesh.Curve(10)
@@ -226,7 +267,7 @@ def crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer, alpha_inner):
             mesh.ngmesh.SetCD2Name(i+1,"V" + str(i))
 
     Draw(mesh)
-
+    # input()
     # ########################
     # definition of diffusion coefficient
     coeffs = {}
@@ -378,21 +419,32 @@ def problem_definition(problem, maxH, omega):
         Lx = 0.484 #"c"
         Ly = 0.685 #"a"
 
-        Nx = 2 # number of cells in x
-        Ny = 2 # number of cells in y
+        Nx = 10 # number of cells in x
+        Ny = 10 # number of cells in y
         
         incl = 1 #circular
         alpha_outer = 1/12.1 #SILICON
-        alpha_inner = 1 #AIR
+        alpha_inner = 10 #AIR
 
-        mesh, dom_bnd, alpha, mesh_info = crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer, alpha_inner)
+
+        defects = np.ones((Nx,Ny))
+        for i in [0,1,Nx-2,Nx-1]: 
+            for j in range(Ny): 
+                defects[i,j] = 0.0
+        
+        for j in [0,1,Ny-2,Ny-1]:
+            for i in range(Nx): 
+                defects[i,j] = 0.0
+
+        
+        mesh, dom_bnd, alpha, mesh_info = crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer, alpha_inner, defects)
 
         omega = Lx /0.6
-        kappa = omega^2 * alpha 
+        kappa = omega**2 * alpha 
         alpha = 1 #This is used as diff coeff later 
         # k = kappa * CF((0.6,0.8)) #CF = CoefficientFunction
         # / 30.4878
-        k_ext = omega^2 # * alpha=1
+        k_ext = omega**2 # * alpha=1
         k = k_ext * CF((1,0)) #CF = CoefficientFunction
         beta = - k_ext / omega
         f = 0 
