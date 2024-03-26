@@ -37,7 +37,6 @@ order_v = [1]
 Bubble_modes = [1]
 Edge_modes = [4]
 
-
 # Generates the mesh 
 # Creates variables associated with the problem
 # Computes a ground truth solution with FEM of order 3 on the generated mesh
