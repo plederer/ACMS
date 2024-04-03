@@ -158,7 +158,7 @@ def unit_disc(maxH):
         return mesh, dom_bnd
 
 
-def crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer, alpha_inner, defects = np.ones((0,0))):
+def crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer, alpha_inner, defects = np.ones((0,0)), layers = 0):
     #Crystal mesh
     # r  = 0.05 #1.26 # radius of inclusion
     # Lx = 0.1 #4.84 #"c"
@@ -210,6 +210,17 @@ def crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer, alpha_inner, de
                 outerdom.faces.edges.Min(X).name = "dom_bnd"
             if (i == (Nx-1)) :
                 outerdom.faces.edges.Max(X).name = "dom_bnd"
+            
+            if layers > 0:
+                if (j == layers) and (i >= layers) and (i <= Nx-1-layers):
+                    outerdom.faces.edges.Min(Y).name = "crystal_bnd_bottom"
+                if (j == (Ny-1-layers)) and (i >= layers) and (i <= Nx-1-layers) :
+                    outerdom.faces.edges.Max(Y).name = "crystal_bnd_top"
+                if (i == layers) and (j >= layers) and (j <= Ny-1-layers):
+                    outerdom.faces.edges.Min(X).name = "crystal_bnd_left"
+                if (i == (Nx-1-layers)) and (j >= layers) and (j <= Ny-1-layers) :
+                    outerdom.faces.edges.Max(X).name = "crystal_bnd_right"
+                
             outer.append(outerdom)
             inner.append(innerdom)
 
@@ -255,7 +266,11 @@ def crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer, alpha_inner, de
     for i in range(nbnd): #
         if not "dom_bnd" in mesh.ngmesh.GetBCName(i): # != "dom_bnd":
             if not "inner_edge" in mesh.ngmesh.GetBCName(i): # != "dom_bnd":
-                mesh.ngmesh.SetBCName(i,"E" + str(i))
+                if not "crystal_bnd" in mesh.ngmesh.GetBCName(i):
+                    mesh.ngmesh.SetBCName(i,"E" + str(i))
+                else:
+                    name = mesh.ngmesh.GetBCName(i)
+                    mesh.ngmesh.SetBCName(i,name + str(i))
         else:
             mesh.ngmesh.SetBCName(i,"dom_bnd_" + str(bi))
             dom_bnd += "dom_bnd_" + str(bi) + "|"
@@ -426,19 +441,28 @@ def problem_definition(problem, maxH, omega):
         alpha_outer = 1/12.1 #SILICON
         alpha_inner = 10 #AIR
 
-
+        
+        layers = 1
+        
+        ix = [i for i in range(layers)] + [Nx - 1 - i for i in range(layers)]
+        iy = [i for i in range(layers)] + [Ny - 1 - i for i in range(layers)]
+        
+        
         defects = np.ones((Nx,Ny))
-        for i in [0,1,Nx-2,Nx-1]: 
+        for i in ix: 
             for j in range(Ny): 
                 defects[i,j] = 0.0
         
-        for j in [0,1,Ny-2,Ny-1]:
+        for j in iy:
             for i in range(Nx): 
                 defects[i,j] = 0.0
 
         
-        mesh, dom_bnd, alpha, mesh_info = crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer, alpha_inner, defects)
+        mesh, dom_bnd, alpha, mesh_info = crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer, alpha_inner, defects, layers)
 
+        # print(Integrate(x, mesh, definedon = mesh.Boundaries("measure_edge_left")))
+        # print(Integrate(x, mesh, definedon = mesh.Boundaries("measure_edge_right")))
+        # quit()
         omega = Lx /0.6
         kappa = omega**2 * alpha 
         alpha = 1 #This is used as diff coeff later 
@@ -552,7 +576,7 @@ def acms_solution(mesh, dom_bnd, alpha, Bubble_modes, Edge_modes, order_v, kappa
     max_em = Edge_modes[-1]
 
         
-    SetNumThreads(1)
+    # SetNumThreads(1)
     if True:
     # with TaskManager():
         for order in order_v:
@@ -640,6 +664,16 @@ def acms_solution(mesh, dom_bnd, alpha, Bubble_modes, Edge_modes, order_v, kappa
                                 gfu.vec.data = basis * usmall
                                 Draw(gfu, mesh, "uacms")
                                 print("finished_acms")
+
+                                left_int = 0
+                                right_int = 0
+                                for e in mesh.GetBoundaries():
+                                    if "crystal_bnd_left" in e:
+                                        left_int += Integrate(InnerProduct(gfu, gfu), mesh, definedon = mesh.Boundaries(e))
+                                    if "crystal_bnd_right" in e:
+                                        right_int += Integrate(InnerProduct(gfu, gfu), mesh, definedon = mesh.Boundaries(e))
+                                print(sqrt(left_int).real)
+                                print(sqrt(right_int).real)
                                 input()
                                 
                                 print("Energy = ", sqrt(Integrate(gfu_fem**2, mesh)))
