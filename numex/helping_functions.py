@@ -94,6 +94,7 @@ class ACMS:
     # Define harmonic extension on specific subdomain
     # Returns the Sobolev space H^{1/2}_00(e), the stiffness matrix and its inverse
     def GetHarmonicExtensionEdge(self, edge_name, kappa = 0):
+        # start = time.time()
         fd_all = self.V.GetDofs(self.mesh.Boundaries(edge_name)) # Dofs of specific edge
         bnd = "" # Initialize empty boundary 
          # The space construction requires bc specified on the full domain 
@@ -122,7 +123,8 @@ class ACMS:
                 ind[ii] = i
                 ii += 1
         E = PermutationMatrix(base_space.ndof, ind)
-
+        # end = time.time()
+        # print(edge_name + " takes: {} ".format( end - start))
         return Vharm, aharm.mat, aharm_inv, E
 
 
@@ -135,14 +137,20 @@ class ACMS:
         
         # remove double entries
         mats = tuple( dict.fromkeys(self.mesh.GetMaterials()) )
-
+        
+        start_time = time.time()
         for dom_name in mats:
             Vharm, aharm, aharm_inv, E = self.GetHarmonicExtensionDomain(dom_name, kappa = kappa)
             self.vol_extensions[dom_name] = [Vharm, aharm, aharm_inv, E]
+        end_time = time.time()
+        print("Volume extensions: ", end_time - start_time)
 
+        start_time = time.time()
         for edge_name in edge_names:
             Vharm, aharm, aharm_inv, E = self.GetHarmonicExtensionEdge(edge_name, kappa = kappa)
             self.edge_extensions[edge_name] = [Vharm, aharm, aharm_inv, E]
+        end_time = time.time()
+        print("edge extensions: ", end_time - start_time)
 
 
 
@@ -181,81 +189,82 @@ class ACMS:
             basis = self.basis_e
         self.CalcMaxEdgeModes()
         
-        for edge_name in self.edges:
-            vertex_dofs = self.V.GetDofs(self.mesh.BBoundaries(".*")) # Global vertices (coarse mesh)
-            fd = self.V.GetDofs(self.mesh.Boundaries(edge_name)) & (~vertex_dofs) 
-            # Vertices on a specific edge with boundaries removed (global vertices)
-            base_space = H1(self.mesh, order = self.order, dirichlet = self.dirichlet) # Creating Sobolev space
-            Vloc = Compress(base_space, fd) #Restricting Sobolev space on edge (with Dirichlet bc)
+        if self.edge_modes > 0:
+            for edge_name in self.edges:
+                vertex_dofs = self.V.GetDofs(self.mesh.BBoundaries(".*")) # Global vertices (coarse mesh)
+                fd = self.V.GetDofs(self.mesh.Boundaries(edge_name)) & (~vertex_dofs) 
+                # Vertices on a specific edge with boundaries removed (global vertices)
+                base_space = H1(self.mesh, order = self.order, dirichlet = self.dirichlet) # Creating Sobolev space
+                Vloc = Compress(base_space, fd) #Restricting Sobolev space on edge (with Dirichlet bc)
 
-            uloc, vloc = Vloc.TnT() # Trial and test functions
-            t = specialcf.tangential(2)
-            #Setting bilinear form:  int (Grad u Grad v) de
-            aloc = BilinearForm(Vloc)
-            # This allows us to take the normal derivative of a function that is in H1 and computing the integral only on edges
-            # Otherwise NGSolve does not allow to take the trace of a function in H^{1/2}(e) - uloc is defined on edge
-            aloc += (grad(uloc)*t) * (grad(vloc)*t) * ds(skeleton=True, definedon = self.mesh.Boundaries(edge_name), bonus_intorder = self.bi)
-            aloc.Assemble()
-            #Setting bilinear form:  int u v de        
-            mloc = BilinearForm(Vloc)
-            mloc += uloc.Trace() * vloc.Trace() * ds(definedon = self.mesh.Boundaries(edge_name), bonus_intorder = self.bi)
-            #mloc += uloc * vloc * ds(skeleton = True, edge_name)
-            mloc.Assemble()
+                uloc, vloc = Vloc.TnT() # Trial and test functions
+                t = specialcf.tangential(2)
+                #Setting bilinear form:  int (Grad u Grad v) de
+                aloc = BilinearForm(Vloc)
+                # This allows us to take the normal derivative of a function that is in H1 and computing the integral only on edges
+                # Otherwise NGSolve does not allow to take the trace of a function in H^{1/2}(e) - uloc is defined on edge
+                aloc += (grad(uloc)*t) * (grad(vloc)*t) * ds(skeleton=True, definedon = self.mesh.Boundaries(edge_name), bonus_intorder = self.bi)
+                aloc.Assemble()
+                #Setting bilinear form:  int u v de        
+                mloc = BilinearForm(Vloc)
+                mloc += uloc.Trace() * vloc.Trace() * ds(definedon = self.mesh.Boundaries(edge_name), bonus_intorder = self.bi)
+                #mloc += uloc * vloc * ds(skeleton = True, edge_name)
+                mloc.Assemble()
 
-            # Solving eigenvalue problem: AA x = ev MM x
-            AA = sp.csr_matrix(aloc.mat.CSR())
-            MM = sp.csr_matrix(mloc.mat.CSR())
+                # Solving eigenvalue problem: AA x = ev MM x
+                AA = sp.csr_matrix(aloc.mat.CSR())
+                MM = sp.csr_matrix(mloc.mat.CSR())
+                    
+                ev, evec =sp.linalg.eigs(A = AA, M = MM, k = self.edge_modes, which='SM')
+                idx = ev.argsort()[::]   
+                ev = ev[idx]
+                evec = evec[:,idx]
+                evec = evec.transpose()
+
+                # Local to global mapping
+                ind = Vloc.ndof * [0]
+                ii = 0
+                for i, b in enumerate(fd):
+                    if b == True:
+                        ind[ii] = i
+                        ii += 1
+                Eloc = PermutationMatrix(base_space.ndof, ind)
+
+                for e in evec: # Going over eigenvectors
+                    # Vloc.Embed(e.real, gfu.vec)
+                    self.gfu.vec[:]=0.0
+                    self.gfu.vec.data = Eloc.T * e.real # Grid funciton on full mesh                
+
+                    nb_dom = self.mesh.Boundaries(edge_name).Neighbours(VOL) # It gives volumes that are neighbours of my edge
+                    gfu_edge = self.gfu.vec.CreateVector()
+                    gfu_edge[:] = 0.0
                 
-            ev, evec =sp.linalg.eigs(A = AA, M = MM, k = self.edge_modes, which='SM')
-            idx = ev.argsort()[::]   
-            ev = ev[idx]
-            evec = evec[:,idx]
-            evec = evec.transpose()
+                    for bi, bb in enumerate(self.mesh.GetMaterials()):
+                        if nb_dom.Mask()[bi]:
+                            Vharm, aharm_mat, aharm_inv, E = self.vol_extensions[bb]
+                            # gfu_extension gfu_edge are auxiliary functions
+                            gfu_extension = GridFunction(Vharm) # Grid funciton on specific subdomain
+                            res = gfu_extension.vec.CreateVector()
+                            gfu_extension.vec[:] = 0.0
 
-            # Local to global mapping
-            ind = Vloc.ndof * [0]
-            ii = 0
-            for i, b in enumerate(fd):
-                if b == True:
-                    ind[ii] = i
-                    ii += 1
-            Eloc = PermutationMatrix(base_space.ndof, ind)
-
-            for e in evec: # Going over eigenvectors
-                # Vloc.Embed(e.real, gfu.vec)
-                self.gfu.vec[:]=0.0
-                self.gfu.vec.data = Eloc.T * e.real # Grid funciton on full mesh                
-
-                nb_dom = self.mesh.Boundaries(edge_name).Neighbours(VOL) # It gives volumes that are neighbours of my edge
-                gfu_edge = self.gfu.vec.CreateVector()
-                gfu_edge[:] = 0.0
-            
-                for bi, bb in enumerate(self.mesh.GetMaterials()):
-                    if nb_dom.Mask()[bi]:
-                        Vharm, aharm_mat, aharm_inv, E = self.vol_extensions[bb]
-                        # gfu_extension gfu_edge are auxiliary functions
-                        gfu_extension = GridFunction(Vharm) # Grid funciton on specific subdomain
-                        res = gfu_extension.vec.CreateVector()
-                        gfu_extension.vec[:] = 0.0
-
-                        gfu_edge.data = self.gfu.vec  # Grid funciton on edge
-                        # Vharm.EmbedTranspose(gfu_edge, gfu_extension.vec)
-                        # Extension to subdomain * values on edge = function extended to subdomain
-                        gfu_extension.vec.data = E * gfu_edge 
-                        # Restricting globally defined edge function to the subdomain I want
-                        # Harmonic extension on edge
-                        res[:] = 0.0
-                        res = aharm_mat * gfu_extension.vec 
-                        gfu_extension.vec.data = - aharm_inv * res
-                        #Include Dirichlet bc because we loop over all subdomains to which we want to extend
-                        # Vharm.Embed(gfu_extension.vec, gfu_edge)
-                        gfu_edge.data = E.T * gfu_extension.vec
-                        self.gfu.vec.data += gfu_edge # Boundary value stored
-                
-                
-                # Draw(self.gfu, self.mesh, "basis")
-                # input()
-                basis.Append(self.gfu.vec)
+                            gfu_edge.data = self.gfu.vec  # Grid funciton on edge
+                            # Vharm.EmbedTranspose(gfu_edge, gfu_extension.vec)
+                            # Extension to subdomain * values on edge = function extended to subdomain
+                            gfu_extension.vec.data = E * gfu_edge 
+                            # Restricting globally defined edge function to the subdomain I want
+                            # Harmonic extension on edge
+                            res[:] = 0.0
+                            res = aharm_mat * gfu_extension.vec 
+                            gfu_extension.vec.data = - aharm_inv * res
+                            #Include Dirichlet bc because we loop over all subdomains to which we want to extend
+                            # Vharm.Embed(gfu_extension.vec, gfu_edge)
+                            gfu_edge.data = E.T * gfu_extension.vec
+                            self.gfu.vec.data += gfu_edge # Boundary value stored
+                    
+                    
+                    # Draw(self.gfu, self.mesh, "basis")
+                    # input()
+                    basis.Append(self.gfu.vec)
 
 
 
@@ -380,49 +389,50 @@ class ACMS:
         if (basis == None):
             basis = self.basis_b
         self.CalcMaxBubbleModes()
-            
-        for mat_name in self.doms: # Subdomains labels
-            # DOFS that are in the interior of the subdomain (excludes edges)
-            fd = self.V.GetDofs(self.mesh.Materials(mat_name)) & self.V.FreeDofs()
-            Vloc = Compress(H1(self.mesh, order = self.order, dirichlet = self.dirichlet), fd)
+        
+        if self.bubble_modes > 0:
+            for mat_name in self.doms: # Subdomains labels
+                # DOFS that are in the interior of the subdomain (excludes edges)
+                fd = self.V.GetDofs(self.mesh.Materials(mat_name)) & self.V.FreeDofs()
+                Vloc = Compress(H1(self.mesh, order = self.order, dirichlet = self.dirichlet), fd)
 
-            #Setting bilinear form: int (Grad u Grad v) d\Omega_j
-            uloc, vloc = Vloc.TnT()
-            aloc = BilinearForm(Vloc)
-            aloc += self.alpha * grad(uloc) * grad(vloc) * dx(bonus_intorder = self.bi)
-            aloc.Assemble()
+                #Setting bilinear form: int (Grad u Grad v) d\Omega_j
+                uloc, vloc = Vloc.TnT()
+                aloc = BilinearForm(Vloc)
+                aloc += self.alpha * grad(uloc) * grad(vloc) * dx(bonus_intorder = self.bi)
+                aloc.Assemble()
 
-            #Setting bilinear form: int  u v d\Omega_j
-            mloc = BilinearForm(Vloc)
-            mloc += uloc * vloc * dx(bonus_intorder = self.bi)
-            mloc.Assemble()
+                #Setting bilinear form: int  u v d\Omega_j
+                mloc = BilinearForm(Vloc)
+                mloc += uloc * vloc * dx(bonus_intorder = self.bi)
+                mloc.Assemble()
 
-            # Solving eigenvalue problem: AA x = ev MM x
-            AA = sp.csr_matrix(aloc.mat.CSR())
-            MM = sp.csr_matrix(mloc.mat.CSR())
-            
+                # Solving eigenvalue problem: AA x = ev MM x
+                AA = sp.csr_matrix(aloc.mat.CSR())
+                MM = sp.csr_matrix(mloc.mat.CSR())
                 
-            ev, evec =scipy.sparse.linalg.eigs(A = AA, M = MM, k = self.bubble_modes, which='SM')
-            idx = ev.argsort()[::]   
-            ev = ev[idx]
-            evec = evec[:,idx]
-            evec = evec.transpose()
+                    
+                ev, evec =scipy.sparse.linalg.eigs(A = AA, M = MM, k = self.bubble_modes, which='SM')
+                idx = ev.argsort()[::]   
+                ev = ev[idx]
+                evec = evec[:,idx]
+                evec = evec.transpose()
 
 
-            # Local to global mapping
-            ind = Vloc.ndof * [0]
-            ii = 0
-            for i, b in enumerate(fd):
-                if b == True:
-                    ind[ii] = i
-                    ii += 1
-            E = PermutationMatrix(self.V.ndof, ind)
-            
-            for e in evec: # Going over eigenvectors
-                self.gfu.vec[:]=0.0
-                # Vloc.Embed(e.real, gfu.vec)
-                self.gfu.vec.data = E.T * e.real # Grid funciton on full mesh
-                basis.Append(self.gfu.vec)
+                # Local to global mapping
+                ind = Vloc.ndof * [0]
+                ii = 0
+                for i, b in enumerate(fd):
+                    if b == True:
+                        ind[ii] = i
+                        ii += 1
+                E = PermutationMatrix(self.V.ndof, ind)
+                
+                for e in evec: # Going over eigenvectors
+                    self.gfu.vec[:]=0.0
+                    # Vloc.Embed(e.real, gfu.vec)
+                    self.gfu.vec.data = E.T * e.real # Grid funciton on full mesh
+                    basis.Append(self.gfu.vec)
             
             
 
@@ -430,13 +440,13 @@ class ACMS:
         start_time = time.time()
         self.calc_vertex_basis() 
         vertex_time = time.time() 
-        # print("Vertex basis functions computation in --- %s seconds ---" % (vertex_time - start_time))
+        print("Vertex basis functions computation in --- %s seconds ---" % (vertex_time - start_time))
         self.calc_edge_basis()
         edges_time = time.time() 
-        # print("Edge basis functions computation in --- %s seconds ---" % (edges_time - vertex_time))
+        print("Edge basis functions computation in --- %s seconds ---" % (edges_time - vertex_time))
         self.calc_bubble_basis()
         bubbles_time = time.time() 
-        # print("Bubble basis functions computation in --- %s seconds ---" % (bubbles_time - edges_time))
+        print("Bubble basis functions computation in --- %s seconds ---" % (bubbles_time - edges_time))
         return self.basis_v, self.basis_e, self.basis_b
     
     def complex_basis(self):

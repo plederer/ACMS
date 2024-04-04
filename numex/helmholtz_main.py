@@ -30,11 +30,11 @@ import netgen.gui
 # for testing
 problem = 5
 ACMS_flag = 0
-omega = 100
+omega = 0.484/10
 Href = 0
 maxH = 0.05 #025 # * 4
 order_v = [1]
-Bubble_modes = [1]
+Bubble_modes = [0]
 Edge_modes = [4]
 
 # Generates the mesh 
@@ -51,9 +51,9 @@ for h in maxH/(2**np.arange(0, Href + 1 , 1)):
     print(h)
     file_name, Errors = main(h, problem, omega, order_v, Bubble_modes, Edge_modes) 
     
-    file_path = f"./Results/" + file_name + ".npz"
-    table_header, table_content, table_end = process_file(file_path, ACMS_flag)
-    table_content_aux += table_content + "\\\\\n"
+    # file_path = f"./Results/" + file_name + ".npz"
+    # table_header, table_content, table_end = process_file(file_path, ACMS_flag)
+    # table_content_aux += table_content + "\\\\\n"
     
 print(table_header + table_content_aux + table_end)    
 

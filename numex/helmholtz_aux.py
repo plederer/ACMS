@@ -255,6 +255,7 @@ def crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer, alpha_inner, de
     crystalshape = Glue(outershapes + innershapes)
     mesh = Mesh(OCCGeometry(crystalshape, dim=2).GenerateMesh(maxh = maxH))
     mesh.Curve(10)
+    
 
     nmat = len(mesh.GetMaterials())
     nbnd = len(mesh.GetBoundaries())
@@ -434,12 +435,12 @@ def problem_definition(problem, maxH, omega):
         Lx = 0.484 #"c"
         Ly = 0.685 #"a"
 
-        Nx = 10 # number of cells in x
-        Ny = 10 # number of cells in y
+        Nx = 6 # number of cells in x
+        Ny = 6 # number of cells in y
         
         incl = 1 #circular
         alpha_outer = 1/12.1 #SILICON
-        alpha_inner = 10 #AIR
+        alpha_inner = 1 #0 #AIR
 
         
         layers = 1
@@ -463,12 +464,11 @@ def problem_definition(problem, maxH, omega):
         # print(Integrate(x, mesh, definedon = mesh.Boundaries("measure_edge_left")))
         # print(Integrate(x, mesh, definedon = mesh.Boundaries("measure_edge_right")))
         # quit()
-        omega = Lx /0.6
-        kappa = omega**2 * alpha 
-        alpha = 1 #This is used as diff coeff later 
+        # omega = Lx /0.6
+        kappa = omega #**2 * alpha 
         # k = kappa * CF((0.6,0.8)) #CF = CoefficientFunction
         # / 30.4878
-        k_ext = omega**2 # * alpha=1
+        k_ext = omega #**2 # * alpha=1
         k = k_ext * CF((1,0)) #CF = CoefficientFunction
         beta = - k_ext / omega
         f = 0 
@@ -577,13 +577,13 @@ def acms_solution(mesh, dom_bnd, alpha, Bubble_modes, Edge_modes, order_v, kappa
 
         
     # SetNumThreads(1)
-    if True:
-    # with TaskManager():
+    # if True:
+    with TaskManager():
         for order in order_v:
             print(order)
             
             #FEM solution with same order of approximation
-            gfu_fem, grad_fem = ground_truth(mesh, dom_bnd, alpha, kappa, omega, beta, f, g, order)
+            # gfu_fem, grad_fem = ground_truth(mesh, dom_bnd, alpha, kappa, omega, beta, f, g, order)
             
             # start_time = time.time()
             V = H1(mesh, order = order, complex = True)
@@ -609,7 +609,8 @@ def acms_solution(mesh, dom_bnd, alpha, Bubble_modes, Edge_modes, order_v, kappa
                 # gfu = GridFunction(V)
                 #Computing full basis with max number of modes 
                 # bi = bonus int order - should match the curved mesh order
-                acms = ACMS(order = order, mesh = mesh, bm = max_bm, em = max_em, bi = 10, mesh_info = mesh_info, alpha = alpha)
+                
+                acms = ACMS(order = order, mesh = mesh, bm = max_bm, em = max_em, bi = mesh.GetCurveOrder(), mesh_info = mesh_info, alpha = alpha)
                 #dirichlet = mesh_info["dir_edges"])
                 acms.CalcHarmonicExtensions(kappa = kappa)
                 acms.calc_basis()
@@ -756,6 +757,7 @@ def main(maxH, problem, omega, order_v, Bubble_modes, Edge_modes):
     # Solve ACMS system and compute H1 error
     
     ndofs, dofs, l2_error_fem, l2_error_ex, h1_error_fem, h1_error_ex, l2_error_NodInt, h1_error_NodInt, l2_error_FEMex, h1_error_FEMex = acms_solution(mesh, dom_bnd, alpha, Bubble_modes, Edge_modes, order_v, kappa, omega, beta, f, g, gfu_fem, sol_ex, u_ex, mesh_info)    
+    
     
     # Save both H1 and H1-relative errors on file named "file_name.npz" 
     # It needs to be loaded to be readable
