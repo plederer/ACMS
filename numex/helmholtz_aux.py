@@ -750,8 +750,20 @@ def acms_solution(mesh, dom_bnd, alpha, Bubble_modes, Edge_modes, order_v, kappa
     print(h1_error_NodInt)
     print(l2_error_FEMex)
     print(l2_error_FEMex)
+    
+    errors_dictionary = {
+        'l2_error':        l2_error, 
+        'l2_error_ex':     l2_error_ex, 
+        'h1_error':        h1_error, 
+        'h1_error_ex':     h1_error_ex, 
+        'l2_error_NodInt': l2_error_NodInt, 
+        'h1_error_NodInt': h1_error_NodInt, 
+        'l2_error_FEMex':  l2_error_FEMex, 
+        'h1_error_FEMex':  h1_error_FEMex
+    }
+    
 
-    return ndofs, dofs, l2_error, l2_error_ex, h1_error, h1_error_ex, l2_error_NodInt, h1_error_NodInt, l2_error_FEMex, h1_error_FEMex
+    return ndofs, dofs, errors_dictionary
 
 
 
@@ -766,19 +778,8 @@ def acms_solution(mesh, dom_bnd, alpha, Bubble_modes, Edge_modes, order_v, kappa
 
 
 
-def main(maxH, problem, omega, order_v, Bubble_modes, Edge_modes):
+def error_table_save(maxH, problem, order_v, Bubble_modes, Edge_modes, mesh, kappa, errors_dictionary, ndofs, dofs, u_ex, sol_ex, gfu_fem, grad_fem):
     plot_error = 0
-    # Variables setting
-    mesh, dom_bnd, alpha, kappa, beta, f, g, sol_ex, u_ex, Du_ex, mesh_info = problem_definition(problem, maxH, omega)
-    # Draw(mesh)
-
-    # Compute ground truth solution with FEM of order max on the initialised mesh
-    gfu_fem, grad_fem = ground_truth(mesh, dom_bnd, alpha, kappa, omega, beta, f, g, order_v[-1])
-
-    # Solve ACMS system and compute H1 error
-    
-    ndofs, dofs, l2_error_fem, l2_error_ex, h1_error_fem, h1_error_ex, l2_error_NodInt, h1_error_NodInt, l2_error_FEMex, h1_error_FEMex = acms_solution(mesh, dom_bnd, alpha, Bubble_modes, Edge_modes, order_v, kappa, omega, beta, f, g, gfu_fem, u_ex, Du_ex, mesh_info)    
-    
     
     # Save both H1 and H1-relative errors on file named "file_name.npz" 
     # It needs to be loaded to be readable
@@ -798,16 +799,16 @@ def main(maxH, problem, omega, order_v, Bubble_modes, Edge_modes):
     if sol_ex == 0:
         print("Error with FEM of order max as ground truth solution")
         file_name = create_error_file(problem, kappa, maxH, order_v, Bubble_modes, Edge_modes, 0)
-        Errors = save_error_file(file_name, dictionary, mesh, l2_error_fem, h1_error_fem, dim, ndofs, dofs, gfu_fem, grad_fem)
-        convergence_plots(plot_error, dofs, h1_error_fem, mesh, Edge_modes, Bubble_modes, order_v)
+        Errors = save_error_file(file_name, dictionary, mesh, errors_dictionary["l2_error"], errors_dictionary["h1_error"], dim, ndofs, dofs, gfu_fem, grad_fem)
+        convergence_plots(plot_error, dofs, errors_dictionary["h1_error"], mesh, Edge_modes, Bubble_modes, order_v)
         
     elif sol_ex == 1:
         print("Error with exact solution")
         Du_ex = CF((u_ex.Diff(x), u_ex.Diff(y))) #If we have analytical solution defined
         #Error with FEM
         file_name = create_error_file(problem, kappa, maxH, order_v, Bubble_modes, Edge_modes, 1)
-        Errors = save_error_file_exact(file_name, dictionary, mesh, l2_error_ex, h1_error_ex, l2_error_fem, h1_error_fem, l2_error_FEMex, h1_error_FEMex, l2_error_NodInt, h1_error_NodInt, dim, ndofs, dofs, u_ex, Du_ex, gfu_fem, grad_fem)
-        convergence_plots(plot_error, dofs, h1_error_ex, mesh, Edge_modes, Bubble_modes, order_v)
+        Errors = save_error_file_exact(file_name, dictionary, mesh, errors_dictionary, dim, ndofs, dofs, u_ex, Du_ex, gfu_fem, grad_fem)
+        convergence_plots(plot_error, dofs, errors_dictionary["h1_error_ex"], mesh, Edge_modes, Bubble_modes, order_v)
 
     return file_name, Errors
      
@@ -815,7 +816,52 @@ def main(maxH, problem, omega, order_v, Bubble_modes, Edge_modes):
         
         
         
+#  def main(maxH, problem, omega, order_v, Bubble_modes, Edge_modes):
+#     plot_error = 0
+#     # Variables setting
+#     mesh, dom_bnd, alpha, kappa, beta, f, g, sol_ex, u_ex, Du_ex, mesh_info = problem_definition(problem, maxH, omega)
+#     # Draw(mesh)
+
+#     # Compute ground truth solution with FEM of order max on the initialised mesh
+#     gfu_fem, grad_fem = ground_truth(mesh, dom_bnd, alpha, kappa, omega, beta, f, g, order_v[-1])
+
+#     # Solve ACMS system and compute H1 error
+#     ndofs, dofs, errors_dictionary = acms_solution(mesh, dom_bnd, alpha, Bubble_modes, Edge_modes, order_v, kappa, omega, beta, f, g, gfu_fem, u_ex, Du_ex, mesh_info)    
+    
+    
+#     # Save both H1 and H1-relative errors on file named "file_name.npz" 
+#     # It needs to be loaded to be readable
+#     dim = (len(order_v), len(Edge_modes), len(Bubble_modes))
+#     dictionary = {
+#         1            : ["The keys are: meshsize, order, bubbles, edges, vertices, problem, wavenumber."],
+#         'meshsize'   : ["The mesh size is", maxH],
+#         'order'      : ["The order of approximation is",  order_v],
+#         'bubbles'    : ["The number of bubble functions is", Bubble_modes],
+#         'edges'      : ["The number of edge modes is", Edge_modes],
+#         'vertices'   : ["The number of vertices is", mesh.nv],
+#         'problem'    : ["Chosen problem", problem],
+#         "wavenumber" : ["Chosen wavenumber is", kappa]
+#     }
+    
+    
+#     if sol_ex == 0:
+#         print("Error with FEM of order max as ground truth solution")
+#         file_name = create_error_file(problem, kappa, maxH, order_v, Bubble_modes, Edge_modes, 0)
+#         Errors = save_error_file(file_name, dictionary, mesh, errors_dictionary["l2_error"], errors_dictionary["h1_error"], dim, ndofs, dofs, gfu_fem, grad_fem)
+#         convergence_plots(plot_error, dofs, errors_dictionary["h1_error"], mesh, Edge_modes, Bubble_modes, order_v)
         
+#     elif sol_ex == 1:
+#         print("Error with exact solution")
+#         Du_ex = CF((u_ex.Diff(x), u_ex.Diff(y))) #If we have analytical solution defined
+#         #Error with FEM
+#         file_name = create_error_file(problem, kappa, maxH, order_v, Bubble_modes, Edge_modes, 1)
+#         Errors = save_error_file_exact(file_name, dictionary, mesh, errors_dictionary, dim, ndofs, dofs, u_ex, Du_ex, gfu_fem, grad_fem)
+#         convergence_plots(plot_error, dofs, errors_dictionary["h1_error_ex"], mesh, Edge_modes, Bubble_modes, order_v)
+
+#     return file_name, Errors
+     
+        
+               
         
         
         
