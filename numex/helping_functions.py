@@ -138,20 +138,15 @@ class ACMS:
         # remove double entries
         mats = tuple( dict.fromkeys(self.mesh.GetMaterials()) )
         
-        start_time = time.time()
+        
         for dom_name in mats:
             Vharm, aharm, aharm_inv, E = self.GetHarmonicExtensionDomain(dom_name, kappa = kappa)
             self.vol_extensions[dom_name] = [Vharm, aharm, aharm_inv, E]
-        end_time = time.time()
-        print("Volume extensions: ", end_time - start_time)
-
-        start_time = time.time()
-        for edge_name in edge_names:
-            Vharm, aharm, aharm_inv, E = self.GetHarmonicExtensionEdge(edge_name, kappa = kappa)
-            self.edge_extensions[edge_name] = [Vharm, aharm, aharm_inv, E]
-        end_time = time.time()
-        print("edge extensions: ", end_time - start_time)
-
+        
+        # for edge_name in edge_names:
+        #     Vharm, aharm, aharm_inv, E = self.GetHarmonicExtensionEdge(edge_name, kappa = kappa)
+        #     self.edge_extensions[edge_name] = [Vharm, aharm, aharm_inv, E]
+        
 
 
     """
@@ -188,40 +183,23 @@ class ACMS:
         if (basis == None):
             basis = self.basis_e
         self.CalcMaxEdgeModes()
+        # print("number of edges = ",len(self.edges))
+
+        check_version = True
+        edgeversions = {}
         
         if self.edge_modes > 0:
             for edge_name in self.edges:
+                # edgestart = time.time()
+                
                 vertex_dofs = self.V.GetDofs(self.mesh.BBoundaries(".*")) # Global vertices (coarse mesh)
                 fd = self.V.GetDofs(self.mesh.Boundaries(edge_name)) & (~vertex_dofs) 
                 # Vertices on a specific edge with boundaries removed (global vertices)
                 base_space = H1(self.mesh, order = self.order, dirichlet = self.dirichlet) # Creating Sobolev space
                 Vloc = Compress(base_space, fd) #Restricting Sobolev space on edge (with Dirichlet bc)
-
-                uloc, vloc = Vloc.TnT() # Trial and test functions
-                t = specialcf.tangential(2)
-                #Setting bilinear form:  int (Grad u Grad v) de
-                aloc = BilinearForm(Vloc)
-                # This allows us to take the normal derivative of a function that is in H1 and computing the integral only on edges
-                # Otherwise NGSolve does not allow to take the trace of a function in H^{1/2}(e) - uloc is defined on edge
-                aloc += (grad(uloc)*t) * (grad(vloc)*t) * ds(skeleton=True, definedon = self.mesh.Boundaries(edge_name), bonus_intorder = self.bi)
-                aloc.Assemble()
-                #Setting bilinear form:  int u v de        
-                mloc = BilinearForm(Vloc)
-                mloc += uloc.Trace() * vloc.Trace() * ds(definedon = self.mesh.Boundaries(edge_name), bonus_intorder = self.bi)
-                #mloc += uloc * vloc * ds(skeleton = True, edge_name)
-                mloc.Assemble()
-
-                # Solving eigenvalue problem: AA x = ev MM x
-                AA = sp.csr_matrix(aloc.mat.CSR())
-                MM = sp.csr_matrix(mloc.mat.CSR())
-                    
-                ev, evec =sp.linalg.eigs(A = AA, M = MM, k = self.edge_modes, which='SM')
-                idx = ev.argsort()[::]   
-                ev = ev[idx]
-                evec = evec[:,idx]
-                evec = evec.transpose()
-
-                # Local to global mapping
+                # print("Vloc.ndof = ", Vloc.ndof)
+                
+                # # Local to global mapping
                 ind = Vloc.ndof * [0]
                 ii = 0
                 for i, b in enumerate(fd):
@@ -230,41 +208,89 @@ class ACMS:
                         ii += 1
                 Eloc = PermutationMatrix(base_space.ndof, ind)
 
-                for e in evec: # Going over eigenvectors
-                    # Vloc.Embed(e.real, gfu.vec)
-                    self.gfu.vec[:]=0.0
-                    self.gfu.vec.data = Eloc.T * e.real # Grid funciton on full mesh                
-
-                    nb_dom = self.mesh.Boundaries(edge_name).Neighbours(VOL) # It gives volumes that are neighbours of my edge
-                    gfu_edge = self.gfu.vec.CreateVector()
-                    gfu_edge[:] = 0.0
+                edgebasis = MultiVector(self.gfu.vec, self.edge_modes)
+                if (str(Vloc.ndof) in edgeversions) and check_version:
+                    evec = edgeversions[str(Vloc.ndof)]
+                    for i,e in enumerate(evec):
+                        edgebasis[i] = Eloc.T * e.real
+                else:
+                    # print("DO CALC")
+                    uloc, vloc = Vloc.TnT() # Trial and test functions
+                    t = specialcf.tangential(2)
+                    
+                    #Setting bilinear form:  int (Grad u Grad v) de
+                    aloc = BilinearForm(Vloc, symmetric = True)
+                    # This allows us to take the normal derivative of a function that is in H1 and computing the integral only on edges
+                    # Otherwise NGSolve does not allow to take the trace of a function in H^{1/2}(e) - uloc is defined on edge
+                    aloc += (grad(uloc)*t) * (grad(vloc)*t) * ds(skeleton=True, definedon = self.mesh.Boundaries(edge_name), bonus_intorder = self.bi)
+                    aloc.Assemble()
+                    
+                    #Setting bilinear form:  int u v de        
+                    mloc = BilinearForm(Vloc, symmetric = True)
+                    mloc += uloc.Trace() * vloc.Trace() * ds(skeleton = True, definedon = self.mesh.Boundaries(edge_name), bonus_intorder = self.bi)
+                    mloc.Assemble()
+                    
+                    
+                    # Solving eigenvalue problem: AA x = ev MM x
+                    AA = sp.csr_matrix(aloc.mat.CSR())
+                    MM = sp.csr_matrix(mloc.mat.CSR())
+                    
+                    ev, evec =sp.linalg.eigs(A = AA, M = MM, k = self.edge_modes, which='SM')
+                    idx = ev.argsort()[::]   
+                    ev = ev[idx]
+                    evec = evec[:,idx]
+                    evec = evec.transpose()
+                    
+                    if check_version:
+                        edgeversions[str(Vloc.ndof)] = evec
+                    for i,e in enumerate(evec):
+                        edgebasis[i] = Eloc.T * e.real
+                                
+                nb_dom = self.mesh.Boundaries(edge_name).Neighbours(VOL) # It gives volumes that are neighbours of my edge
+                for bi, bb in enumerate(self.mesh.GetMaterials()):
+                    if nb_dom.Mask()[bi]:
+                        Vharm, aharm_mat, aharm_inv, E = self.vol_extensions[bb]
+                        edgebasis.data += -(E.T @ aharm_inv @ aharm_mat @ E) * edgebasis
                 
-                    for bi, bb in enumerate(self.mesh.GetMaterials()):
-                        if nb_dom.Mask()[bi]:
-                            Vharm, aharm_mat, aharm_inv, E = self.vol_extensions[bb]
-                            # gfu_extension gfu_edge are auxiliary functions
-                            gfu_extension = GridFunction(Vharm) # Grid funciton on specific subdomain
-                            res = gfu_extension.vec.CreateVector()
-                            gfu_extension.vec[:] = 0.0
+                for i in range(len(evec)):
+                    basis.Append(edgebasis[i])
 
-                            gfu_edge.data = self.gfu.vec  # Grid funciton on edge
-                            # Vharm.EmbedTranspose(gfu_edge, gfu_extension.vec)
-                            # Extension to subdomain * values on edge = function extended to subdomain
-                            gfu_extension.vec.data = E * gfu_edge 
-                            # Restricting globally defined edge function to the subdomain I want
-                            # Harmonic extension on edge
-                            res[:] = 0.0
-                            res = aharm_mat * gfu_extension.vec 
-                            gfu_extension.vec.data = - aharm_inv * res
-                            #Include Dirichlet bc because we loop over all subdomains to which we want to extend
-                            # Vharm.Embed(gfu_extension.vec, gfu_edge)
-                            gfu_edge.data = E.T * gfu_extension.vec
-                            self.gfu.vec.data += gfu_edge # Boundary value stored
+                # old version
+    
+                # for e in evec: # Going over eigenvectors
+                #     # Vloc.Embed(e.real, gfu.vec)
+                #     self.gfu.vec[:]=0.0
+                #     self.gfu.vec.data = Eloc.T * e.real # Grid funciton on full mesh                
+
+                #     nb_dom = self.mesh.Boundaries(edge_name).Neighbours(VOL) # It gives volumes that are neighbours of my edge
+                #     gfu_edge = self.gfu.vec.CreateVector()
+                #     gfu_edge[:] = 0.0
                     
-                    
+                #     for bi, bb in enumerate(self.mesh.GetMaterials()):
+                #         if nb_dom.Mask()[bi]:
+                #             Vharm, aharm_mat, aharm_inv, E = self.vol_extensions[bb]
+                #             # gfu_extension gfu_edge are auxiliary functions
+                #             gfu_extension = GridFunction(Vharm) # Grid funciton on specific subdomain
+                #             res = gfu_extension.vec.CreateVector()
+                #             # gfu_extension.vec[:] = 0.0
+
+                #             # gfu_edge.data = self.gfu.vec  # Grid funciton on edge
+                #             # Vharm.EmbedTranspose(gfu_edge, gfu_extension.vec)
+                #             # Extension to subdomain * values on edge = function extended to subdomain
+                #             gfu_extension.vec.data = E * self.gfu.vec 
+                #             # Restricting globally defined edge function to the subdomain I want
+                #             # Harmonic extension on edge
+                #             # res[:] = 0.0
+                #             res = aharm_mat * gfu_extension.vec 
+                #             gfu_extension.vec.data = - aharm_inv * res
+                #             #Include Dirichlet bc because we loop over all subdomains to which we want to extend
+                #             # Vharm.Embed(gfu_extension.vec, gfu_edge)
+                #             # gfu_edge.data = E.T * gfu_extension.vec
+                #             self.gfu.vec.data += -(E.T @ aharm_inv @ aharm_mat @ E) * self.gfu.vec #gfu_extension.vec # Boundary value stored
                     # Draw(self.gfu, self.mesh, "basis")
                     # input()
-                    basis.Append(self.gfu.vec)
+                    # basis.Append(self.gfu.vec)
+                
 
 
 
@@ -303,35 +329,55 @@ class ACMS:
             # nb_dom = GetVertexNeighbours(vertex_name, self.mesh)
             # print(nb_dom)
 
+            
+            vertex_nr = np.nonzero(fd)[0]
+
             self.gfu.vec[:] = 0
             self.gfu.vec[np.nonzero(fd)[0]] = 1  # Set the grid function to one in the current vertex
-
+        
             # First extend to edges
             for bi, bb in enumerate(self.mesh.GetBoundaries()):
                 if nb_edges.Mask()[bi]:  # If the edge is in the neighbourhood of the vertex ... extend
-                    # Vharm, aharm_mat, aharm_inv = GetHarmonicExtensionEdge(bb)
-                    Vharm, aharm_mat, aharm_inv, E = self.edge_extensions[bb] # Extension to the edge(s)
-                    gfu_extension = GridFunction(Vharm) # Auxiliary function on harmonic space
-                    gfu_extension.vec[:] = 0.0 # Initializing to 0
-                    res = gfu_extension.vec.CreateVector() #
-                    res[:]=0.0
-                    # Set the grid function to one in the current vertex AGAIN. The extension sets it to 0 again.
-                    gfu_vertex[:] = 0
-                    gfu_vertex[np.nonzero(fd)[0]] = 1 
+                    #old version
+                    if False:
+                        # Vharm, aharm_mat, aharm_inv = GetHarmonicExtensionEdge(bb)
+                        Vharm, aharm_mat, aharm_inv, E = self.edge_extensions[bb] # Extension to the edge(s)
+                        gfu_extension = GridFunction(Vharm) # Auxiliary function on harmonic space
+                        gfu_extension.vec[:] = 0.0 # Initializing to 0
+                        res = gfu_extension.vec.CreateVector() #
+                        res[:]=0.0
+                        # Set the grid function to one in the current vertex AGAIN. The extension sets it to 0 again.
 
-                    # Extend to current edge
-                    # Q: Why are we using * product which is component-wise
-                    gfu_extension.vec.data = E * gfu_vertex # Extend to current edge
-                    # Vharm.EmbedTranspose(gfu_vertex, gfu_extension.vec)
-                    res.data = aharm_mat * gfu_extension.vec
-                    # # # only harmonic extension to one edge
-                    # # # has zero vertex value! 
-                    # Which is why we need to set it again to 1 in every loop
-                    gfu_extension.vec.data = - aharm_inv * res
-                    # Vharm.Embed(gfu_extension.vec, gfu_vertex)
-                    gfu_vertex.data = E.T * gfu_extension.vec
-                    self.gfu.vec.data += gfu_vertex # Storing the current extension
-            
+                        gfu_vertex[:] = 0
+                        gfu_vertex[np.nonzero(fd)[0]] = 1 
+
+                        # Extend to current edge
+                        # Q: Why are we using * product which is component-wise
+                        gfu_extension.vec.data = E * gfu_vertex # Extend to current edge
+                        # Vharm.EmbedTranspose(gfu_vertex, gfu_extension.vec)
+                        res.data = aharm_mat * gfu_extension.vec
+                        # # # only harmonic extension to one edge
+                        # # # has zero vertex value! 
+                        # Which is why we need to set it again to 1 in every loop
+                        gfu_extension.vec.data = - aharm_inv * res
+                        # Vharm.Embed(gfu_extension.vec, gfu_vertex)
+                        gfu_vertex.data = E.T * gfu_extension.vec
+                        self.gfu.vec.data += gfu_vertex # Storing the current extension
+                    else:
+                        # this does not work for curved boundaries!
+                        Vxcoord = self.mesh.vertices[vertex_nr].point[0]
+                        Vycoord = self.mesh.vertices[vertex_nr].point[1]
+                        
+                        length = Integrate(1, self.mesh, definedon=self.mesh.Boundaries(bb), order = 0)
+                        for e in self.mesh.Boundaries(bb).Elements():
+                            for v in e.vertices:
+                                if v.nr != vertex_nr: 
+                                    xcoord = self.mesh.vertices[v.nr].point[0]
+                                    ycoord = self.mesh.vertices[v.nr].point[1] 
+                                    vlen = sqrt((xcoord - Vxcoord)**2 + (ycoord - Vycoord)**2)
+                                    self.gfu.vec[v.nr] = 1-vlen/length
+                    
+             
             
             gfu_edge = self.gfu.vec.CreateVector()
             
@@ -353,6 +399,7 @@ class ACMS:
                     # Vharm.Embed(gfu_extension.vec, gfu_edge)
                     gfu_edge.data = E.T * gfu_extension.vec
                     self.gfu.vec.data += gfu_edge
+            
             
             if (Norm(self.gfu.vec) > 1):
                 basis.Append(self.gfu.vec)
