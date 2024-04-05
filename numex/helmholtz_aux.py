@@ -369,7 +369,7 @@ def problem_definition(problem, maxH, omega):
         g = 0
         u_ex = 0
         sol_ex = 0
-
+        Du_ex = 0
 
     elif problem == 3:  #Problem setting - BOUNDARY SOURCE
 
@@ -392,6 +392,7 @@ def problem_definition(problem, maxH, omega):
         g = exp(-200 * ((x-P.x)**2 + (y-P.y)**2))
         u_ex = 0
         sol_ex = 0
+        Du_ex = 0
 
 
     elif problem == 4:  #Problem setting - PERIODIC CRYSTAL - Squared Inclusions
@@ -426,6 +427,7 @@ def problem_definition(problem, maxH, omega):
         Draw(g, mesh, "g")
         u_ex = 0
         sol_ex = 0
+        Du_ex = 0
         
         
         
@@ -476,10 +478,11 @@ def problem_definition(problem, maxH, omega):
         Draw(g, mesh, "g")
         u_ex = 0
         sol_ex = 0
+        Du_ex = 0
         
         
 
-    return mesh, dom_bnd, alpha, kappa, beta, f, g, sol_ex, u_ex, mesh_info
+    return mesh, dom_bnd, alpha, kappa, beta, f, g, sol_ex, u_ex, Du_ex, mesh_info
 
 
 ##################################################################
@@ -528,13 +531,15 @@ def ground_truth(mesh, dom_bnd, alpha, kappa, omega, beta, f, g, ord):
 ##################################################################
 
 
-
 def compute_h1_error(gfu, grad_fem, mesh):
-    #Computing error
-    diff = grad_fem - Grad(gfu)
-    h1_error_aux = sqrt( Integrate ( InnerProduct(diff,diff), mesh, order = 15)) #Needs to do complex conjugate
-    # Draw(gfu, mesh, "u_acms")
-    h1_error_aux = h1_error_aux.real
+    if gfu == 0 or grad_fem == 0:
+        h1_error_aux = 0
+    else:
+        #Computing error
+        diff = grad_fem - Grad(gfu)
+        h1_error_aux = sqrt( Integrate ( InnerProduct(diff,diff), mesh, order = 15)) #Needs to do complex conjugate
+        # Draw(gfu, mesh, "u_acms")
+        h1_error_aux = h1_error_aux.real
     return h1_error_aux
 
 ##################################################################
@@ -545,21 +550,127 @@ def compute_h1_error(gfu, grad_fem, mesh):
 
 
 def compute_l2_error(gfu, gfu_fem, mesh):
-    #Computing error
-    diff = gfu_fem - gfu
-    l2_error_aux = sqrt( Integrate ( InnerProduct(diff,diff), mesh, order = 15)) #Needs to do complex conjugate
-    # Draw(gfu, mesh, "u_acms")
-    l2_error_aux = l2_error_aux.real
+    if gfu == 0 or gfu_fem == 0 :
+        l2_error_aux = 0
+    else:
+        #Computing error
+        diff = gfu_fem - gfu
+        l2_error_aux = sqrt( Integrate ( InnerProduct(diff,diff), mesh, order = 15)) #Needs to do complex conjugate
+        # Draw(gfu, mesh, "u_acms")
+        l2_error_aux = l2_error_aux.real
     return l2_error_aux
 
 
+##################################################################
+##################################################################
+##################################################################
+##################################################################
+ 
+ 
+
+def append_acms_errors(mesh, gfu, gfu_fem, u_ex, grad_fem, Du_ex, l2_error, l2_error_ex, h1_error, h1_error_ex):
+    
+    print("Energy = ", sqrt(Integrate(gfu_fem**2, mesh)))
+    l2_error_aux = compute_l2_error(gfu, gfu_fem, mesh)
+    l2_error.append(l2_error_aux)
+    h1_error_aux = compute_h1_error(gfu, grad_fem, mesh)
+    h1_error.append(h1_error_aux)
+
+                    
+    l2_error_ex_aux = compute_l2_error(gfu,  u_ex, mesh)
+    l2_error_ex.append(l2_error_ex_aux)
+    h1_error_ex_aux = compute_h1_error(gfu, Du_ex, mesh)
+    h1_error_ex.append(h1_error_ex_aux)
+                                
+    return l2_error, l2_error_ex, h1_error, h1_error_ex
 
 ##################################################################
 ##################################################################
 ##################################################################
 ##################################################################
+
+
+def append_NI_FEM_errors(mesh, gfu_fem, u_ex, Du_ex, Iu, l2_error_NodInt, h1_error_NodInt, l2_error_FEMex, h1_error_FEMex):
+    
+
+    Iu.Set(u_ex, dual=True)
+    l2_error_NodInt_aux = compute_l2_error(Iu,  u_ex, mesh)
+    l2_error_NodInt.append(l2_error_NodInt_aux)
+    h1_error_NodInt_aux = compute_h1_error(Iu, Du_ex, mesh)
+    h1_error_NodInt.append(h1_error_NodInt_aux)
+    #Error with FEM
+    l2_error_FEMex_aux = compute_l2_error(gfu_fem,  u_ex, mesh)
+    l2_error_FEMex.append(l2_error_FEMex_aux)
+    h1_error_FEMex_aux = compute_h1_error(gfu_fem, Du_ex, mesh)
+    h1_error_FEMex.append(h1_error_FEMex_aux)
+                    
+        
+    return l2_error_NodInt, h1_error_NodInt, l2_error_FEMex, h1_error_FEMex
+
+
+
+ 
+##################################################################
+##################################################################
+##################################################################
+##################################################################
+
+ 
+ 
+ 
+def compute_acms_solution(mesh, mesh_info, a, l, V, acms, BM, EM):    
+    
+    gfu = GridFunction(V)
+    basis = MultiVector(gfu.vec, 0)
+
+    for bv in acms.basis_v:
+        gfu.vec.FV()[:] = bv
+        basis.Append(gfu.vec)
+        # Draw(gfu,mesh,"vertex basis")
+
+    for e, label in enumerate(mesh_info["edges"]):
+        for i in range(EM):
+            gfu.vec.FV()[:] = acms.basis_e[e * acms.edge_modes + i]
+            basis.Append(gfu.vec)
+
+    doms = list( dict.fromkeys(mesh.GetMaterials()) )
+    for d, dom in enumerate(doms):
+        for i in range(BM):
+            gfu.vec.FV()[:] = acms.basis_b[d * acms.bubble_modes + i]
+            basis.Append(gfu.vec)
+
+    num = len(basis)
+    print("ndofs = ", num)
+    
+    # gfu_b = GridFunction(V)
+    # Draw(gfu_b, mesh, "basis")
+    # for b in range(num):
+    #     gfu_b.vec.FV()[:] = basis[b] #np.abs(basis[b])
+    #     Redraw()
+    #     input()
+
+    asmall = InnerProduct (basis, a.mat * basis, conjugate = False) #Complex
+    ainvsmall = Matrix(numpy.linalg.inv(asmall))
+    f_small = InnerProduct(basis, l.vec, conjugate = False)
+    usmall = ainvsmall * f_small
+    gfu.vec[:] = 0.0
+    gfu.vec.data = basis * usmall
+#     Draw(gfu, mesh, "uacms")
+    print("finished_acms")
+
+        
+    return gfu, num
+
+##################################################################
+##################################################################
+##################################################################
+##################################################################
+
+ 
+ 
+ 
   
-def acms_solution(mesh, dom_bnd, alpha, Bubble_modes, Edge_modes, order_v, kappa, omega, beta, f, g, gfu_fem, sol_ex, u_ex, mesh_info):
+def acms_solution(mesh, dom_bnd, alpha, Bubble_modes, Edge_modes, order_v, kappa, omega, beta, f, g, gfu_fem, u_ex, Du_ex, mesh_info):
     #  ACMS RESOLUTION
 
     l2_error = []
@@ -583,7 +694,7 @@ def acms_solution(mesh, dom_bnd, alpha, Bubble_modes, Edge_modes, order_v, kappa
             print(order)
             
             #FEM solution with same order of approximation
-            # gfu_fem, grad_fem = ground_truth(mesh, dom_bnd, alpha, kappa, omega, beta, f, g, order)
+            gfu_fem, grad_fem = ground_truth(mesh, dom_bnd, alpha, kappa, omega, beta, f, g, order)
             
             # start_time = time.time()
             V = H1(mesh, order = order, complex = True)
@@ -609,127 +720,37 @@ def acms_solution(mesh, dom_bnd, alpha, Bubble_modes, Edge_modes, order_v, kappa
                 # gfu = GridFunction(V)
                 #Computing full basis with max number of modes 
                 # bi = bonus int order - should match the curved mesh order
-                
                 acms = ACMS(order = order, mesh = mesh, bm = max_bm, em = max_em, bi = mesh.GetCurveOrder(), mesh_info = mesh_info, alpha = alpha)
                 #dirichlet = mesh_info["dir_edges"])
                 acms.CalcHarmonicExtensions(kappa = kappa)
                 acms.calc_basis()
-            
-                # Draw(gfu, mesh, "basis")
-                
-                for EM in Edge_modes:
-
-                        for BM in Bubble_modes:
-                            #Vc = H1(mesh, order = order, complex = True)
-
-                            if (EM <= acms.edge_modes) and (BM <= acms.bubble_modes):
-                                gfu = GridFunction(V)
-                                basis = MultiVector(gfu.vec, 0)
-                                
-                                for bv in acms.basis_v:
-                                    gfu.vec.FV()[:] = bv
-                                    basis.Append(gfu.vec)
-                                    # Draw(gfu,mesh,"vertex basis")
-                                    
-                                for e, label in enumerate(mesh_info["edges"]):
-                                    for i in range(EM):
-                                        gfu.vec.FV()[:] = acms.basis_e[e * acms.edge_modes + i]
-                                        basis.Append(gfu.vec)
-
-                                doms = list( dict.fromkeys(mesh.GetMaterials()) )
-                                for d, dom in enumerate(doms):
-                                    for i in range(BM):
-                                        gfu.vec.FV()[:] = acms.basis_b[d * acms.bubble_modes + i]
-                                        basis.Append(gfu.vec)
-
-                                num = len(basis)
-                                print("ndofs = ", num)
-                                
-                                # input()
-                                
-                                # gfu_b = GridFunction(V)
-                                # Draw(gfu_b, mesh, "basis")
-                                # for b in range(num):
-                                #     gfu_b.vec.FV()[:] = basis[b] #np.abs(basis[b])
-                                #     Redraw()
-                                #     input()
-                                
-                                dofs.append(num)
-
-                                asmall = InnerProduct (basis, a.mat * basis, conjugate = False) #Complex
-                                
-                                ainvsmall = Matrix(numpy.linalg.inv(asmall))
-                                f_small = InnerProduct(basis, l.vec, conjugate = False)
-                                usmall = ainvsmall * f_small
-                                gfu.vec[:] = 0.0
-                                gfu.vec.data = basis * usmall
-                                Draw(gfu, mesh, "uacms")
-                                print("finished_acms")
-
-                                left_int = 0
-                                right_int = 0
-                                for e in mesh.GetBoundaries():
-                                    if "crystal_bnd_left" in e:
-                                        left_int += Integrate(InnerProduct(gfu, gfu), mesh, definedon = mesh.Boundaries(e))
-                                    if "crystal_bnd_right" in e:
-                                        right_int += Integrate(InnerProduct(gfu, gfu), mesh, definedon = mesh.Boundaries(e))
-                                print(sqrt(left_int).real)
-                                print(sqrt(right_int).real)
-                                input()
-                                
-                                print("Energy = ", sqrt(Integrate(gfu_fem**2, mesh)))
-                                l2_error_aux = compute_l2_error(gfu, gfu_fem, mesh)
-                                l2_error.append(l2_error_aux)
-                                h1_error_aux = compute_h1_error(gfu, grad_fem, mesh)
-                                h1_error.append(h1_error_aux)
-                                
-                                if sol_ex == 1:
-                                    Du_ex = CF((u_ex.Diff(x), u_ex.Diff(y))) #If we have analytical solution defined
-                                    l2_error_ex_aux = compute_l2_error(gfu,  u_ex, mesh)
-                                    l2_error_ex.append(l2_error_ex_aux)
-                                    h1_error_ex_aux = compute_h1_error(gfu, Du_ex, mesh)
-                                    h1_error_ex.append(h1_error_ex_aux)
-                            else:
-                                l2_error.append(0)
-                                h1_error.append(0)
-                                dofs.append(V.ndof)
-
-                                if sol_ex == 1:
-                                    l2_error_ex.append(0)
-                                    h1_error_ex.append(0)
                             
+                for EM in Edge_modes:
+                        for BM in Bubble_modes:
+                            if (EM <= acms.edge_modes) and (BM <= acms.bubble_modes):
+                                gfu, num = compute_acms_solution(mesh, mesh_info, a, l, V, acms, BM, EM)
+                                dofs.append(num)
+                                l2_error, l2_error_ex, h1_error, h1_error_ex = append_acms_errors(mesh, gfu, gfu_fem, u_ex, grad_fem, Du_ex, l2_error, l2_error_ex, h1_error, h1_error_ex)
 
-
-                if sol_ex == 1:
-                    Iu.Set(u_ex, dual=True)
-                    l2_error_NodInt_aux = compute_l2_error(Iu,  u_ex, mesh)
-                    l2_error_NodInt.append(l2_error_NodInt_aux)
-                    h1_error_NodInt_aux = compute_h1_error(Iu, Du_ex, mesh)
-                    h1_error_NodInt.append(h1_error_NodInt_aux)
-                    #Error with FEM
-                    l2_error_FEMex_aux = compute_l2_error(gfu_fem,  u_ex, mesh)
-                    l2_error_FEMex.append(l2_error_FEMex_aux)
-                    h1_error_FEMex_aux = compute_h1_error(gfu_fem, Du_ex, mesh)
-                    h1_error_FEMex.append(h1_error_FEMex_aux)
-                    
+                l2_error_NodInt, h1_error_NodInt, l2_error_FEMex, h1_error_FEMex = append_NI_FEM_errors(mesh, gfu_fem, u_ex, Du_ex, Iu, l2_error_NodInt, h1_error_NodInt, l2_error_FEMex, h1_error_FEMex)
+           
             else:
                 for EM in Edge_modes:
                     for BM in Bubble_modes:
-                        l2_error.append(0)
-                        h1_error.append(0)
-                        dofs.append(V.ndof)
+                        l2_error, l2_error_ex, h1_error, h1_error_ex = append_acms_errors(mesh, 0, 0, 0, 0, 0, l2_error, l2_error_ex, h1_error, h1_error_ex)
 
-                        if sol_ex == 1:
-                            l2_error_ex.append(0)
-                            h1_error_ex.append(0)
-                            l2_error_FEMex.append(0)
-                            h1_error_FEMex.append(0)
-                            
-                if sol_ex == 1:
-                    l2_error_NodInt.append(0)
-                    h1_error_NodInt.append(0)
+                l2_error_NodInt, h1_error_NodInt, l2_error_FEMex, h1_error_FEMex = append_NI_FEM_errors(mesh, 0, 0, 0, 0, l2_error_NodInt, h1_error_NodInt, l2_error_FEMex, h1_error_FEMex)
+                
     
-        
+    print(l2_error)   
+    print(l2_error_ex)
+    print(h1_error)
+    print(h1_error_ex)
+    print(l2_error_NodInt)
+    print(h1_error_NodInt)
+    print(l2_error_FEMex)
+    print(l2_error_FEMex)
+
     return ndofs, dofs, l2_error, l2_error_ex, h1_error, h1_error_ex, l2_error_NodInt, h1_error_NodInt, l2_error_FEMex, h1_error_FEMex
 
 
@@ -748,7 +769,7 @@ def acms_solution(mesh, dom_bnd, alpha, Bubble_modes, Edge_modes, order_v, kappa
 def main(maxH, problem, omega, order_v, Bubble_modes, Edge_modes):
     plot_error = 0
     # Variables setting
-    mesh, dom_bnd, alpha, kappa, beta, f, g, sol_ex, u_ex, mesh_info = problem_definition(problem, maxH, omega)
+    mesh, dom_bnd, alpha, kappa, beta, f, g, sol_ex, u_ex, Du_ex, mesh_info = problem_definition(problem, maxH, omega)
     # Draw(mesh)
 
     # Compute ground truth solution with FEM of order max on the initialised mesh
@@ -756,7 +777,7 @@ def main(maxH, problem, omega, order_v, Bubble_modes, Edge_modes):
 
     # Solve ACMS system and compute H1 error
     
-    ndofs, dofs, l2_error_fem, l2_error_ex, h1_error_fem, h1_error_ex, l2_error_NodInt, h1_error_NodInt, l2_error_FEMex, h1_error_FEMex = acms_solution(mesh, dom_bnd, alpha, Bubble_modes, Edge_modes, order_v, kappa, omega, beta, f, g, gfu_fem, sol_ex, u_ex, mesh_info)    
+    ndofs, dofs, l2_error_fem, l2_error_ex, h1_error_fem, h1_error_ex, l2_error_NodInt, h1_error_NodInt, l2_error_FEMex, h1_error_FEMex = acms_solution(mesh, dom_bnd, alpha, Bubble_modes, Edge_modes, order_v, kappa, omega, beta, f, g, gfu_fem, u_ex, Du_ex, mesh_info)    
     
     
     # Save both H1 and H1-relative errors on file named "file_name.npz" 
