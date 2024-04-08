@@ -195,7 +195,13 @@ def crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer, alpha_inner, de
             outerdom = domain[i*Ny+j]
             # outerdom.faces.name = "outer"+str(i*Ny+j)
             outerdom.faces.name = crystaltype[int(defects[i,j])][0]+str(i*Ny+j)
-            outerdom = outerdom - inclusion[i*Ny+j]    
+            outerdom = outerdom - inclusion[i*Ny+j]
+            outerdom.faces.edges.Min(Y).name = "E_V"
+            outerdom.faces.edges.Max(Y).name = "E_V"
+            outerdom.faces.edges.Min(X).name = "E_H"
+            outerdom.faces.edges.Max(X).name = "E_H"
+
+            
 
             innerdom = domain[i*Ny+j]*inclusion[i*Ny+j]
             innerdom.faces.edges.name="inner_edge"+str(i*Ny+j)
@@ -203,23 +209,23 @@ def crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer, alpha_inner, de
             innerdom.faces.name=crystaltype[int(defects[i,j])][1]+str(i*Ny+j)
 
             if (j == 0) :
-                outerdom.faces.edges.Min(Y).name = "dom_bnd"
+                outerdom.faces.edges.Min(Y).name = "dom_bnd_V"
             if (j == (Ny-1)) :
-                outerdom.faces.edges.Max(Y).name = "dom_bnd"
+                outerdom.faces.edges.Max(Y).name = "dom_bnd_V"
             if (i == 0):
-                outerdom.faces.edges.Min(X).name = "dom_bnd"
+                outerdom.faces.edges.Min(X).name = "dom_bnd_H"
             if (i == (Nx-1)) :
-                outerdom.faces.edges.Max(X).name = "dom_bnd"
+                outerdom.faces.edges.Max(X).name = "dom_bnd_H"
             
             if layers > 0:
                 if (j == layers) and (i >= layers) and (i <= Nx-1-layers):
-                    outerdom.faces.edges.Min(Y).name = "crystal_bnd_bottom"
+                    outerdom.faces.edges.Min(Y).name = "crystal_bnd_bottom_V"
                 if (j == (Ny-1-layers)) and (i >= layers) and (i <= Nx-1-layers) :
-                    outerdom.faces.edges.Max(Y).name = "crystal_bnd_top"
+                    outerdom.faces.edges.Max(Y).name = "crystal_bnd_top_V"
                 if (i == layers) and (j >= layers) and (j <= Ny-1-layers):
-                    outerdom.faces.edges.Min(X).name = "crystal_bnd_left"
+                    outerdom.faces.edges.Min(X).name = "crystal_bnd_left_H"
                 if (i == (Nx-1-layers)) and (j >= layers) and (j <= Ny-1-layers) :
-                    outerdom.faces.edges.Max(X).name = "crystal_bnd_right"
+                    outerdom.faces.edges.Max(X).name = "crystal_bnd_right_H"
                 
             outer.append(outerdom)
             inner.append(innerdom)
@@ -268,13 +274,21 @@ def crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer, alpha_inner, de
         if not "dom_bnd" in mesh.ngmesh.GetBCName(i): # != "dom_bnd":
             if not "inner_edge" in mesh.ngmesh.GetBCName(i): # != "dom_bnd":
                 if not "crystal_bnd" in mesh.ngmesh.GetBCName(i):
-                    mesh.ngmesh.SetBCName(i,"E" + str(i))
+                    if "V" in mesh.ngmesh.GetBCName(i):
+                        mesh.ngmesh.SetBCName(i,"E_V" + str(i))
+                    else:
+                        mesh.ngmesh.SetBCName(i,"E_H" + str(i))
                 else:
                     name = mesh.ngmesh.GetBCName(i)
                     mesh.ngmesh.SetBCName(i,name + str(i))
         else:
-            mesh.ngmesh.SetBCName(i,"dom_bnd_" + str(bi))
-            dom_bnd += "dom_bnd_" + str(bi) + "|"
+            if "V" in mesh.ngmesh.GetBCName(i):
+                mesh.ngmesh.SetBCName(i,"dom_bnd_V" + str(bi))
+                dom_bnd += "dom_bnd_V" + str(bi) + "|"
+            else:
+                mesh.ngmesh.SetBCName(i,"dom_bnd_H" + str(bi))
+                dom_bnd += "dom_bnd_H" + str(bi) + "|"
+            
             bi+=1
     dom_bnd = dom_bnd[:-1]
     
@@ -437,8 +451,8 @@ def problem_definition(problem, maxH, omega):
         Lx = 0.484 #"c"
         Ly = 0.685 #"a"
 
-        Nx = 6 # number of cells in x
-        Ny = 6 # number of cells in y
+        Nx = 10 # number of cells in x
+        Ny = 10 # number of cells in y
         
         incl = 1 #circular
         alpha_outer = 1/12.1 #SILICON
@@ -621,26 +635,39 @@ def append_NI_FEM_errors(mesh, gfu_fem, u_ex, Du_ex, Iu, l2_error_NodInt, h1_err
 def compute_acms_solution(mesh, mesh_info, a, l, V, acms, BM, EM):    
     
     gfu = GridFunction(V)
+    
+    num = len(acms.basis_v) + len(acms.basis_e) + len(acms.basis_b)
+    # basis = GridFunction(V, multidim = num)
+    # ii = 0
     basis = MultiVector(gfu.vec, 0)
-
+    setupstart = time.time()
     for bv in acms.basis_v:
+        # basis.vecs[ii].FV()[:] = bv 
+        # ii += 1
         gfu.vec.FV()[:] = bv
         basis.Append(gfu.vec)
         # Draw(gfu,mesh,"vertex basis")
 
     for e, label in enumerate(mesh_info["edges"]):
         for i in range(EM):
+            # basis.vecs[ii].FV()[:] = acms.basis_e[e * acms.edge_modes + i] 
+            # ii += 1
             gfu.vec.FV()[:] = acms.basis_e[e * acms.edge_modes + i]
             basis.Append(gfu.vec)
 
     doms = list( dict.fromkeys(mesh.GetMaterials()) )
     for d, dom in enumerate(doms):
         for i in range(BM):
+            # basis.vecs[ii].FV()[:] = acms.basis_b[d * acms.bubble_modes + i] 
+            # ii += 1
             gfu.vec.FV()[:] = acms.basis_b[d * acms.bubble_modes + i]
             basis.Append(gfu.vec)
 
-    num = len(basis)
-    print("ndofs = ", num)
+
+    
+    # num = len(basis)
+    print("finished setup", time.time() - setupstart)
+    # print("ndofs = ", num)
     
     # gfu_b = GridFunction(V)
     # Draw(gfu_b, mesh, "basis")
@@ -648,12 +675,27 @@ def compute_acms_solution(mesh, mesh_info, a, l, V, acms, BM, EM):
     #     gfu_b.vec.FV()[:] = basis[b] #np.abs(basis[b])
     #     Redraw()
     #     input()
-
+    # asmall = Matrix(num,num, complex = True)
+    invstart = time.time()
+    # for i in range(num):
+    #     for j in range(num):
+    #         # gfu.vec.data =  a.mat * basis.vecs[j]
+    #         asmall[i,j] = InnerProduct(basis.vecs[i], a.mat * basis.vecs[j], conjugate = False)
     asmall = InnerProduct (basis, a.mat * basis, conjugate = False) #Complex
+    print("asmall = ", time.time() - invstart)
     ainvsmall = Matrix(numpy.linalg.inv(asmall))
+    
+    
     f_small = InnerProduct(basis, l.vec, conjugate = False)
+
+    # f_small = Vector(num, complex = True)
+    # for i in range(num):
+    #     f_small[i] = InnerProduct(basis.vecs[i], l.vec, conjugate = False)
     usmall = ainvsmall * f_small
     gfu.vec[:] = 0.0
+    
+    # for i in range(num):
+    #     gfu.vec.data += usmall[i] * basis.vecs[i] 
     gfu.vec.data = basis * usmall
 #     Draw(gfu, mesh, "uacms")
     print("finished_acms")
@@ -705,7 +747,7 @@ def acms_solution(mesh, dom_bnd, alpha, Bubble_modes, Edge_modes, order_v, kappa
             
             if V.ndof < 1000000:
                 
-                a = BilinearForm(V)
+                a = BilinearForm(V, symmetric = True)
                 a += alpha * grad(u) * grad(v) * dx()
                 a += - kappa**2 * u * v * dx()
                 a += -1J * omega * beta * u * v * ds(dom_bnd, bonus_intorder = 10)
@@ -723,7 +765,7 @@ def acms_solution(mesh, dom_bnd, alpha, Bubble_modes, Edge_modes, order_v, kappa
                 acms = ACMS(order = order, mesh = mesh, bm = max_bm, em = max_em, bi = mesh.GetCurveOrder(), mesh_info = mesh_info, alpha = alpha)
                 #dirichlet = mesh_info["dir_edges"])
                 acms.CalcHarmonicExtensions(kappa = kappa)
-                acms.calc_basis()
+                acms.calc_basis(calc_all = False)
                             
                 for EM in Edge_modes:
                         for BM in Bubble_modes:
@@ -763,7 +805,7 @@ def acms_solution(mesh, dom_bnd, alpha, Bubble_modes, Edge_modes, order_v, kappa
     }
     
 
-    return ndofs, dofs, errors_dictionary
+    return ndofs, dofs, errors_dictionary, gfu
 
 
 

@@ -51,6 +51,7 @@ class ACMS:
         self.bubble_modes = bm
         self.edge_modes = em
 
+        self.basis_all = MultiVector(self.gfu.vec, 0) 
         self.basis_v = MultiVector(self.gfu.vec, 0)
         self.basis_e = MultiVector(self.gfu.vec, 0)
         self.basis_b = MultiVector(self.gfu.vec, 0)
@@ -80,14 +81,16 @@ class ACMS:
 
         # Calc embedding - Local to global mapping
         # Computes global indices of local dofs 
-        ind = Vharm.ndof * [0]
-        ii = 0 # ii = index of local dofs
-        for i, b in enumerate(fd_all): # i = index of global dofs
-            if b == True: # If I am on a local dof -> save it and increase counter
-                ind[ii] = i
-                ii += 1
+        # ind = Vharm.ndof * [0]
+        # ii = 0 # ii = index of local dofs
+        # for i, b in enumerate(fd_all): # i = index of global dofs
+        #     if b == True: # If I am on a local dof -> save it and increase counter
+        #         ind[ii] = i
+        #         ii += 1
+        
+        ind = list(np.nonzero(fd_all)[0])
         E = PermutationMatrix(base_space.ndof, ind) # NGSolve for contructing mapping
-
+        
         return Vharm, aharm.mat, aharm_inv, E
 
 
@@ -162,7 +165,17 @@ class ACMS:
     # EDGE MODES
 
     def CalcMaxEdgeModes(self):
+        
+        check_version = True
+        edgeversions = {}
+
+        ee = 0
+        
         for edge_name in self.edges:
+            
+
+
+            ss = time.time()
             dirverts = ""
             for v in self.verts:
                 dirverts += v + "|"
@@ -171,50 +184,65 @@ class ACMS:
             # vertex_dofs = self.V.GetDofs(self.mesh.BBoundaries(".*")) # Global vertices (coarse mesh)
             vertex_dofs = self.V.GetDofs(self.mesh.BBoundaries(dirverts)) # Global vertices (coarse mesh)
 
-            fd = self.V.GetDofs(self.mesh.Boundaries(edge_name)) & (~vertex_dofs) 
-            base_space = H1(self.mesh, order = self.order, dirichlet = self.dirichlet) # Creating Sobolev space
-            Vloc = Compress(base_space, fd)
-
-            if Vloc.ndof - 1 <= self.edge_modes:
-                print("Maximum number of edge modes exceeded - All edge modes are used")
-                self.edge_modes = Vloc.ndof - 2
+           
+            fd = self.V.GetDofs(self.mesh.Boundaries(edge_name)) & (~vertex_dofs) & (~self.V.FreeDofs())
             
-    def calc_edge_basis(self, basis=None):
-        if (basis == None):
+            # base_space = H1(self.mesh, order = self.order, dirichlet = self.dirichlet) # Creating Sobolev space
+            
+            # Vloc = Compress(base_space, fd)
+            
+            
+            # print(Vloc.ndof - sum(fd))
+            
+
+            # if sum(fd) - 1 <= self.edge_modes:
+            #     print("Maximum number of edge modes exceeded - All edge modes are used")
+                # self.edge_modes = Vloc.ndof - 2
+            ee += time.time() - ss
+        # print("compressions = ", ee)
+            
+    def calc_edge_basis(self, calc_all = False, basis = None):
+        # if (basis == None):
+        #     basis = self.basis_e
+        if calc_all == True:
+            basis = self.basis_all
+        else:
             basis = self.basis_e
-        self.CalcMaxEdgeModes()
+        # sstart = time.time()
+        # self.CalcMaxEdgeModes()
+        # print("max", time.time() - sstart )
+        # quit()
         # print("number of edges = ",len(self.edges))
 
         check_version = True
+
+        # stores ndof and evecs
         edgeversions = {}
         
+        ee = 0
+        eeig = 0
+
         if self.edge_modes > 0:
             for edge_name in self.edges:
+                edgetype = ""
                 # edgestart = time.time()
+                if "V" in edge_name:
+                    edgetype = "V"
+                elif "H" in edge_name:
+                    edgetype = "H"
+                else:
+                    raise Exception("wrong edge type")
                 
                 vertex_dofs = self.V.GetDofs(self.mesh.BBoundaries(".*")) # Global vertices (coarse mesh)
                 fd = self.V.GetDofs(self.mesh.Boundaries(edge_name)) & (~vertex_dofs) 
-                # Vertices on a specific edge with boundaries removed (global vertices)
-                base_space = H1(self.mesh, order = self.order, dirichlet = self.dirichlet) # Creating Sobolev space
-                Vloc = Compress(base_space, fd) #Restricting Sobolev space on edge (with Dirichlet bc)
-                # print("Vloc.ndof = ", Vloc.ndof)
-                
-                # # Local to global mapping
-                ind = Vloc.ndof * [0]
-                ii = 0
-                for i, b in enumerate(fd):
-                    if b == True:
-                        ind[ii] = i
-                        ii += 1
-                Eloc = PermutationMatrix(base_space.ndof, ind)
-
                 edgebasis = MultiVector(self.gfu.vec, self.edge_modes)
-                if (str(Vloc.ndof) in edgeversions) and check_version:
-                    evec = edgeversions[str(Vloc.ndof)]
-                    for i,e in enumerate(evec):
-                        edgebasis[i] = Eloc.T * e.real
-                else:
-                    # print("DO CALC")
+
+                if edgetype not in edgeversions:                           
+                    ndofs = sum(fd)
+                    # edgeversions[edgetype] = [ndofs]
+
+                    base_space = H1(self.mesh, order = self.order, dirichlet = self.dirichlet) # Creating Sobolev space
+                    Vloc = Compress(base_space, fd) #Restricting Sobolev space on edge (with Dirichlet bc)
                     uloc, vloc = Vloc.TnT() # Trial and test functions
                     t = specialcf.tangential(2)
                     
@@ -240,21 +268,83 @@ class ACMS:
                     ev = ev[idx]
                     evec = evec[:,idx]
                     evec = evec.transpose()
-                    
-                    if check_version:
-                        edgeversions[str(Vloc.ndof)] = evec
-                    for i,e in enumerate(evec):
+                    edgeversions[edgetype] = [ndofs, evec]
+                
+                # eigend = time.time()
+                # eeig += eigend - eigstart
+                
+                # edgeversions[edgetype][0] * [0]
+                # permstart = time.time()
+
+                # ind = []
+                # for i, b in enumerate(fd): #edgeversions[edgetype][0]):
+                #     if b == True:
+                        # ind.append(i)
+                        # ind[ii] = i
+                        # ii += 1
+                # print(ind)
+                
+                ind = list(np.nonzero(fd)[0])
+                # print(ind)
+                # ee += time.time() - permstart
+
+                Eloc = PermutationMatrix(self.V.ndof, ind)
+                
+                for i,e in enumerate(edgeversions[edgetype][1]):
                         edgebasis[i] = Eloc.T * e.real
-                                
+        
+                # if (str(ndofs) in edgeversions) and check_version:
+                #     evec = edgeversions[str(ndofs)]
+                #     for i,e in enumerate(evec):
+                #         edgebasis[i] = Eloc.T * e.real
+                # else:
+                #     # print("DO CALC")
+                #     base_space = H1(self.mesh, order = self.order, dirichlet = self.dirichlet) # Creating Sobolev space
+                #     Vloc = Compress(base_space, fd) #Restricting Sobolev space on edge (with Dirichlet bc)
+                #     uloc, vloc = Vloc.TnT() # Trial and test functions
+                #     t = specialcf.tangential(2)
+                    
+                #     #Setting bilinear form:  int (Grad u Grad v) de
+                #     aloc = BilinearForm(Vloc, symmetric = True)
+                #     # This allows us to take the normal derivative of a function that is in H1 and computing the integral only on edges
+                #     # Otherwise NGSolve does not allow to take the trace of a function in H^{1/2}(e) - uloc is defined on edge
+                #     aloc += (grad(uloc)*t) * (grad(vloc)*t) * ds(skeleton=True, definedon = self.mesh.Boundaries(edge_name), bonus_intorder = self.bi)
+                #     aloc.Assemble()
+                    
+                #     #Setting bilinear form:  int u v de        
+                #     mloc = BilinearForm(Vloc, symmetric = True)
+                #     mloc += uloc.Trace() * vloc.Trace() * ds(skeleton = True, definedon = self.mesh.Boundaries(edge_name), bonus_intorder = self.bi)
+                #     mloc.Assemble()
+                    
+                    
+                #     # Solving eigenvalue problem: AA x = ev MM x
+                #     AA = sp.csr_matrix(aloc.mat.CSR())
+                #     MM = sp.csr_matrix(mloc.mat.CSR())
+                    
+                #     ev, evec =sp.linalg.eigs(A = AA, M = MM, k = self.edge_modes, which='SM')
+                #     idx = ev.argsort()[::]   
+                #     ev = ev[idx]
+                #     evec = evec[:,idx]
+                #     evec = evec.transpose()
+                    
+                #     if check_version:
+                #         edgeversions[str(Vloc.ndof)] = evec
+                #     for i,e in enumerate(evec):
+                #         edgebasis[i] = Eloc.T * e.real
+                
                 nb_dom = self.mesh.Boundaries(edge_name).Neighbours(VOL) # It gives volumes that are neighbours of my edge
+                start = time.time()
                 for bi, bb in enumerate(self.mesh.GetMaterials()):
                     if nb_dom.Mask()[bi]:
                         Vharm, aharm_mat, aharm_inv, E = self.vol_extensions[bb]
                         edgebasis.data += -(E.T @ aharm_inv @ aharm_mat @ E) * edgebasis
-                
+                end = time.time()
+                ee += end - start
                 for i in range(len(evec)):
                     basis.Append(edgebasis[i])
-
+                    
+        # print("time eigenvalues = ", eeig)
+        print("time perm = ", ee)
                 # old version
     
                 # for e in evec: # Going over eigenvectors
@@ -289,10 +379,9 @@ class ACMS:
                 #             self.gfu.vec.data += -(E.T @ aharm_inv @ aharm_mat @ E) * self.gfu.vec #gfu_extension.vec # Boundary value stored
                     # Draw(self.gfu, self.mesh, "basis")
                     # input()
-                    # basis.Append(self.gfu.vec)
-                
+                    # basis.Append(self.gfu.vec)  
 
-
+        # quit()
 
 
 
@@ -317,8 +406,10 @@ class ACMS:
     ###############################################################
     # VERTEX BASIS
 
-    def calc_vertex_basis(self, basis=None):
-        if (basis == None):
+    def calc_vertex_basis(self, calc_all = False, basis = False):
+        if calc_all:
+            basis = self.basis_all
+        else:
             basis = self.basis_v
         for j, vertex_name in enumerate(self.verts):
             gfu_vertex = self.gfu.vec.CreateVector() # Initialise grid function for vertices
@@ -432,12 +523,14 @@ class ACMS:
                 self.bubble_modes = Vloc.ndof - 2
 
     
-    def calc_bubble_basis(self, basis=None):
-        if (basis == None):
+    def calc_bubble_basis(self, calc_all = False, basis=None):
+        if calc_all == True:
+            basis = self.basis_all 
+        else:
             basis = self.basis_b
-        self.CalcMaxBubbleModes()
         
         if self.bubble_modes > 0:
+            self.CalcMaxBubbleModes()
             for mat_name in self.doms: # Subdomains labels
                 # DOFS that are in the interior of the subdomain (excludes edges)
                 fd = self.V.GetDofs(self.mesh.Materials(mat_name)) & self.V.FreeDofs()
@@ -483,17 +576,18 @@ class ACMS:
             
             
 
-    def calc_basis(self):
+    def calc_basis(self, calc_all = False):
         start_time = time.time()
-        self.calc_vertex_basis() 
+        self.calc_vertex_basis(calc_all) 
         vertex_time = time.time() 
         print("Vertex basis functions computation in --- %s seconds ---" % (vertex_time - start_time))
-        self.calc_edge_basis()
+        self.calc_edge_basis(calc_all)
         edges_time = time.time() 
         print("Edge basis functions computation in --- %s seconds ---" % (edges_time - vertex_time))
-        self.calc_bubble_basis()
+        self.calc_bubble_basis(calc_all)
         bubbles_time = time.time() 
         print("Bubble basis functions computation in --- %s seconds ---" % (bubbles_time - edges_time))
+        # quit()
         return self.basis_v, self.basis_e, self.basis_b
     
     def complex_basis(self):

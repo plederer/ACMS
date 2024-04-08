@@ -1,6 +1,8 @@
 # LIBRARIES
 from helmholtz_aux import *
-# import netgen.gui
+import netgen.gui
+
+# ngsglobals.msg_level = 1
 
 # PROBLEM SETTING
 # PROBLEM = 1: plane wave solution (Example 5.1, Tables 5.2-5.5), 
@@ -64,8 +66,12 @@ for h in maxH/(2**np.arange(0, Href + 1 , 1)):
     gfu_fem, grad_fem = ground_truth(mesh, dom_bnd, alpha, kappa, omega, beta, f, g, order_v[-1])
 
     # Solve ACMS system and compute H1 error
-    ndofs, dofs, errors_dictionary = acms_solution(mesh, dom_bnd, alpha, Bubble_modes, Edge_modes, order_v, kappa, omega, beta, f, g, gfu_fem, u_ex, Du_ex, mesh_info)    
+    # gfu_fem = False
+    ndofs, dofs, errors_dictionary, gfu_acms = acms_solution(mesh, dom_bnd, alpha, Bubble_modes, Edge_modes, order_v, kappa, omega, beta, f, g, gfu_fem, u_ex, Du_ex, mesh_info)    
     
+    Draw(gfu_acms, mesh, "uacms")
+    Draw(gfu_fem, mesh, "ufem")
+    input()
     if error_table == 1:
         file_name, Errors = error_table_save(maxH, problem, order_v, Bubble_modes, Edge_modes, mesh, kappa, errors_dictionary, ndofs, dofs, u_ex, sol_ex, gfu_fem, grad_fem)
         file_path = f"./Results/" + file_name + ".npz"
