@@ -639,29 +639,31 @@ def compute_acms_solution(mesh, mesh_info, a, l, V, acms, BM, EM):
     num = len(acms.basis_v) + len(acms.basis_e) + len(acms.basis_b)
     # basis = GridFunction(V, multidim = num)
     # ii = 0
+    print("len gfu", V.ndof)
+    print("num basis=", num)
     basis = MultiVector(gfu.vec, 0)
     setupstart = time.time()
     for bv in acms.basis_v:
         # basis.vecs[ii].FV()[:] = bv 
         # ii += 1
-        gfu.vec.FV()[:] = bv
-        basis.Append(gfu.vec)
+        # gfu.vec.FV()[:] = bv
+        basis.Append(bv)
         # Draw(gfu,mesh,"vertex basis")
 
     for e, label in enumerate(mesh_info["edges"]):
         for i in range(EM):
             # basis.vecs[ii].FV()[:] = acms.basis_e[e * acms.edge_modes + i] 
             # ii += 1
-            gfu.vec.FV()[:] = acms.basis_e[e * acms.edge_modes + i]
-            basis.Append(gfu.vec)
+            # gfu.vec.FV()[:] = acms.basis_e[e * acms.edge_modes + i]
+            basis.Append(acms.basis_e[e * acms.edge_modes + i])
 
     doms = list( dict.fromkeys(mesh.GetMaterials()) )
     for d, dom in enumerate(doms):
         for i in range(BM):
             # basis.vecs[ii].FV()[:] = acms.basis_b[d * acms.bubble_modes + i] 
             # ii += 1
-            gfu.vec.FV()[:] = acms.basis_b[d * acms.bubble_modes + i]
-            basis.Append(gfu.vec)
+            # gfu.vec.FV()[:] = acms.basis_b[d * acms.bubble_modes + i]
+            basis.Append(acms.basis_b[d * acms.bubble_modes + i])
 
 
     
@@ -681,7 +683,11 @@ def compute_acms_solution(mesh, mesh_info, a, l, V, acms, BM, EM):
     #     for j in range(num):
     #         # gfu.vec.data =  a.mat * basis.vecs[j]
     #         asmall[i,j] = InnerProduct(basis.vecs[i], a.mat * basis.vecs[j], conjugate = False)
-    asmall = InnerProduct (basis, a.mat * basis, conjugate = False) #Complex
+    # helpvec = MultiVector(gfu.vec, num)
+    # helpvec[:] = a.mat * basis
+    asmall = InnerProduct (basis, (a.mat * basis).Evaluate(), conjugate = False) #Complex
+    # (a.mat * basis).Evaluate()
+    # asmall = InnerProduct (basis, helpvec, conjugate = False) #Complex
     print("asmall = ", time.time() - invstart)
     ainvsmall = Matrix(numpy.linalg.inv(asmall))
     
@@ -747,7 +753,7 @@ def acms_solution(mesh, dom_bnd, alpha, Bubble_modes, Edge_modes, order_v, kappa
             
             if V.ndof < 1000000:
                 
-                a = BilinearForm(V, symmetric = True)
+                a = BilinearForm(V, symmetric = False)
                 a += alpha * grad(u) * grad(v) * dx()
                 a += - kappa**2 * u * v * dx()
                 a += -1J * omega * beta * u * v * ds(dom_bnd, bonus_intorder = 10)
@@ -765,7 +771,7 @@ def acms_solution(mesh, dom_bnd, alpha, Bubble_modes, Edge_modes, order_v, kappa
                 acms = ACMS(order = order, mesh = mesh, bm = max_bm, em = max_em, bi = mesh.GetCurveOrder(), mesh_info = mesh_info, alpha = alpha)
                 #dirichlet = mesh_info["dir_edges"])
                 acms.CalcHarmonicExtensions(kappa = kappa)
-                acms.calc_basis(calc_all = False)
+                acms.calc_basis()
                             
                 for EM in Edge_modes:
                         for BM in Bubble_modes:

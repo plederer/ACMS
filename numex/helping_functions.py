@@ -43,7 +43,9 @@ class ACMS:
         self.dirichlet = mesh_info["dir_edges"]
         self.mesh = mesh
         self.V = H1(mesh, order = order, dirichlet = self.dirichlet)
+        self.Vc = H1(mesh, order = order, dirichlet = self.dirichlet, complex = True)
         self.gfu = GridFunction(self.V)
+        self.gfuc = GridFunction(self.Vc)
 
         self.edge_extensions = {}
         self.vol_extensions = {}
@@ -51,10 +53,10 @@ class ACMS:
         self.bubble_modes = bm
         self.edge_modes = em
 
-        self.basis_all = MultiVector(self.gfu.vec, 0) 
-        self.basis_v = MultiVector(self.gfu.vec, 0)
-        self.basis_e = MultiVector(self.gfu.vec, 0)
-        self.basis_b = MultiVector(self.gfu.vec, 0)
+        # self.basis_all = MultiVector(self.gfuc.vec, 0) 
+        self.basis_v = MultiVector(self.gfuc.vec, 0)
+        self.basis_e = MultiVector(self.gfuc.vec, 0)
+        self.basis_b = MultiVector(self.gfuc.vec, 0)
         
         self.alpha = alpha
         self.verts = mesh_info["verts"]
@@ -201,14 +203,14 @@ class ACMS:
             ee += time.time() - ss
         # print("compressions = ", ee)
             
-    def calc_edge_basis(self, calc_all = False, basis = None):
-        # if (basis == None):
-        #     basis = self.basis_e
-        if calc_all == True:
-            basis = self.basis_all
-        else:
+    def calc_edge_basis(self, basis = None):
+        if (basis == None):
             basis = self.basis_e
-        # sstart = time.time()
+        # if calc_all == True:
+        #     basis = self.basis_all
+        # else:
+        #     basis = self.basis_e
+        # # sstart = time.time()
         # self.CalcMaxEdgeModes()
         # print("max", time.time() - sstart )
         # quit()
@@ -341,7 +343,8 @@ class ACMS:
                 end = time.time()
                 ee += end - start
                 for i in range(len(evec)):
-                    basis.Append(edgebasis[i])
+                    self.gfuc.vec.FV()[:] = edgebasis[i]
+                    basis.Append(self.gfuc.vec)
                     
         # print("time eigenvalues = ", eeig)
         print("time perm = ", ee)
@@ -406,11 +409,10 @@ class ACMS:
     ###############################################################
     # VERTEX BASIS
 
-    def calc_vertex_basis(self, calc_all = False, basis = False):
-        if calc_all:
-            basis = self.basis_all
-        else:
+    def calc_vertex_basis(self, basis = None):
+        if basis == None:
             basis = self.basis_v
+
         for j, vertex_name in enumerate(self.verts):
             gfu_vertex = self.gfu.vec.CreateVector() # Initialise grid function for vertices
             fd = self.V.GetDofs(self.mesh.BBoundaries(vertex_name)) # Gets coarse vertex representation on full mesh
@@ -493,7 +495,9 @@ class ACMS:
             
             
             if (Norm(self.gfu.vec) > 1):
-                basis.Append(self.gfu.vec)
+                self.gfuc.vec.FV()[:] = self.gfu.vec
+                basis.Append(self.gfuc.vec)
+                # basis.Append(self.gfu.vec)
 
 
 
@@ -523,10 +527,8 @@ class ACMS:
                 self.bubble_modes = Vloc.ndof - 2
 
     
-    def calc_bubble_basis(self, calc_all = False, basis=None):
-        if calc_all == True:
-            basis = self.basis_all 
-        else:
+    def calc_bubble_basis(self, basis=None):
+        if basis == None:
             basis = self.basis_b
         
         if self.bubble_modes > 0:
@@ -571,20 +573,22 @@ class ACMS:
                 for e in evec: # Going over eigenvectors
                     self.gfu.vec[:]=0.0
                     # Vloc.Embed(e.real, gfu.vec)
-                    self.gfu.vec.data = E.T * e.real # Grid funciton on full mesh
-                    basis.Append(self.gfu.vec)
+                    # self.gfu.vec.data = E.T * e.real # Grid funciton on full mesh
+                    self.gfuc.vec.FV()[:] = E.T * e.real
+                    basis.Append(self.gfuc.vec)
+                    # basis.Append(self.gfu.vec)
             
             
 
-    def calc_basis(self, calc_all = False):
+    def calc_basis(self): 
         start_time = time.time()
-        self.calc_vertex_basis(calc_all) 
+        self.calc_vertex_basis() 
         vertex_time = time.time() 
         print("Vertex basis functions computation in --- %s seconds ---" % (vertex_time - start_time))
-        self.calc_edge_basis(calc_all)
+        self.calc_edge_basis()
         edges_time = time.time() 
         print("Edge basis functions computation in --- %s seconds ---" % (edges_time - vertex_time))
-        self.calc_bubble_basis(calc_all)
+        self.calc_bubble_basis()
         bubbles_time = time.time() 
         print("Bubble basis functions computation in --- %s seconds ---" % (bubbles_time - edges_time))
         # quit()
