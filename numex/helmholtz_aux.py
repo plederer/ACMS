@@ -449,7 +449,7 @@ def problem_definition(problem, maxH, omega):
         
         r  = 0.126 # radius of inclusion
         Lx = 0.484 #"c"
-        Ly = 0.685 #"a"
+        Ly = Lx#0.685 #"a"
 
         Nx = 10 # number of cells in x
         Ny = 10 # number of cells in y
@@ -718,7 +718,7 @@ def compute_acms_solution(mesh, mesh_info, a, l, V, acms, BM, EM):
  
  
   
-def acms_solution(mesh, dom_bnd, alpha, Bubble_modes, Edge_modes, order_v, kappa, omega, beta, f, g, gfu_fem, u_ex, Du_ex, mesh_info):
+def acms_solution(mesh, dom_bnd, alpha, Bubble_modes, Edge_modes, order_v, kappa, omega, beta, f, g, u_ex, Du_ex, mesh_info):
     #  ACMS RESOLUTION
 
     l2_error = []
@@ -810,8 +810,14 @@ def acms_solution(mesh, dom_bnd, alpha, Bubble_modes, Edge_modes, order_v, kappa
         'h1_error_FEMex':  h1_error_FEMex
     }
     
+    solution_dictionary = {
+        'gfu_acms':  gfu,
+        'gfu_fem' :  gfu_fem,
+        'grad_fem':  grad_fem
+    }
+    
 
-    return ndofs, dofs, errors_dictionary, gfu
+    return ndofs, dofs, errors_dictionary, solution_dictionary
 
 
 

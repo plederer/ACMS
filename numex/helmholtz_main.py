@@ -1,6 +1,6 @@
 # LIBRARIES
 from helmholtz_aux import *
-import netgen.gui
+# import netgen.gui
 
 # ngsglobals.msg_level = 1
 
@@ -63,15 +63,20 @@ for h in maxH/(2**np.arange(0, Href + 1 , 1)):
     # Draw(mesh)
 
     # Compute ground truth solution with FEM of order max on the initialised mesh
-    gfu_fem, grad_fem = ground_truth(mesh, dom_bnd, alpha, kappa, omega, beta, f, g, order_v[-1])
+    # gfu_fem, grad_fem = ground_truth(mesh, dom_bnd, alpha, kappa, omega, beta, f, g, order_v[-1])
 
     # Solve ACMS system and compute H1 error
     # gfu_fem = False
-    ndofs, dofs, errors_dictionary, gfu_acms = acms_solution(mesh, dom_bnd, alpha, Bubble_modes, Edge_modes, order_v, kappa, omega, beta, f, g, gfu_fem, u_ex, Du_ex, mesh_info)    
+    ndofs, dofs, errors_dictionary, solution_dictionary = acms_solution(mesh, dom_bnd, alpha, Bubble_modes, Edge_modes, order_v, kappa, omega, beta, f, g, u_ex, Du_ex, mesh_info)    
+    
+    gfu_acms = solution_dictionary["gfu_acms"]
+    gfu_fem = solution_dictionary["gfu_fem"]
+    grad_fem = solution_dictionary["grad_fem"]
     
     Draw(gfu_acms, mesh, "uacms")
     Draw(gfu_fem, mesh, "ufem")
-    input()
+    
+    
     if error_table == 1:
         file_name, Errors = error_table_save(maxH, problem, order_v, Bubble_modes, Edge_modes, mesh, kappa, errors_dictionary, ndofs, dofs, u_ex, sol_ex, gfu_fem, grad_fem)
         file_path = f"./Results/" + file_name + ".npz"
