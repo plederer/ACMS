@@ -451,8 +451,8 @@ def problem_definition(problem, maxH, omega):
         Lx = 0.484 #"c"
         Ly = Lx#0.685 #"a"
 
-        Nx = 10 # number of cells in x
-        Ny = 10 # number of cells in y
+        Nx = 6 # number of cells in x
+        Ny = 6 # number of cells in y
         
         incl = 1 #circular
         alpha_outer = 1/12.1 #SILICON
@@ -639,8 +639,8 @@ def compute_acms_solution(mesh, mesh_info, a, l, V, acms, BM, EM):
     num = len(acms.basis_v) + len(acms.basis_e) + len(acms.basis_b)
     # basis = GridFunction(V, multidim = num)
     # ii = 0
-    print("len gfu", V.ndof)
-    print("num basis=", num)
+    # print("len gfu", V.ndof)
+    # print("num basis=", num)
     basis = MultiVector(gfu.vec, 0)
     setupstart = time.time()
     for bv in acms.basis_v:
@@ -688,7 +688,7 @@ def compute_acms_solution(mesh, mesh_info, a, l, V, acms, BM, EM):
     asmall = InnerProduct (basis, (a.mat * basis).Evaluate(), conjugate = False) #Complex
     # (a.mat * basis).Evaluate()
     # asmall = InnerProduct (basis, helpvec, conjugate = False) #Complex
-    print("asmall = ", time.time() - invstart)
+    print("calc asmall = ", time.time() - invstart)
     ainvsmall = Matrix(numpy.linalg.inv(asmall))
     
     
@@ -703,7 +703,8 @@ def compute_acms_solution(mesh, mesh_info, a, l, V, acms, BM, EM):
     # for i in range(num):
     #     gfu.vec.data += usmall[i] * basis.vecs[i] 
     gfu.vec.data = basis * usmall
-#     Draw(gfu, mesh, "uacms")
+    Draw(gfu, mesh, "uacms")
+    input()
     print("finished_acms")
 
         
@@ -753,15 +754,15 @@ def acms_solution(mesh, dom_bnd, alpha, Bubble_modes, Edge_modes, order_v, kappa
             
             if V.ndof < 1000000:
                 
-                a = BilinearForm(V, symmetric = False)
+                a = BilinearForm(V, symmetric = True)
                 a += alpha * grad(u) * grad(v) * dx()
                 a += - kappa**2 * u * v * dx()
-                a += -1J * omega * beta * u * v * ds(dom_bnd, bonus_intorder = 10)
+                a += -1J * omega * beta * u * v * ds(dom_bnd) #, bonus_intorder = 10)
                 a.Assemble()
 
                 l = LinearForm(V)
-                l += f * v * dx(bonus_intorder=10)
-                l += g * v * ds(dom_bnd, bonus_intorder=10) #Could be increased with kappa (TBC)
+                l += f * v * dx() #bonus_intorder=10)
+                l += g * v * ds(dom_bnd) #, bonus_intorder=10) #Could be increased with kappa (TBC)
                 l.Assemble()
                 
 
@@ -770,7 +771,9 @@ def acms_solution(mesh, dom_bnd, alpha, Bubble_modes, Edge_modes, order_v, kappa
                 # bi = bonus int order - should match the curved mesh order
                 acms = ACMS(order = order, mesh = mesh, bm = max_bm, em = max_em, bi = mesh.GetCurveOrder(), mesh_info = mesh_info, alpha = alpha)
                 #dirichlet = mesh_info["dir_edges"])
+                start = time.time()
                 acms.CalcHarmonicExtensions(kappa = kappa)
+                print("time to compute harmonic extensions = ", time.time() - start)
                 acms.calc_basis()
                             
                 for EM in Edge_modes:
