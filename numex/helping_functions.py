@@ -54,16 +54,22 @@ class ACMS:
         self.edge_modes = em
 
         # self.basis_all = MultiVector(self.gfuc.vec, 0) 
-        self.basis_v = MultiVector(self.gfuc.vec, 0)
-        self.basis_e = MultiVector(self.gfuc.vec, 0)
-        self.basis_b = MultiVector(self.gfuc.vec, 0)
         
         self.alpha = alpha
         self.verts = mesh_info["verts"]
         self.edges = mesh_info["edges"]
         self.doms = list( dict.fromkeys(mesh.GetMaterials()) )
-        
 
+        
+        # print("lenbasis = ", len(self.verts))
+        # print("lenbasis = ", len(self.edges) * self.edge_modes)
+        # print("lenbasis = ", len(self.doms) * self.bubble_modes)
+        # quit()
+
+        self.basis_v = MultiVector(self.gfuc.vec, len(self.verts))
+        self.basis_e = MultiVector(self.gfuc.vec, len(self.edges) * self.edge_modes)
+        self.basis_b = MultiVector(self.gfuc.vec, len(self.doms) * self.bubble_modes)
+        
         self.bi = bi 
 
     # Define harmonic extension on specific subdomain
@@ -174,9 +180,6 @@ class ACMS:
         ee = 0
         
         for edge_name in self.edges:
-            
-
-
             ss = time.time()
             dirverts = ""
             for v in self.verts:
@@ -224,6 +227,8 @@ class ACMS:
         ee = 0
         eeig = 0
 
+        iie = 0
+
         if self.edge_modes > 0:
             for edge_name in self.edges:
                 edgetype = ""
@@ -235,8 +240,14 @@ class ACMS:
                 else:
                     raise Exception("wrong edge type")
                 
+
+                # vertex_dofs = self.V.GetDofs(self.mesh.BBoundaries(".*")) # Global vertices (coarse mesh)
+                # fd = self.V.GetDofs(self.mesh.Boundaries(edge_name)) & (~vertex_dofs) 
+
+                
                 vertex_dofs = self.V.GetDofs(self.mesh.BBoundaries(".*")) # Global vertices (coarse mesh)
                 fd = self.V.GetDofs(self.mesh.Boundaries(edge_name)) & (~vertex_dofs) 
+
                 edgebasis = MultiVector(self.gfu.vec, self.edge_modes)
 
                 if edgetype not in edgeversions:                           
@@ -279,22 +290,28 @@ class ACMS:
                 # permstart = time.time()
 
                 # ind = []
+                start = time.time()
                 # for i, b in enumerate(fd): #edgeversions[edgetype][0]):
                 #     if b == True:
+                #         ind = [i + j for j in range(edgeversions[edgetype][0])]
                         # ind.append(i)
                         # ind[ii] = i
                         # ii += 1
                 # print(ind)
+                # quit()
+                
                 
                 ind = list(np.nonzero(fd)[0])
+                # ind = list(np.argmax(fd == 1))
                 # print(ind)
                 # ee += time.time() - permstart
-
+                ee += time.time() - start
                 Eloc = PermutationMatrix(self.V.ndof, ind)
                 
                 for i,e in enumerate(edgeversions[edgetype][1]):
                         edgebasis[i] = Eloc.T * e.real
-        
+                
+                
                 # if (str(ndofs) in edgeversions) and check_version:
                 #     evec = edgeversions[str(ndofs)]
                 #     for i,e in enumerate(evec):
@@ -335,19 +352,26 @@ class ACMS:
                 #         edgebasis[i] = Eloc.T * e.real
                 
                 nb_dom = self.mesh.Boundaries(edge_name).Neighbours(VOL) # It gives volumes that are neighbours of my edge
-                start = time.time()
+                
                 for bi, bb in enumerate(self.mesh.GetMaterials()):
                     if nb_dom.Mask()[bi]:
                         Vharm, aharm_mat, aharm_inv, E = self.vol_extensions[bb]
                         edgebasis.data += -(E.T @ aharm_inv @ aharm_mat @ E) * edgebasis
-                end = time.time()
-                ee += end - start
+                
+                
+                
                 for i in range(len(evec)):
-                    self.gfuc.vec.FV()[:] = edgebasis[i]
-                    basis.Append(self.gfuc.vec)
+                
+                    # self.gfuc.vec.FV()[:] = edgebasis[i]
+                    # end = time.time()
+                    
+                    basis[iie] = edgebasis[i] #self.gfuc.vec
+                    iie += 1
+                    # basis.Append(self.gfuc.vec)
+                
                     
         # print("time eigenvalues = ", eeig)
-        print("time perm = ", ee)
+        # print("time perm = ", ee)
                 # old version
     
                 # for e in evec: # Going over eigenvectors
@@ -413,22 +437,23 @@ class ACMS:
         if basis == None:
             basis = self.basis_v
 
+        ee = 0
+        iiv = 0
         for j, vertex_name in enumerate(self.verts):
-            gfu_vertex = self.gfu.vec.CreateVector() # Initialise grid function for vertices
-            fd = self.V.GetDofs(self.mesh.BBoundaries(vertex_name)) # Gets coarse vertex representation on full mesh
-
-            nb_edges = self.mesh.BBoundaries(vertex_name).Neighbours(BND) # Neighbouring edges (geometric object - region)
-            nb_dom = self.mesh.BBoundaries(vertex_name).Neighbours(VOL) # Neighbouring subdomains (geometric object - region)
-            # nb_dom = GetVertexNeighbours(vertex_name, self.mesh)
-            # print(nb_dom)
-
+            # gfu_vertex = self.gfu.vec.CreateVector() # Initialise grid function for vertices
+            # fd = self.V.GetDofs(self.mesh.BBoundaries(vertex_name)) # Gets coarse vertex representation on full mesh
             
-            vertex_nr = np.nonzero(fd)[0]
+            reg = self.mesh.BBoundaries(vertex_name)
+
+            nb_edges = reg.Neighbours(BND) # Neighbouring edges (geometric object - region)
+            nb_dom = reg.Neighbours(VOL) # Neighbouring subdomains (geometric object - region)
+            vertex_nr = np.nonzero(reg.Mask())[0]
 
             self.gfu.vec[:] = 0
-            self.gfu.vec[np.nonzero(fd)[0]] = 1  # Set the grid function to one in the current vertex
+            self.gfu.vec[vertex_nr] = 1  # Set the grid function to one in the current vertex
         
             # First extend to edges
+            
             for bi, bb in enumerate(self.mesh.GetBoundaries()):
                 if nb_edges.Mask()[bi]:  # If the edge is in the neighbourhood of the vertex ... extend
                     #old version
@@ -458,6 +483,7 @@ class ACMS:
                         self.gfu.vec.data += gfu_vertex # Storing the current extension
                     else:
                         # this does not work for curved boundaries!
+                        
                         Vxcoord = self.mesh.vertices[vertex_nr].point[0]
                         Vycoord = self.mesh.vertices[vertex_nr].point[1]
                         
@@ -471,34 +497,45 @@ class ACMS:
                                     self.gfu.vec[v.nr] = 1-vlen/length
                     
              
-            
-            gfu_edge = self.gfu.vec.CreateVector()
+                        
+            # gfu_edge = self.gfu.vec.CreateVector()
             
             # Then extend to subdomains
+            
             for bi, bb in enumerate(self.mesh.GetMaterials()):
                 if nb_dom.Mask()[bi]: # If the subdomain is on extended edges.. extend in subdomain
                     Vharm, aharm_mat, aharm_inv, E = self.vol_extensions[bb] # Extension to subdomain
-                    gfu_extension = GridFunction(Vharm) # Auxiliary function on harmonic space
-                    gfu_extension.vec[:] = 0.0 # Initializing to 0
-                    res = gfu_extension.vec.CreateVector() #
-                    gfu_edge[:]=0.0 # Initializing to 0
-                    gfu_edge.data = self.gfu.vec # Storing the edge extensions
-                    # Vharm.EmbedTranspose(gfu_edge, gfu_extension.vec)
+                    # gfu_extension = GridFunction(Vharm) # Auxiliary function on harmonic space
+                    # gfu_extension.vec[:] = 0.0 # Initializing to 0
+                    # res = gfu_extension.vec.CreateVector() #
+                    # gfu_edge[:]=0.0 # Initializing to 0
+                    # gfu_edge.data = self.gfu.vec # Storing the edge extensions
+                    # # Vharm.EmbedTranspose(gfu_edge, gfu_extension.vec)
 
-                    # Extend on subdomain
-                    gfu_extension.vec.data = E * gfu_edge
-                    res.data = aharm_mat * gfu_extension.vec
-                    gfu_extension.vec.data = - aharm_inv * res
-                    # Vharm.Embed(gfu_extension.vec, gfu_edge)
-                    gfu_edge.data = E.T * gfu_extension.vec
-                    self.gfu.vec.data += gfu_edge
+                    # # Extend on subdomain
+                    # gfu_extension.vec.data = E * gfu_edge
+                    # res.data = aharm_mat * gfu_extension.vec
+                    # gfu_extension.vec.data = - aharm_inv * res
+                    # # Vharm.Embed(gfu_extension.vec, gfu_edge)
+                    # gfu_edge.data = E.T * gfu_extension.vec
+
+                    # self.gfu.vec.data += gfu_edge
+                    # gfu_edge.data = -(E.T @ aharm_inv @ aharm_mat @ E) * self.gfuc.vec
+                    # print(Norm(gfu_edge.vec))
+                    self.gfu.vec.data += -(E.T @ aharm_inv @ aharm_mat @ E) * self.gfu.vec
+                    # self.gfuc.vec.data += (aharm_mat @ E) * self.gfuc.vec
             
             
-            if (Norm(self.gfu.vec) > 1):
-                self.gfuc.vec.FV()[:] = self.gfu.vec
-                basis.Append(self.gfuc.vec)
+            # if (Norm(self.gfu.vec) > 1):
+            #     # self.gfuc.vec.FV()[:] = self.gfu.vec
+            #     # basis.Append(self.gfuc.vec)
+            # start = time.time()
+            # ee += time.time() - start
+            basis[iiv] = self.gfu.vec
+            
+            iiv += 1
                 # basis.Append(self.gfu.vec)
-
+        # print("time for copy = ", ee)
 
 
 
@@ -531,6 +568,8 @@ class ACMS:
         if basis == None:
             basis = self.basis_b
         
+        iib = 0
+
         if self.bubble_modes > 0:
             self.CalcMaxBubbleModes()
             for mat_name in self.doms: # Subdomains labels
@@ -575,7 +614,11 @@ class ACMS:
                     # Vloc.Embed(e.real, gfu.vec)
                     # self.gfu.vec.data = E.T * e.real # Grid funciton on full mesh
                     self.gfuc.vec.FV()[:] = E.T * e.real
-                    basis.Append(self.gfuc.vec)
+
+                    basis[iib] = self.gfuc.vec
+                    iib += 1
+
+                    # basis.Append(self.gfuc.vec)
                     # basis.Append(self.gfu.vec)
             
             
