@@ -468,8 +468,8 @@ def problem_definition(problem, maxH, omega):
         Lx = 0.484 #"c"
         Ly = Lx #0.685 #"a"
 
-        Nx = 6 # number of cells in x
-        Ny = 6 # number of cells in y
+        Nx = 20 # number of cells in x
+        Ny = 20 # number of cells in y
         
         incl = 1 #circular
         alpha_outer = 1/12.1 #SILICON

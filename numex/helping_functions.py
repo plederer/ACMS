@@ -100,7 +100,7 @@ class ACMS:
 
     # Define harmonic extension on specific subdomain
     # Returns the Sobolev space H^1_0(\Omega_j), the stiffness matrix and its inverse
-    def GetHarmonicExtensionDomain(self, dom_name, kappa = 0):
+    def GetHarmonicExtensionDomain(self, dom_name):
         # start = time.time()
         fd_all = self.V.GetDofs(self.mesh.Materials(dom_name)) # Dofs of specific domain
         # print(fd_all)
@@ -110,32 +110,12 @@ class ACMS:
         # print(self.dirichlet)
         Vharm = Compress(base_space, fd_all)
 
-        edges = self.mesh.Materials(dom_name).Neighbours(BND).Mask() & self.FreeEdges
-        local_dom_bnd = ""
-        for i, b in enumerate(edges):
-            if b == 1:
-                bndname = self.mesh.GetBoundaries()[i]
-                local_dom_bnd += bndname + "|"
-
-        local_dom_bnd = local_dom_bnd[:-1]
-    
-        fd = Vharm.GetDofs(self.mesh.Boundaries(local_dom_bnd))
+        fd = Vharm.FreeDofs()
+        edges = self.mesh.Materials(dom_name).Neighbours(BND).Split()
+        for bnds in edges[:-1]:
+            fd = fd & ~Vharm.GetDofs(bnds)
         
 
-        # print(Vharm.ndof)
-        # input()
-        # print("setup = ", time.time() - start)
-
-        # voltype = ""
-
-        # if "crystal" in dom_name:
-        #     voltype = "crystal"
-        # else:
-        #     voltype = "air"
-        
-        # voltype += "_" + str(Vharm.ndof)
-        # if voltype not in self.cellversions:  
-        # start = time.time()
         uharm, vharm = Vharm.TnT() # Trial and test functions
         aharm = BilinearForm(Vharm)
         #Setting bilinear form: - int (Grad u Grad v) d\Omega_j
@@ -145,27 +125,30 @@ class ACMS:
         aharm.Assemble()
 
         # print(Vharm.FreeDofs())
-        aharm_inv = aharm.mat.Inverse(Vharm.FreeDofs() & ~fd, inverse = "sparsecholesky")
-        
+        # aharm_inv = aharm.mat.Inverse(Vharm.FreeDofs() & ~fd, inverse = "sparsecholesky")
+        aharm_inv = aharm.mat.Inverse(fd, inverse = "sparsecholesky")
+        # print("setp = ", time.time() - start)
+        # start = time.time()
     
-        t = specialcf.tangential(2) 
-        aharm_edge = BilinearForm(Vharm, check_unused=False)
-        aharm_edge += (grad(uharm)*t) * (grad(vharm)*t) * ds(skeleton = True, definedon = self.mesh.Boundaries(local_dom_bnd), bonus_intorder = self.bi)
-        # aharm_edge += (Grad(uharm)*t) * (Grad(vharm)*t) * dx(element_boundary = True, 
-                                                            #  bonus_intorder = self.bi)
-        aharm_edge.Assemble()
+        # t = specialcf.tangential(2) 
+        # aharm_edge = BilinearForm(Vharm, check_unused=False)
+        # aharm_edge += (grad(uharm)*t) * (grad(vharm)*t) * ds(skeleton = True, definedon = self.mesh.Boundaries(local_dom_bnd), bonus_intorder = self.bi)
+        # # aharm_edge += (Grad(uharm)*t) * (Grad(vharm)*t) * dx(element_boundary = True, 
+        #                                                     #  bonus_intorder = self.bi)
+        # aharm_edge.Assemble()
         
         
         # for i in range(size)
         
         # fd[0:sum(Vharm.GetDofs(self.mesh.Materials(dom_name).Neighbours(BBND)))] = 0
-        fd[0:5] = 0
-        aharm_edge_inv = aharm_edge.mat.Inverse(fd, inverse = "sparsecholesky")
-        
+        # fd[0:5] = 0
+        # aharm_edge_inv = aharm_edge.mat.Inverse(fd, inverse = "sparsecholesky")
+        # print("setp = ", time.time() - start)
+        # input()
         # self.cellversions[voltype] = [aharm.mat, aharm_inv, aharm_edge.mat, aharm_edge_inv]
-        E = 0
+        # E = 0
         # return Vharm, aharm.mat, aharm_inv, E, aharm_edge.mat, aharm_edge_inv
-        return Vharm, aharm.mat, aharm_inv, E, aharm_edge.mat, aharm_edge_inv
+        return Vharm, aharm.mat, aharm_inv #, aharm_edge.mat, aharm_edge_inv
 
 
     # Define harmonic extension on specific subdomain
@@ -216,8 +199,8 @@ class ACMS:
         mats = tuple( dict.fromkeys(self.mesh.GetMaterials()) )
         
         for dom_name in mats:
-            Vharm, aharm, aharm_inv, E, aharm_edge, aharm_edge_inv = self.GetHarmonicExtensionDomain(dom_name, kappa = kappa)
-            self.vol_extensions[dom_name] = [Vharm, aharm, aharm_inv, E, aharm_edge, aharm_edge_inv]
+            # Vharm, aharm, aharm_inv, E, aharm_edge, aharm_edge_inv = self.GetHarmonicExtensionDomain(dom_name, kappa = kappa)
+            self.vol_extensions[dom_name] = list(self.GetHarmonicExtensionDomain(dom_name))
         
         # for edge_name in edge_names:
         #     Vharm, aharm, aharm_inv, E = self.GetHarmonicExtensionEdge(edge_name, kappa = kappa)
@@ -230,7 +213,7 @@ class ACMS:
         vertices = nbbnd.Mask() & self.FreeVertices
         edges = nbnd.Mask() & self.FreeEdges
         
-        Vharm, aharm_mat, aharm_inv, E, aharm_edge_mat, aharm_edge_inv = self.vol_extensions[acms_cell]
+        Vharm, aharm_mat, aharm_inv = self.vol_extensions[acms_cell]
         
         local_vertex_dofs = Vharm.GetDofs(nbbnd)
         
@@ -248,18 +231,48 @@ class ACMS:
                 # add corresponding vertex basis function
                 #vertex name
                 vname = self.mesh.GetBBoundaries()[i]
-                ddofs = Vharm.GetDofs(self.mesh.BBoundaries(vname))
+                # vertex_nr = np.nonzero(self.mesh.BBoundaries(vname).Mask())[0][0]
+                # print("vertex_nr =", vertex_nr)
+                # print("i =", i)
+                vnbnd = nbnd * self.mesh.BBoundaries(vname).Neighbours(BND)
+                # print(vnbnd)
+                # input()
 
-                for d, bb in enumerate(ddofs):
-                    if bb == 1:
-                        gfu.vec[d] = 1
+                # ddofs2 = Vharm.GetDofs(vnbnd)
+                # # print(ddofs2)
+                # # input()
+                
+                Vxcoord = self.mesh.vertices[i].point[0]
+                Vycoord = self.mesh.vertices[i].point[1]
+                
+                # slength = Integrate(1, self.mesh, definedon=vnbnd, order = 0)/2
+                for bnds in vnbnd.Split():
+                    slength = Integrate(1, self.mesh, definedon=bnds, order = 0)
+                    for e in bnds.Elements():
+                        edofs = Vharm.GetDofNrs(e)
+                        # print(edofs)
+                        for vi, v in enumerate(e.vertices):
+                            xcoord = self.mesh.vertices[v.nr].point[0]
+                            ycoord = self.mesh.vertices[v.nr].point[1] 
+                            vlen = sqrt((xcoord - Vxcoord)**2 + (ycoord - Vycoord)**2)
+                            # print(1-vlen/0.484)
+                            gfu.vec[edofs[vi]] = 1-vlen/slength
 
-                gfu.vec.data += -(aharm_edge_inv @ aharm_edge_mat) * gfu.vec 
+                
+                # ddofs = Vharm.GetDofs(self.mesh.BBoundaries(vname))
+                # for d, bb in enumerate(ddofs):
+                #     if bb == 1:
+                #         gfu.vec[d] = 1
+                
+                # gfu.vec.data += -(aharm_edge_inv @ aharm_edge_mat) * gfu.vec 
                 gfu.vec.data += -(aharm_inv @ aharm_mat) * gfu.vec  
+                # print(Norm(gfu.vec))
+                # Draw(gfu)
+                # input()
                 localbasis[lii][:] = gfu.vec
                 lii +=1
                 gfu.vec[:] = 0
-                
+        
         local_dom_bnd = ""
         for i, b in enumerate(edges):
             if b == 1:
@@ -297,6 +310,7 @@ class ACMS:
         # local_a += self.alpha * grad(uharm)*grad(vharm)*dx(definedon = self.mesh.Materials(acms_cell), bonus_intorder = self.bi) 
         # local_a += -self.kappa**2 * uharm*vharm*dx(definedon = self.mesh.Materials(acms_cell), bonus_intorder = self.bi)
         beta = -1
+        
 
         local_dom_bnd = local_dom_bnd[:-1]
         if local_dom_bnd != "":
