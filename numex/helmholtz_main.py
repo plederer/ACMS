@@ -1,6 +1,6 @@
 # LIBRARIES
 from helmholtz_aux import *
-# import netgen.gui
+import netgen.gui
 
 # ngsglobals.msg_level = 1
 
