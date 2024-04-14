@@ -106,9 +106,22 @@ class ACMS:
         # print(fd_all)
         # print("dom_name = ", dom_name)
         # input()
-        base_space = H1(self.mesh, order = self.order, dirichlet = self.dirichlet) #, complex = True) #Replicate H^1_0 on subdomain
+        base_space = H1(self.mesh, order = self.order, complex = True) #, dirichlet = self.dirichlet) #Replicate H^1_0 on subdomain
         # print(self.dirichlet)
         Vharm = Compress(base_space, fd_all)
+
+        edges = self.mesh.Materials(dom_name).Neighbours(BND).Mask() & self.FreeEdges
+        local_dom_bnd = ""
+        for i, b in enumerate(edges):
+            if b == 1:
+                bndname = self.mesh.GetBoundaries()[i]
+                local_dom_bnd += bndname + "|"
+
+        local_dom_bnd = local_dom_bnd[:-1]
+    
+        fd = Vharm.GetDofs(self.mesh.Boundaries(local_dom_bnd))
+        
+
         # print(Vharm.ndof)
         # input()
         # print("setup = ", time.time() - start)
@@ -132,17 +145,8 @@ class ACMS:
         aharm.Assemble()
 
         # print(Vharm.FreeDofs())
-        aharm_inv = aharm.mat.Inverse(Vharm.FreeDofs(), inverse = "sparsecholesky")
+        aharm_inv = aharm.mat.Inverse(Vharm.FreeDofs() & ~fd, inverse = "sparsecholesky")
         
-        edges = self.mesh.Materials(dom_name).Neighbours(BND).Mask() & self.FreeEdges
-        local_dom_bnd = ""
-        for i, b in enumerate(edges):
-            if b == 1:
-                bndname = self.mesh.GetBoundaries()[i]
-                local_dom_bnd += bndname + "|"
-
-        local_dom_bnd = local_dom_bnd[:-1]
-    
     
         t = specialcf.tangential(2) 
         aharm_edge = BilinearForm(Vharm, check_unused=False)
@@ -151,7 +155,7 @@ class ACMS:
                                                             #  bonus_intorder = self.bi)
         aharm_edge.Assemble()
         
-        fd = Vharm.GetDofs(self.mesh.Boundaries(local_dom_bnd))
+        
         # for i in range(size)
         
         # fd[0:sum(Vharm.GetDofs(self.mesh.Materials(dom_name).Neighbours(BBND)))] = 0
@@ -224,10 +228,10 @@ class ACMS:
         edges = self.mesh.Materials(acms_cell).Neighbours(BND).Mask() & self.FreeEdges
         
         Vharm, aharm_mat, aharm_inv, E, aharm_edge_mat, aharm_edge_inv = self.vol_extensions[acms_cell]
-        # Vharmc = Vharm
-        fd_all = self.Vc.GetDofs(self.mesh.Materials(acms_cell))
-        base_space = H1(self.mesh, order = self.order, dirichlet = self.dirichlet, complex = True)
-        Vharmc = Compress(base_space, fd_all)
+        Vharmc = Vharm
+        # fd_all = self.Vc.GetDofs(self.mesh.Materials(acms_cell))
+        # base_space = H1(self.mesh, order = self.order, dirichlet = self.dirichlet, complex = True)
+        # Vharmc = Compress(base_space, fd_all)
 
         local_vertex_dofs = Vharm.GetDofs(self.mesh.Materials(acms_cell).Neighbours(BBND))
         
@@ -317,8 +321,8 @@ class ACMS:
         uharm, vharm = Vharmc.TnT() 
         local_a = BilinearForm(Vharmc, check_unused=False)
         
-        local_a += self.alpha * grad(uharm)*grad(vharm)*dx(definedon = self.mesh.Materials(acms_cell), bonus_intorder = self.bi) 
-        local_a += -self.kappa**2 * uharm*vharm*dx(definedon = self.mesh.Materials(acms_cell), bonus_intorder = self.bi)
+        # local_a += self.alpha * grad(uharm)*grad(vharm)*dx(definedon = self.mesh.Materials(acms_cell), bonus_intorder = self.bi) 
+        # local_a += -self.kappa**2 * uharm*vharm*dx(definedon = self.mesh.Materials(acms_cell), bonus_intorder = self.bi)
         beta = -1
 
         # mymat = Real2ComplexMatrix(aharm_mat)
@@ -327,7 +331,7 @@ class ACMS:
             local_a += -1J * self.omega * beta * uharm * vharm * ds(local_dom_bnd) #, bonus_intorder = 10)
         local_a.Assemble()
 
-        # local_a.mat.AsVector().data += aharm_mat.AsVector()
+        local_a.mat.AsVector().data += aharm_mat.AsVector()
         
 
         localmat = InnerProduct(localbasis, (local_a.mat * localbasis).Evaluate(), conjugate = False)

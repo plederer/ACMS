@@ -468,8 +468,8 @@ def problem_definition(problem, maxH, omega):
         Lx = 0.484 #"c"
         Ly = Lx #0.685 #"a"
 
-        Nx = 4 # number of cells in x
-        Ny = 4 # number of cells in y
+        Nx = 6 # number of cells in x
+        Ny = 6 # number of cells in y
         
         incl = 1 #circular
         alpha_outer = 1/12.1 #SILICON
@@ -729,7 +729,8 @@ def compute_acms_solution(mesh, mesh_info, a, l, V, acms, BM, EM):
     # for i in range(num):
     #     gfu.vec.data += usmall[i] * basis.vecs[i] 
     print("norm of usmall = ", Norm(usmall))
-    acms.SetGlobalFunction(gfu, usmall)
+
+    # acms.SetGlobalFunction(gfu, usmall)
     # gfu.vec.data = basis * usmall
 
     Draw(gfu, mesh, "uacms")
