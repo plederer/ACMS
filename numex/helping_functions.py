@@ -224,20 +224,18 @@ class ACMS:
         #     self.edge_extensions[edge_name] = [Vharm, aharm, aharm_inv, E]
         
     def Assemble_localA(self, acms_cell):
-        vertices = self.mesh.Materials(acms_cell).Neighbours(BBND).Mask() & self.FreeVertices
-        edges = self.mesh.Materials(acms_cell).Neighbours(BND).Mask() & self.FreeEdges
+        nbnd = self.mesh.Materials(acms_cell).Neighbours(BND)
+        nbbnd = self.mesh.Materials(acms_cell).Neighbours(BBND)
+
+        vertices = nbbnd.Mask() & self.FreeVertices
+        edges = nbnd.Mask() & self.FreeEdges
         
         Vharm, aharm_mat, aharm_inv, E, aharm_edge_mat, aharm_edge_inv = self.vol_extensions[acms_cell]
-        Vharmc = Vharm
-        # fd_all = self.Vc.GetDofs(self.mesh.Materials(acms_cell))
-        # base_space = H1(self.mesh, order = self.order, dirichlet = self.dirichlet, complex = True)
-        # Vharmc = Compress(base_space, fd_all)
-
-        local_vertex_dofs = Vharm.GetDofs(self.mesh.Materials(acms_cell).Neighbours(BBND))
+        
+        local_vertex_dofs = Vharm.GetDofs(nbbnd)
         
         gfu = GridFunction(Vharm)
-        gfuc = GridFunction(Vharmc)
-        localbasis = MultiVector(gfuc.vec, 0)# 4 + 4 * self.edge_modes)
+        localbasis = MultiVector(gfu.vec, 4 + 4 * self.edge_modes)
 
         dofs = []
         lii = 0
@@ -251,37 +249,16 @@ class ACMS:
                 #vertex name
                 vname = self.mesh.GetBBoundaries()[i]
                 ddofs = Vharm.GetDofs(self.mesh.BBoundaries(vname))
-                # print(ddofs)
+
                 for d, bb in enumerate(ddofs):
                     if bb == 1:
                         gfu.vec[d] = 1
 
-                # print(Norm(gfu.vec))
                 gfu.vec.data += -(aharm_edge_inv @ aharm_edge_mat) * gfu.vec 
-                # print(Norm(gfu.vec)) 
-                
-                # gfu.vec[:]=1
-                # print(Norm(gfu.vec))
-                # print(len(gfu.vec))
-                # print(aharm_mat)
-                # gfu.vec.data += -(aharm_mat) * gfu.vec  
-                # for e in range(len(gfu.vec)):
-                #     gfu.vec[e] = aharm_mat[0,e]
-
                 gfu.vec.data += -(aharm_inv @ aharm_mat) * gfu.vec  
-                
-                # print(Norm(gfu.vec))
-                gfuc.vec.FV()[:] = gfu.vec
-                Draw(gfuc, self.mesh, "gfuc")
-                # Draw(gfu, self.mesh, "gfu")
-                
-                # print(Norm(gfuc.vec))
-                # input()
-                localbasis.Append(gfuc.vec)
-                # localbasis[lii] = gfu.vec
-                # lii+=1
+                localbasis[lii][:] = gfu.vec
+                lii +=1
                 gfu.vec[:] = 0
-                gfuc.vec[:] = 0
                 
         local_dom_bnd = ""
         for i, b in enumerate(edges):
@@ -305,27 +282,22 @@ class ACMS:
                     ii = 0
                     for d, bb in enumerate(ddofs):
                         if bb == 1:
-                            gfu.vec[d] = self.edgeversions[edgetype][1][l,ii].real
+                            gfu.vec[d] = self.edgeversions[edgetype][1][l,ii]#.real
                             ii+=1
                         
                     gfu.vec.data += -(aharm_inv @ aharm_mat) * gfu.vec
-                    gfuc.vec.FV()[:] = gfu.vec
-                    localbasis.Append(gfuc.vec)
-                    
-                    # localbasis[lii] = gfu.vec
-                    # lii+=1
+                    localbasis[lii][:] = gfu.vec
+                    lii+=1
                     gfu.vec[:] = 0
-                    gfuc.vec[:] = 0
-
+        
         self.localbasis[acms_cell] = (localbasis, dofs)
-        uharm, vharm = Vharmc.TnT() 
-        local_a = BilinearForm(Vharmc, check_unused=False)
+        uharm, vharm = Vharm.TnT() 
+        local_a = BilinearForm(Vharm, check_unused=False)
         
         # local_a += self.alpha * grad(uharm)*grad(vharm)*dx(definedon = self.mesh.Materials(acms_cell), bonus_intorder = self.bi) 
         # local_a += -self.kappa**2 * uharm*vharm*dx(definedon = self.mesh.Materials(acms_cell), bonus_intorder = self.bi)
         beta = -1
 
-        # mymat = Real2ComplexMatrix(aharm_mat)
         local_dom_bnd = local_dom_bnd[:-1]
         if local_dom_bnd != "":
             local_a += -1J * self.omega * beta * uharm * vharm * ds(local_dom_bnd) #, bonus_intorder = 10)
@@ -337,7 +309,7 @@ class ACMS:
         localmat = InnerProduct(localbasis, (local_a.mat * localbasis).Evaluate(), conjugate = False)
         
 
-        local_f = LinearForm(Vharmc)
+        local_f = LinearForm(Vharm)
         # local_f += f * vharm * dx(definedon = self.mesh.Materials(acms_cell)) #bonus_intorder=10)
         local_f += self.g * vharm * ds(local_dom_bnd)
         local_f.Assemble()
