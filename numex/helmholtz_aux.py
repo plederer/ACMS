@@ -468,8 +468,8 @@ def problem_definition(problem, maxH, omega):
         Lx = 0.484 #"c"
         Ly = Lx #0.685 #"a"
 
-        Nx = 20 # number of cells in x
-        Ny = 20 # number of cells in y
+        Nx = 10 # number of cells in x
+        Ny = 10 # number of cells in y
         
         incl = 1 #circular
         alpha_outer = 1/12.1 #SILICON
@@ -777,7 +777,7 @@ def acms_solution(mesh, dom_bnd, alpha, Bubble_modes, Edge_modes, order_v, kappa
             # acms.calc_basis()
             
             #FEM solution with same order of approximation
-            gfu_fem, grad_fem = ground_truth(mesh, dom_bnd, alpha, kappa, omega, beta, f, g, order)
+            # gfu_fem, grad_fem = ground_truth(mesh, dom_bnd, alpha, kappa, omega, beta, f, g, order)
             
             # start_time = time.time()
             V = H1(mesh, order = order, complex = True)
