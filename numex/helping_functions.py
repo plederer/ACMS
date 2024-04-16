@@ -73,11 +73,16 @@ class ACMS:
         for v in range(len(mesh.GetBBoundaries())):
             if not "inner_vertex" in mesh.ngmesh.GetCD2Name(v):
                 self.FreeVertices[v] = 1
+            else:
+                self.FreeVertices[v] = 0
+
 
         self.FreeEdges = BitArray(len(mesh.GetBoundaries()))
         for e in range(len(mesh.GetBoundaries())):
             if not "inner_edge" in mesh.ngmesh.GetBCName(e):
                 self.FreeEdges[e] = 1
+            else:
+                self.FreeEdges[e] = 0
         
         self.nverts = len(self.verts)
         self.nedges = len(self.edges)
@@ -246,7 +251,24 @@ class ACMS:
                 Vycoord = self.mesh.vertices[i].point[1]
                 
                 # slength = Integrate(1, self.mesh, definedon=vnbnd, order = 0)/2
+
+                
                 for bnds in vnbnd.Split():
+                    
+                    # ddofs = Vharm.GetDofs(bnds)
+                    # print(sum(ddofs))
+                    # fac = [1-f/(sum(ddofs)-1) for f in range(sum(ddofs))]
+                    # print(fac)
+                    
+                    # ii = 0
+                    # for d, bb in enumerate(ddofs):
+                    #     if ii ==1:
+                    #         ii +=1
+                    #     if bb == 1 and ii < sum(ddofs)-1:
+                    #         gfu.vec[d] = fac[ii]
+                    #         print(fac[ii])
+                    #         ii +=1
+
                     slength = Integrate(1, self.mesh, definedon=bnds, order = 0)
                     for e in bnds.Elements():
                         edofs = Vharm.GetDofNrs(e)
@@ -257,6 +279,8 @@ class ACMS:
                             vlen = sqrt((xcoord - Vxcoord)**2 + (ycoord - Vycoord)**2)
                             # print(1-vlen/0.484)
                             gfu.vec[edofs[vi]] = 1-vlen/slength
+                    # Draw(gfu)
+                    # input()
 
                 
                 # ddofs = Vharm.GetDofs(self.mesh.BBoundaries(vname))
