@@ -73,11 +73,16 @@ class ACMS:
         for v in range(len(mesh.GetBBoundaries())):
             if not "inner_vertex" in mesh.ngmesh.GetCD2Name(v):
                 self.FreeVertices[v] = 1
+            else:
+                self.FreeVertices[v] = 0
+
 
         self.FreeEdges = BitArray(len(mesh.GetBoundaries()))
         for e in range(len(mesh.GetBoundaries())):
             if not "inner_edge" in mesh.ngmesh.GetBCName(e):
                 self.FreeEdges[e] = 1
+            else:
+                self.FreeEdges[e] = 0
         
         self.nverts = len(self.verts)
         self.nedges = len(self.edges)
