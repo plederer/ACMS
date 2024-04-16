@@ -468,8 +468,8 @@ def problem_definition(problem, maxH, omega):
         Lx = 0.484 #"c"
         Ly = Lx #0.685 #"a"
 
-        Nx = 20 # number of cells in x
-        Ny = 20 # number of cells in y
+        Nx = 10 # number of cells in x
+        Ny = 10 # number of cells in y
         
         incl = 1 #circular
         alpha_outer = 1/12.1 #SILICON
@@ -685,6 +685,8 @@ def compute_acms_solution(mesh, mesh_info, a, l, V, acms, BM, EM):
 
     
     # num = len(basis)
+    num = acms.acmsdofs
+    print(num)
     print("finished setup", time.time() - setupstart)
     # print("ndofs = ", num)
     
@@ -783,7 +785,7 @@ def acms_solution(mesh, dom_bnd, alpha, Bubble_modes, Edge_modes, order_v, kappa
             V = H1(mesh, order = order, complex = True)
             u, v = V.TnT()
             ndofs.append(V.ndof)
-            
+
             Iu = GridFunction(V) #Nodal interpolant            
             
             if V.ndof < 1000000:
