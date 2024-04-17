@@ -55,6 +55,7 @@ table_content_aux = ""
 table_header = ""
 table_end = ""
 
+SetNumThreads(12)
 
 for h in maxH/(2**np.arange(0, Href + 1 , 1)):
     print(h)
