@@ -553,6 +553,8 @@ def compute_acms_solution(mesh, V, acms, BM, EM):
     gfu.vec[:] = 0.0
     print("norm of usmall = ", Norm(usmall))
 
+    # acms.SetGlobalFunction(gfu, usmall)
+
     Draw(gfu, mesh, "uacms")
     print("finished_acms")
 

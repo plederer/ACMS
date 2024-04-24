@@ -191,9 +191,11 @@ class ACMS:
         
         gfu = GridFunction(Vharm)
         localbasis = MultiVector(gfu.vec, 4 + 4 * self.edge_modes)
-
+        
         dofs = []
         lii = 0
+        
+        vii = 0
         for i, b in enumerate(vertices):
             if b == 1:
                 # derive acms dof numbering 
@@ -205,23 +207,51 @@ class ACMS:
                 vname = self.mesh.GetBBoundaries()[i]
                 
                 vnbnd = nbnd * self.mesh.BBoundaries(vname).Neighbours(BND)
-                                
-                Vxcoord = self.mesh.vertices[i].point[0]
-                Vycoord = self.mesh.vertices[i].point[1]
-                                
-                for bnds in vnbnd.Split():
+                
+                if False:
+                    # if i < len(gfu.vec):
+                    gfu.vec[vii] = 1 #set active vertex dof to 1
+                    vii += 1
+                    # orient = 0
+                    for bnds in vnbnd.Split():
+                        els = [e for e in bnds.Elements()]
+                        nels = len(els)
+                        # orient = sum(Integrate(specialcf.tangential(2), self.mesh, definedon=bnds, order = 0))
+                        # print(orient)
+                        # input()
+                        vals = [i/(nels) for i in range(0,nels+1) ]
+                    
+                        if els[0].vertices[0].nr == i or els[0].vertices[1].nr == 1:
+                            vals.reverse()
 
-                    slength = Integrate(1, self.mesh, definedon=bnds, order = 0)
-                    for e in bnds.Elements():
-                        edofs = Vharm.GetDofNrs(e)
-                        for vi, v in enumerate(e.vertices):
-                            xcoord = self.mesh.vertices[v.nr].point[0]
-                            ycoord = self.mesh.vertices[v.nr].point[1] 
-                            vlen = sqrt((xcoord - Vxcoord)**2 + (ycoord - Vycoord)**2)
-                            gfu.vec[edofs[vi]] = 1-vlen/slength
+                        # print(Vharm.GetDofs(bnds))
+                        offset = 5 # 4 vertices + 1 vertex in the middle that was created for the circle domain
+                        bdofs = Vharm.GetDofs(bnds)
+                        iii = 1
+                        for ii, bb in enumerate(bdofs):
+                            # check if active dof in the interior
+                            # we are no vertex dof 
+                            # we have just set the inner dofs on that boundary
+                            if bb == 1 and ii >= offset and iii < nels:
+                                gfu.vec[ii] = vals[iii]
+                                iii += 1
+                else:            
+                    Vxcoord = self.mesh.vertices[i].point[0]
+                    Vycoord = self.mesh.vertices[i].point[1]
+                    for bnds in vnbnd.Split():
+                        slength = Integrate(1, self.mesh, definedon=bnds, order = 0)
+                        
+                        for e in bnds.Elements():
+                            edofs = Vharm.GetDofNrs(e)
+                            for vi, v in enumerate(e.vertices):
+                                xcoord = self.mesh.vertices[v.nr].point[0]
+                                ycoord = self.mesh.vertices[v.nr].point[1] 
+                                vlen = sqrt((xcoord - Vxcoord)**2 + (ycoord - Vycoord)**2)
+                                gfu.vec[edofs[vi]] = 1-vlen/slength
                                     
                 gfu.vec.data += -(aharm_inv @ aharm_mat) * gfu.vec  
-                
+                # Draw(gfu, self.mesh, "test")
+                # input()
                 localbasis[lii][:] = gfu.vec
                 lii +=1
                 gfu.vec[:] = 0
@@ -293,7 +323,7 @@ class ACMS:
         
     def SetGlobalFunction(self, gfu, coeffs):
         for acms_cell in self.doms:
-            Vharm, aharm_mat, aharm_inv, E, aharm_edge_mat, aharm_edge_inv = self.vol_extensions[acms_cell]
+            Vharm, aharm_mat, aharm_inv = self.vol_extensions[acms_cell]
 
             edges = self.mesh.Materials(acms_cell).Neighbours(BND).Mask() & self.FreeEdges
             edge_names = ""
