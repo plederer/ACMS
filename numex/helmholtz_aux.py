@@ -593,7 +593,9 @@ def acms_solution(mesh, dom_bnd, alpha, Bubble_modes, Edge_modes, order_v, kappa
             print(order)
             
             #FEM solution with same order of approximation
-            gfu_fem, grad_fem = ground_truth(mesh, dom_bnd, alpha, kappa, omega, beta, f, g, order)
+            # start = time.time()
+            # gfu_fem, grad_fem = ground_truth(mesh, dom_bnd, alpha, kappa, omega, beta, f, g, order)
+            # print("FEM computation = ", time.time() - start)
             
             V = H1(mesh, order = order, complex = True)
             ndofs.append(V.ndof)
@@ -624,9 +626,9 @@ def acms_solution(mesh, dom_bnd, alpha, Bubble_modes, Edge_modes, order_v, kappa
                             if (EM <= acms.edge_modes) and (BM <= acms.bubble_modes):
                                 gfu, num = compute_acms_solution(mesh, V, acms, BM, EM)
                                 dofs.append(num)
-                                l2_error, l2_error_ex, h1_error, h1_error_ex = append_acms_errors(mesh, gfu, gfu_fem, u_ex, grad_fem, Du_ex, l2_error, l2_error_ex, h1_error, h1_error_ex)
+                                # l2_error, l2_error_ex, h1_error, h1_error_ex = append_acms_errors(mesh, gfu, gfu_fem, u_ex, grad_fem, Du_ex, l2_error, l2_error_ex, h1_error, h1_error_ex)
 
-                l2_error_NodInt, h1_error_NodInt, l2_error_FEMex, h1_error_FEMex = append_NI_FEM_errors(mesh, gfu_fem, u_ex, Du_ex, Iu, l2_error_NodInt, h1_error_NodInt, l2_error_FEMex, h1_error_FEMex)
+                # l2_error_NodInt, h1_error_NodInt, l2_error_FEMex, h1_error_FEMex = append_NI_FEM_errors(mesh, gfu_fem, u_ex, Du_ex, Iu, l2_error_NodInt, h1_error_NodInt, l2_error_FEMex, h1_error_FEMex)
            
             else:
                 for EM in Edge_modes:
@@ -657,9 +659,9 @@ def acms_solution(mesh, dom_bnd, alpha, Bubble_modes, Edge_modes, order_v, kappa
     }
     
     solution_dictionary = {
-        'gfu_acms':  gfu,
-        'gfu_fem' :  gfu_fem,
-        'grad_fem':  grad_fem
+        'gfu_acms':  gfu
+        # 'gfu_fem' :  gfu_fem,
+        # 'grad_fem':  grad_fem
     }
     
 
