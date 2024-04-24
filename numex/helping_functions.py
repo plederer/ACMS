@@ -96,6 +96,7 @@ class ACMS:
     # Define harmonic extension on specific subdomain
     # Returns the Sobolev space H^1_0(\Omega_j), the stiffness matrix and its inverse
     def GetHarmonicExtensionDomain(self, dom_name):
+        # start = time.time()
         fd_all = self.V.GetDofs(self.mesh.Materials(dom_name)) # Dofs of specific domain
         base_space = H1(self.mesh, order = self.order, complex = True) #, dirichlet = self.dirichlet) #Replicate H^1_0 on subdomain
         # print(self.dirichlet)
@@ -114,7 +115,8 @@ class ACMS:
         aharm.Assemble()
 
         aharm_inv = aharm.mat.Inverse(fd, inverse = "sparsecholesky")
-        
+        # print("Harmonic extensions domain = ", time.time() - start)
+        # input()
         return Vharm, aharm.mat, aharm_inv 
 
 
@@ -208,7 +210,7 @@ class ACMS:
                 
                 vnbnd = nbnd * self.mesh.BBoundaries(vname).Neighbours(BND)
                 
-                if False:
+                if True:
                     # if i < len(gfu.vec):
                     gfu.vec[vii] = 1 #set active vertex dof to 1
                     vii += 1
@@ -221,7 +223,7 @@ class ACMS:
                         # input()
                         vals = [i/(nels) for i in range(0,nels+1) ]
                     
-                        if els[0].vertices[0].nr == i or els[0].vertices[1].nr == 1:
+                        if els[0].vertices[0].nr == i: # or els[0].vertices[1].nr == 1:
                             vals.reverse()
 
                         # print(Vharm.GetDofs(bnds))
