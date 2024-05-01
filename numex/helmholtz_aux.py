@@ -145,10 +145,10 @@ def crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer, alpha_inner, de
             # outerdom.faces.name = "outer"+str(i*Ny+j)
             outerdom.faces.name = crystaltype[int(defects[i,j])][0]+str(i*Ny+j)
             outerdom = outerdom - inclusion[i*Ny+j]
-            outerdom.faces.edges.Min(Y).name = "E_V"
-            outerdom.faces.edges.Max(Y).name = "E_V"
-            outerdom.faces.edges.Min(X).name = "E_H"
-            outerdom.faces.edges.Max(X).name = "E_H"
+            outerdom.faces.edges.Min(Y).name = "E_H"
+            outerdom.faces.edges.Max(Y).name = "E_H"
+            outerdom.faces.edges.Min(X).name = "E_V"
+            outerdom.faces.edges.Max(X).name = "E_V"
 
             innerdom = domain[i*Ny+j]*inclusion[i*Ny+j]
             innerdom.faces.edges.name="inner_edge"+str(i*Ny+j)
@@ -156,23 +156,23 @@ def crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer, alpha_inner, de
             innerdom.faces.name=crystaltype[int(defects[i,j])][1]+str(i*Ny+j)
 
             if (j == 0) :
-                outerdom.faces.edges.Min(Y).name = "dom_bnd_V"
+                outerdom.faces.edges.Min(Y).name = "dom_bnd_H"
             if (j == (Ny-1)) :
-                outerdom.faces.edges.Max(Y).name = "dom_bnd_V"
+                outerdom.faces.edges.Max(Y).name = "dom_bnd_H"
             if (i == 0):
-                outerdom.faces.edges.Min(X).name = "dom_bnd_H"
+                outerdom.faces.edges.Min(X).name = "dom_bnd_V"
             if (i == (Nx-1)) :
-                outerdom.faces.edges.Max(X).name = "dom_bnd_H"
+                outerdom.faces.edges.Max(X).name = "dom_bnd_V"
             
             if layers > 0:
                 if (j == layers) and (i >= layers) and (i <= Nx-1-layers):
-                    outerdom.faces.edges.Min(Y).name = "crystal_bnd_bottom_V"
+                    outerdom.faces.edges.Min(Y).name = "crystal_bnd_bottom_H"
                 if (j == (Ny-1-layers)) and (i >= layers) and (i <= Nx-1-layers) :
-                    outerdom.faces.edges.Max(Y).name = "crystal_bnd_top_V"
+                    outerdom.faces.edges.Max(Y).name = "crystal_bnd_top_H"
                 if (i == layers) and (j >= layers) and (j <= Ny-1-layers):
-                    outerdom.faces.edges.Min(X).name = "crystal_bnd_left_H"
+                    outerdom.faces.edges.Min(X).name = "crystal_bnd_left_V"
                 if (i == (Nx-1-layers)) and (j >= layers) and (j <= Ny-1-layers) :
-                    outerdom.faces.edges.Max(X).name = "crystal_bnd_right_H"
+                    outerdom.faces.edges.Max(X).name = "crystal_bnd_right_V"
                 
             outer.append(outerdom)
             inner.append(innerdom)
@@ -252,7 +252,7 @@ def crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer, alpha_inner, de
     Draw(alpha, mesh, "alpha")
     
     # print(mesh.GetMaterials())
-    # print(mesh.GetBoundaries())
+    print(mesh.GetBoundaries())
     # print(mesh.GetBBoundaries())
     return mesh, dom_bnd, alpha, mesh_info
 
@@ -359,16 +359,16 @@ def problem_definition(problem, maxH, omega):
         Lx = 0.484 #"c"
         Ly = Lx #0.685 #"a"
 
-        Nx = 4 #int(input("Number of cells on each direction: "))
+        Nx = 3 #int(input("Number of cells on each direction: "))
         #20 # number of cells in x
-        Ny = Nx # number of cells in y
+        Ny = 1 # number of cells in y
         
         incl = 1 #circular
         alpha_outer = 1/12.1 #SILICON
         alpha_inner = 1 #0 #AIR
 
         
-        layers = 1
+        layers = 0
         
         ix = [i for i in range(layers)] + [Nx - 1 - i for i in range(layers)]
         iy = [i for i in range(layers)] + [Ny - 1 - i for i in range(layers)]
@@ -385,7 +385,9 @@ def problem_definition(problem, maxH, omega):
 
         
         mesh, dom_bnd, alpha, mesh_info = crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer, alpha_inner, defects, layers)
-
+        input()
+        
+        
         # print(Integrate(x, mesh, definedon = mesh.Boundaries("measure_edge_left")))
         # print(Integrate(x, mesh, definedon = mesh.Boundaries("measure_edge_right")))
         # quit()
