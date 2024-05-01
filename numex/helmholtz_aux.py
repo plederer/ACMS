@@ -139,48 +139,70 @@ def crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer, alpha_inner, de
     # inner = [domain[i*Ny+j]*inclusion[i*Ny+j] for i in range(Nx) for j in range(Ny)]
     outer = []
     inner = []
-    for i in range(Nx):
-        for j in range(Ny):
-            outerdom = domain[i*Ny+j]
-            # outerdom.faces.name = "outer"+str(i*Ny+j)
-            outerdom.faces.name = crystaltype[int(defects[i,j])][0]+str(i*Ny+j)
-            outerdom = outerdom - inclusion[i*Ny+j]
-            outerdom.faces.edges.Min(Y).name = "E_H"
-            outerdom.faces.edges.Max(Y).name = "E_H"
-            outerdom.faces.edges.Min(X).name = "E_V"
-            outerdom.faces.edges.Max(X).name = "E_V"
 
-            innerdom = domain[i*Ny+j]*inclusion[i*Ny+j]
-            innerdom.faces.edges.name="inner_edge"+str(i*Ny+j)
-            innerdom.faces.vertices.name="inner_vertex"+str(i*Ny+j)
-            innerdom.faces.name=crystaltype[int(defects[i,j])][1]+str(i*Ny+j)
+    def GetCell(i,j):
+        outerdom = domain[i*Ny+j]
+        # outerdom.faces.name = "outer"+str(i*Ny+j)
+        outerdom.faces.name = crystaltype[int(defects[i,j])][0]+str(i*Ny+j)
+        outerdom = outerdom - inclusion[i*Ny+j]
+        outerdom.faces.edges.Min(Y).name = "E_H"
+        outerdom.faces.edges.Max(Y).name = "E_H"
+        outerdom.faces.edges.Min(X).name = "E_V"
+        outerdom.faces.edges.Max(X).name = "E_V"
 
-            if (j == 0) :
-                outerdom.faces.edges.Min(Y).name = "dom_bnd_H"
-            if (j == (Ny-1)) :
-                outerdom.faces.edges.Max(Y).name = "dom_bnd_H"
-            if (i == 0):
-                outerdom.faces.edges.Min(X).name = "dom_bnd_V"
-            if (i == (Nx-1)) :
-                outerdom.faces.edges.Max(X).name = "dom_bnd_V"
-            
-            if layers > 0:
-                if (j == layers) and (i >= layers) and (i <= Nx-1-layers):
-                    outerdom.faces.edges.Min(Y).name = "crystal_bnd_bottom_H"
-                if (j == (Ny-1-layers)) and (i >= layers) and (i <= Nx-1-layers) :
-                    outerdom.faces.edges.Max(Y).name = "crystal_bnd_top_H"
-                if (i == layers) and (j >= layers) and (j <= Ny-1-layers):
-                    outerdom.faces.edges.Min(X).name = "crystal_bnd_left_V"
-                if (i == (Nx-1-layers)) and (j >= layers) and (j <= Ny-1-layers) :
-                    outerdom.faces.edges.Max(X).name = "crystal_bnd_right_V"
-                
+        innerdom = domain[i*Ny+j]*inclusion[i*Ny+j]
+        innerdom.faces.edges.name="inner_edge"+str(i*Ny+j)
+        innerdom.faces.vertices.name="inner_vertex"+str(i*Ny+j)
+        innerdom.faces.name=crystaltype[int(defects[i,j])][1]+str(i*Ny+j)
+
+        if (j == 0) :
+            outerdom.faces.edges.Min(Y).name = "dom_bnd_H"
+        if (j == (Ny-1)) :
+            outerdom.faces.edges.Max(Y).name = "dom_bnd_H"
+        if (i == 0):
+            outerdom.faces.edges.Min(X).name = "dom_bnd_V"
+        if (i == (Nx-1)) :
+            outerdom.faces.edges.Max(X).name = "dom_bnd_V"
+        
+        if layers > 0:
+            if (j == layers) and (i >= layers) and (i <= Nx-1-layers):
+                # print("HAAAAALLLLLOOO")
+                outerdom.faces.edges.Min(Y).name = "crystal_bnd_bottom_H"
+            if (j == (Ny-1-layers)) and (i >= layers) and (i <= Nx-1-layers) :
+                outerdom.faces.edges.Max(Y).name = "crystal_bnd_top_H"
+            if (i == layers) and (j >= layers) and (j <= Ny-1-layers):
+                outerdom.faces.edges.Min(X).name = "crystal_bnd_left_V"
+            if (i == (Nx-1-layers)) and (j >= layers) and (j <= Ny-1-layers) :
+                outerdom.faces.edges.Max(X).name = "crystal_bnd_right_V"
+
+        return innerdom, outerdom
+    
+    
+    for i in range(layers, Nx-layers):
+        for j in range(layers, Ny-layers):
+            innerdom, outerdom = GetCell(i,j)
             outer.append(outerdom)
             inner.append(innerdom)
+    
+    if layers > 0:
+
+        for i in [ii for ii in range(0, layers)] + [ii for ii in range(Nx-layers,Nx)]:
+            for j in range(0,Ny):
+                innerdom, outerdom = GetCell(i,j)
+                outer.append(outerdom)
+                inner.append(innerdom)
+        
+        for j in [jj for jj in range(0, layers)] + [jj for jj in range(Ny-layers,Ny)]:
+            for i in range(layers,Nx-layers):
+                innerdom, outerdom = GetCell(i,j)
+                outer.append(outerdom)
+                inner.append(innerdom)
+        
 
     
     outershapes = [out_dom for out_dom in outer]
     innershapes = [in_dom for in_dom in inner]
-    
+
     crystalshape = Glue(outershapes + innershapes)
     mesh = Mesh(OCCGeometry(crystalshape, dim=2).GenerateMesh(maxh = maxH))
     mesh.Curve(10)
@@ -189,8 +211,13 @@ def crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer, alpha_inner, de
     nmat = len(mesh.GetMaterials())
     nbnd = len(mesh.GetBoundaries())
     nvert = len(mesh.GetBBoundaries())
+    print(mesh.GetBoundaries())
     
-                
+    # V = H1(mesh, dirichlet = ".*")
+    # gfu = GridFunction(V)
+    # gfu.Set(1, definedon = mesh.Boundaries("crystal_bnd_bottom_H"))
+    # Draw(gfu)
+    # input()     
     dom_bnd = ""
     bi = 0
     for i in range(nbnd): #
@@ -203,6 +230,7 @@ def crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer, alpha_inner, de
                         mesh.ngmesh.SetBCName(i,"E_H" + str(i))
                 else:
                     name = mesh.ngmesh.GetBCName(i)
+                    print(name)
                     mesh.ngmesh.SetBCName(i,name + str(i))
         else:
             if "V" in mesh.ngmesh.GetBCName(i):
@@ -359,16 +387,16 @@ def problem_definition(problem, maxH, omega):
         Lx = 0.484 #"c"
         Ly = Lx #0.685 #"a"
 
-        Nx = 3 #int(input("Number of cells on each direction: "))
+        Nx = 4 #int(input("Number of cells on each direction: "))
         #20 # number of cells in x
-        Ny = 1 # number of cells in y
+        Ny = Nx # number of cells in y
         
         incl = 1 #circular
         alpha_outer = 1/12.1 #SILICON
         alpha_inner = 1 #0 #AIR
 
         
-        layers = 0
+        layers = 1
         
         ix = [i for i in range(layers)] + [Nx - 1 - i for i in range(layers)]
         iy = [i for i in range(layers)] + [Ny - 1 - i for i in range(layers)]
