@@ -132,6 +132,17 @@ def crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer, alpha_inner, de
     
     if incl ==1: #Circular inclusion
         inclusion = [MoveTo(0,0).Circle(Lx*i,Ly*j, r).Face() for i in range(Nx) for j in range(Ny)]
+    elif incl == 2:
+        inclusion = []
+        for i in range(Nx):
+            for j in range(Ny):
+                Mx = Lx*i
+                My = Ly * j
+                c1 = MoveTo(0,0).Circle(Mx - Lx/4,My - Ly/4, r).Face()
+                c2 = MoveTo(0,0).Circle(Mx + Lx/4,My - Ly/4, r).Face()
+                c3 = MoveTo(0,0).Circle(Mx + Lx/4,My + Ly/4, r).Face()
+                c4 = MoveTo(0,0).Circle(Mx - Lx/4,My + Ly/4, r).Face()
+                inclusion.append(Glue([c1,c2,c3,c4]))
     else: #Square inclusion
         inclusion = [MoveTo(Lx*i,Ly*j).RectangleC(r, r).Face() for i in range(Nx) for j in range(Ny)]
 
@@ -211,13 +222,10 @@ def crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer, alpha_inner, de
     nmat = len(mesh.GetMaterials())
     nbnd = len(mesh.GetBoundaries())
     nvert = len(mesh.GetBBoundaries())
-    print(mesh.GetBoundaries())
+    # print(mesh.GetBoundaries())
+    # print(mesh.GetMaterials())
     
-    # V = H1(mesh, dirichlet = ".*")
-    # gfu = GridFunction(V)
-    # gfu.Set(1, definedon = mesh.Boundaries("crystal_bnd_bottom_H"))
-    # Draw(gfu)
-    # input()     
+    
     dom_bnd = ""
     bi = 0
     for i in range(nbnd): #
@@ -230,7 +238,7 @@ def crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer, alpha_inner, de
                         mesh.ngmesh.SetBCName(i,"E_H" + str(i))
                 else:
                     name = mesh.ngmesh.GetBCName(i)
-                    print(name)
+                    # print(name)
                     mesh.ngmesh.SetBCName(i,name + str(i))
         else:
             if "V" in mesh.ngmesh.GetBCName(i):
@@ -270,18 +278,45 @@ def crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer, alpha_inner, de
     
     # ########################
     # rename inner domains give them the same name as the outer one has  inner name just used 
+    # print("nmat = ", nmat)
     for d in range(nmat):
-        if "inner" in mesh.ngmesh.GetMaterial(d+1):
-            mesh.ngmesh.SetMaterial(d+1, "outer" + str(d-int(nmat/2)))
+        if "inner" in mesh.ngmesh.GetMaterial(d+1): # the +1 comes from the asking the negten mesh instead of the ngsolve mesh!
+            offset = int(nmat/(1+incl**2))
+            ii = int((d-offset)/incl**2) 
+            # jj = 0
+            # if incl >1:
+            #     # jj = d % offset
+            #     jj = d % (incl**2)
+            
+            # # iii = d-jj-offset-(ii)*(incl**2)
+            # iii = ii
+            # print("d = ", d)
+            # print("ii = ", ii)
+            # print("jj = ", jj)
+            # print("iii = ", iii)
+            # print("offset = ", offset)
+            # input()
+            mesh.ngmesh.SetMaterial(d+1, mesh.ngmesh.GetMaterial(ii+1))
+            # mesh.ngmesh.SetMaterial(d+1, "outer" + str(iii))
+            #     mesh.ngmesh.SetMaterial(d+1, "outer" + str(d-int(nmat/2)))
     
+
     mesh_info = GetMeshinfo(mesh)
     mesh_info["dom_bnd"] = dom_bnd
     
     Draw(alpha, mesh, "alpha")
     
     # print(mesh.GetMaterials())
-    print(mesh.GetBoundaries())
+    # print(mesh.GetBoundaries())
     # print(mesh.GetBBoundaries())
+    # input()
+    # V = H1(mesh, dirichlet = ".*")
+    # gfu = GridFunction(V)
+    # # gfu.Set(1, definedon = mesh.Boundaries("crystal_bnd_bottom_H"))
+    # gfu.Set(1, definedon = mesh.Materials("outer1"))
+    # Draw(gfu)
+    # input()  
+    # alpha = 1   
     return mesh, dom_bnd, alpha, mesh_info
 
 
@@ -384,14 +419,17 @@ def problem_definition(problem, maxH, omega):
     elif problem == 5:  #Problem setting - PERIODIC CRYSTAL - Circular Inclusions
         
         r  = 0.126 # radius of inclusion
-        Lx = 0.484 #"c"
+        incl = 2 #circular
+
+        # Lx = 0.484 #"c"
+        Lx = incl * 0.484 #"c"
         Ly = Lx #0.685 #"a"
 
-        Nx = 4 #int(input("Number of cells on each direction: "))
+        Nx = 20 #int(input("Number of cells on each direction: "))
         #20 # number of cells in x
         Ny = Nx # number of cells in y
         
-        incl = 1 #circular
+        
         alpha_outer = 1/12.1 #SILICON
         alpha_inner = 1 #0 #AIR
 
@@ -400,7 +438,6 @@ def problem_definition(problem, maxH, omega):
         
         ix = [i for i in range(layers)] + [Nx - 1 - i for i in range(layers)]
         iy = [i for i in range(layers)] + [Ny - 1 - i for i in range(layers)]
-        
         
         defects = np.ones((Nx,Ny))
         for i in ix: 
@@ -413,7 +450,7 @@ def problem_definition(problem, maxH, omega):
 
         
         mesh, dom_bnd, alpha, mesh_info = crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer, alpha_inner, defects, layers)
-        input()
+        # input()
         
         
         # print(Integrate(x, mesh, definedon = mesh.Boundaries("measure_edge_left")))
@@ -634,8 +671,8 @@ def acms_solution(mesh, dom_bnd, alpha, Bubble_modes, Edge_modes, order_v, kappa
             
             #FEM solution with same order of approximation
             # start = time.time()
-            gfu_fem, grad_fem = ground_truth(mesh, dom_bnd, alpha, kappa, omega, beta, f, g, order)
-            Draw(gfu_fem, mesh, "gfu_fem")
+            # gfu_fem, grad_fem = ground_truth(mesh, dom_bnd, alpha, kappa, omega, beta, f, g, order)
+            # Draw(gfu_fem, mesh, "gfu_fem")
             # print("FEM computation = ", time.time() - start)
             
             V = H1(mesh, order = order, complex = True)
