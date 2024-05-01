@@ -1,6 +1,6 @@
 # LIBRARIES
 from helmholtz_aux import *
-# import netgen.gui
+import netgen.gui
 
 # ngsglobals.msg_level = 1
 
@@ -37,7 +37,7 @@ table_content_aux = ""
 table_header = ""
 table_end = ""
 
-SetNumThreads(12)
+# SetNumThreads(12)
 with TaskManager():
     for h in maxH/(2**np.arange(0, Href + 1 , 1)):
         print(h)

@@ -321,6 +321,48 @@ class ACMS:
                 
 ###############################################################
 ###############################################################
+    def IntegrateACMS(self, bndname, coeffs):
+
+        # print(self.mesh.GetBoundaries())
+        # print(self.mesh.GetBoundaries())
+
+        integral = 0
+        for edgename in self.mesh.GetBoundaries():
+            if bndname in edgename:
+                # print(edgename)
+                cells = self.mesh.Boundaries(edgename).Neighbours(VOL).Split()[0].Mask()
+
+                
+                # print(cells)
+                for i,b in enumerate(cells):
+                    if b == 1:
+                        cellname = self.mesh.GetMaterials()[i]
+                        # print(cellname)
+                        localbasis, dofs = self.localbasis[cellname]
+
+                        Vharm, aharm_mat, aharm_inv = self.vol_extensions[cellname]
+                        gfu = GridFunction(Vharm)
+                        
+                        localcoeffs = Vector(len(dofs), complex = True)
+                        
+                        for d in range(len(dofs)):
+                            localcoeffs[d] = coeffs[dofs[d]]
+                    
+                        gfu.vec.data = (localbasis * localcoeffs).Evaluate()
+                        Draw(gfu, self.mesh, "cell")
+                        # input()
+                        integral+= Integrate(gfu, self.mesh, definedon = self.mesh.Boundaries(edgename))
+                        # print(integral)
+        
+        return integral
+
+
+            
+
+
+
+###############################################################
+###############################################################
 
         
     def SetGlobalFunction(self, gfu, coeffs):

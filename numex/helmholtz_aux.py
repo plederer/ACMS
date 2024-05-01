@@ -359,7 +359,7 @@ def problem_definition(problem, maxH, omega):
         Lx = 0.484 #"c"
         Ly = Lx #0.685 #"a"
 
-        Nx = int(input("Number of cells on each direction: "))
+        Nx = 4 #int(input("Number of cells on each direction: "))
         #20 # number of cells in x
         Ny = Nx # number of cells in y
         
@@ -553,12 +553,22 @@ def compute_acms_solution(mesh, V, acms, BM, EM):
     gfu.vec[:] = 0.0
     print("norm of usmall = ", Norm(usmall))
 
+    integral = acms.IntegrateACMS(bndname = "crystal_bnd_right", coeffs = usmall)
+    print("myint = ", integral)
+    
     # acms.SetGlobalFunction(gfu, usmall)
 
-    Draw(gfu, mesh, "uacms")
-    print("finished_acms")
+    # Draw(gfu, mesh, "uacms")
+    # intval = 0
+    # for edgename in mesh.GetBoundaries():
+    #         if "crystal_bnd_right" in edgename:
+    #             # print(edgename)
+    #             intval += Integrate(gfu, mesh, definedon = mesh.Boundaries(edgename))
+    #             # print(intval)
+    # print("global integral = ", intval - integral)
+    # print("finished_acms")
 
-        
+    # input()
     return gfu, num
 
 ##################################################################
@@ -594,7 +604,8 @@ def acms_solution(mesh, dom_bnd, alpha, Bubble_modes, Edge_modes, order_v, kappa
             
             #FEM solution with same order of approximation
             # start = time.time()
-            # gfu_fem, grad_fem = ground_truth(mesh, dom_bnd, alpha, kappa, omega, beta, f, g, order)
+            gfu_fem, grad_fem = ground_truth(mesh, dom_bnd, alpha, kappa, omega, beta, f, g, order)
+            Draw(gfu_fem, mesh, "gfu_fem")
             # print("FEM computation = ", time.time() - start)
             
             V = H1(mesh, order = order, complex = True)
@@ -607,7 +618,7 @@ def acms_solution(mesh, dom_bnd, alpha, Bubble_modes, Edge_modes, order_v, kappa
                 #Computing full basis with max number of modes 
                 # bi = bonus int order - should match the curved mesh order
                 acms = ACMS(order = order, mesh = mesh, bm = max_bm, em = max_em, bi = mesh.GetCurveOrder(), mesh_info = mesh_info, alpha = alpha, omega = omega, kappa = kappa, f = f, g = g)
-
+                
                 start = time.time()
                 acms.CalcHarmonicExtensions(kappa = kappa)
                 
@@ -620,6 +631,9 @@ def acms_solution(mesh, dom_bnd, alpha, Bubble_modes, Edge_modes, order_v, kappa
                 for m in acms.doms:
                     acms.Assemble_localA(m)
                 print("assemble = ", time.time() - assemble_start)
+
+                # acms.IntegrateACMS(bndname = "crystal_bnd_right", coeffs = Vector(5))
+                # input()
                             
                 for EM in Edge_modes:
                         for BM in Bubble_modes:
