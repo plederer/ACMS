@@ -173,6 +173,7 @@ def crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer, alpha_inner, de
                     outerdom.faces.edges.Min(X).name = "crystal_bnd_left_V"
                 if (i == (Nx-1-layers)) and (j >= layers) and (j <= Ny-1-layers) :
                     outerdom.faces.edges.Max(X).name = "crystal_bnd_right_V"
+            
                 
             outer.append(outerdom)
             inner.append(innerdom)
@@ -252,7 +253,7 @@ def crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer, alpha_inner, de
     Draw(alpha, mesh, "alpha")
     
     # print(mesh.GetMaterials())
-    print(mesh.GetBoundaries())
+    # print(mesh.GetBoundaries())
     # print(mesh.GetBBoundaries())
     return mesh, dom_bnd, alpha, mesh_info
 
@@ -359,16 +360,16 @@ def problem_definition(problem, maxH, omega):
         Lx = 0.484 #"c"
         Ly = Lx #0.685 #"a"
 
-        Nx = 3 #int(input("Number of cells on each direction: "))
+        Nx = 2 #int(input("Number of cells on each direction: "))
         #20 # number of cells in x
-        Ny = 1 # number of cells in y
+        Ny = Nx # number of cells in y
         
         incl = 1 #circular
         alpha_outer = 1/12.1 #SILICON
         alpha_inner = 1 #0 #AIR
 
         
-        layers = 0
+        layers = 1
         
         ix = [i for i in range(layers)] + [Nx - 1 - i for i in range(layers)]
         iy = [i for i in range(layers)] + [Ny - 1 - i for i in range(layers)]
@@ -385,7 +386,7 @@ def problem_definition(problem, maxH, omega):
 
         
         mesh, dom_bnd, alpha, mesh_info = crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer, alpha_inner, defects, layers)
-        input()
+        # input()
         
         
         # print(Integrate(x, mesh, definedon = mesh.Boundaries("measure_edge_left")))
@@ -534,43 +535,51 @@ def append_NI_FEM_errors(mesh, gfu_fem, u_ex, Du_ex, Iu, l2_error_NodInt, h1_err
 
  
  
-def compute_acms_solution(mesh, V, acms, BM, EM):    
+def compute_acms_solution(mesh, V, acms, edge_basis):    
+    
     
     gfu = GridFunction(V)
     
-    setupstart = time.time()
-    
-    num = acms.acmsdofs #len(basis)
-    print("finished setup", time.time() - setupstart)
-    print("ndofs = ", num)
-    
-    invstart = time.time()
-    asmall = acms.asmall
-    print("calc asmall = ", time.time() - invstart)
-    
-    ainvsmall = Matrix(numpy.linalg.inv(asmall))
-    f_small = acms.fsmall
-    usmall = ainvsmall * f_small
-    
-    gfu.vec[:] = 0.0
-    print("norm of usmall = ", Norm(usmall))
+    if (edge_basis == False):
+        gfu = 0
+        num = 0
+        
+    else: 
+            
+        
+        setupstart = time.time()
+        
+        num = acms.acmsdofs #len(basis)
+        print("finished setup", time.time() - setupstart)
+        print("ndofs = ", num)
+        
+        invstart = time.time()
+        asmall = acms.asmall
+        print("calc asmall = ", time.time() - invstart)
+        
+        ainvsmall = Matrix(numpy.linalg.inv(asmall))
+        f_small = acms.fsmall
+        usmall = ainvsmall * f_small
+        
+        gfu.vec[:] = 0.0
+        print("norm of usmall = ", Norm(usmall))
 
-    integral = acms.IntegrateACMS(bndname = "crystal_bnd_right", coeffs = usmall)
-    print("myint = ", integral)
-    
-    # acms.SetGlobalFunction(gfu, usmall)
+        integral = acms.IntegrateACMS(bndname = "crystal_bnd_right", coeffs = usmall)
+        print("myint = ", integral)
+        
+        acms.SetGlobalFunction(gfu, usmall)
 
-    # Draw(gfu, mesh, "uacms")
-    # intval = 0
-    # for edgename in mesh.GetBoundaries():
-    #         if "crystal_bnd_right" in edgename:
-    #             # print(edgename)
-    #             intval += Integrate(gfu, mesh, definedon = mesh.Boundaries(edgename))
-    #             # print(intval)
-    # print("global integral = ", intval - integral)
-    # print("finished_acms")
+        # Draw(gfu, mesh, "uacms")
+        # intval = 0
+        # for edgename in mesh.GetBoundaries():
+        #         if "crystal_bnd_right" in edgename:
+        #             # print(edgename)
+        #             intval += Integrate(gfu, mesh, definedon = mesh.Boundaries(edgename))
+        #             # print(intval)
+        # print("global integral = ", intval - integral)
+        # print("finished_acms")
 
-    # input()
+        # input()
     return gfu, num
 
 ##################################################################
@@ -582,7 +591,7 @@ def compute_acms_solution(mesh, V, acms, BM, EM):
  
  
   
-def acms_solution(mesh, dom_bnd, alpha, Bubble_modes, Edge_modes, order_v, kappa, omega, beta, f, g, u_ex, Du_ex, mesh_info):
+def acms_main(mesh, dom_bnd, alpha, Bubble_modes, Edge_modes, order_v, kappa, omega, beta, f, g, u_ex, Du_ex, mesh_info):
     #  ACMS RESOLUTION
 
     l2_error = []
@@ -595,8 +604,8 @@ def acms_solution(mesh, dom_bnd, alpha, Bubble_modes, Edge_modes, order_v, kappa
     h1_error_FEMex = []
     dofs =[]
     ndofs = []
-    max_bm = Bubble_modes[-1]
-    max_em = Edge_modes[-1]
+    # max_bm = Bubble_modes[-1]
+    # max_em = Edge_modes[-1]
 
         
     # SetNumThreads(1)
@@ -605,10 +614,10 @@ def acms_solution(mesh, dom_bnd, alpha, Bubble_modes, Edge_modes, order_v, kappa
             print(order)
             
             #FEM solution with same order of approximation
-            # start = time.time()
+            start = time.time()
             gfu_fem, grad_fem = ground_truth(mesh, dom_bnd, alpha, kappa, omega, beta, f, g, order)
-            Draw(gfu_fem, mesh, "gfu_fem")
-            # print("FEM computation = ", time.time() - start)
+            # Draw(gfu_fem, mesh, "gfu_fem")
+            print("FEM computation = ", time.time() - start)
             
             V = H1(mesh, order = order, complex = True)
             ndofs.append(V.ndof)
@@ -616,35 +625,39 @@ def acms_solution(mesh, dom_bnd, alpha, Bubble_modes, Edge_modes, order_v, kappa
             Iu = GridFunction(V) #Nodal interpolant            
             
             if V.ndof < 1000000:
-                
-                #Computing full basis with max number of modes 
-                # bi = bonus int order - should match the curved mesh order
-                acms = ACMS(order = order, mesh = mesh, bm = max_bm, em = max_em, bi = mesh.GetCurveOrder(), mesh_info = mesh_info, alpha = alpha, omega = omega, kappa = kappa, f = f, g = g)
-                
-                start = time.time()
-                acms.CalcHarmonicExtensions(kappa = kappa)
-                
-                edges_time = time.time() 
-                acms.calc_edge_basis()
-                print("Edge basis functions computation in --- %s seconds ---" % (time.time() - edges_time))
-                print("time to compute harmonic extensions = ", time.time() - start)
-
-                assemble_start = time.time()
-                for m in acms.doms:
-                    acms.Assemble_localA(m)
-                print("assemble = ", time.time() - assemble_start)
-
-                # acms.IntegrateACMS(bndname = "crystal_bnd_right", coeffs = Vector(5))
-                # input()
-                            
                 for EM in Edge_modes:
                         for BM in Bubble_modes:
-                            if (EM <= acms.edge_modes) and (BM <= acms.bubble_modes):
-                                gfu, num = compute_acms_solution(mesh, V, acms, BM, EM)
-                                dofs.append(num)
-                                # l2_error, l2_error_ex, h1_error, h1_error_ex = append_acms_errors(mesh, gfu, gfu_fem, u_ex, grad_fem, Du_ex, l2_error, l2_error_ex, h1_error, h1_error_ex)
+                            
+                            #Computing full basis with max number of modes 
+                            # bi = bonus int order - should match the curved mesh order
+                            acms = ACMS(order = order, mesh = mesh, bm = BM, em = EM, bi = mesh.GetCurveOrder(), mesh_info = mesh_info, alpha = alpha, omega = omega, kappa = kappa, f = f, g = g)
+                            
+                            start = time.time()
+                            acms.CalcHarmonicExtensions(kappa = kappa)
+                            
+                            edges_time = time.time() 
+                            edge_basis = acms.calc_edge_basis()
+                            print("Edge basis functions computation in --- %s seconds ---" % (time.time() - edges_time))
+                            print("time to compute harmonic extensions = ", time.time() - start)
+                            # print("edge_basis = ", edge_basis)
+                            # quit()
+                            
+                            
+                            assemble_start = time.time()
+                            for m in acms.doms:
+                                acms.Assemble_localA(m)
+                            print("assemble = ", time.time() - assemble_start)
 
-                # l2_error_NodInt, h1_error_NodInt, l2_error_FEMex, h1_error_FEMex = append_NI_FEM_errors(mesh, gfu_fem, u_ex, Du_ex, Iu, l2_error_NodInt, h1_error_NodInt, l2_error_FEMex, h1_error_FEMex)
+                            # acms.IntegrateACMS(bndname = "crystal_bnd_right", coeffs = Vector(5))
+                            # input()
+                                        
+                            # if (EM <= acms.edge_modes) and (BM <= acms.bubble_modes):
+                            gfu, num = compute_acms_solution(mesh, V, acms, edge_basis)
+                            dofs.append(num)
+                            print(num)
+                            l2_error, l2_error_ex, h1_error, h1_error_ex = append_acms_errors(mesh, gfu, gfu_fem, u_ex, grad_fem, Du_ex, l2_error, l2_error_ex, h1_error, h1_error_ex)
+
+                l2_error_NodInt, h1_error_NodInt, l2_error_FEMex, h1_error_FEMex = append_NI_FEM_errors(mesh, gfu_fem, u_ex, Du_ex, Iu, l2_error_NodInt, h1_error_NodInt, l2_error_FEMex, h1_error_FEMex)
            
             else:
                 for EM in Edge_modes:
@@ -654,14 +667,14 @@ def acms_solution(mesh, dom_bnd, alpha, Bubble_modes, Edge_modes, order_v, kappa
                 l2_error_NodInt, h1_error_NodInt, l2_error_FEMex, h1_error_FEMex = append_NI_FEM_errors(mesh, 0, 0, 0, 0, l2_error_NodInt, h1_error_NodInt, l2_error_FEMex, h1_error_FEMex)
                 
     
-    print(l2_error)   
-    print(l2_error_ex)
-    print(h1_error)
-    print(h1_error_ex)
-    print(l2_error_NodInt)
-    print(h1_error_NodInt)
-    print(l2_error_FEMex)
-    print(l2_error_FEMex)
+    print("L2 error = ", l2_error)   
+    # print(l2_error_ex)
+    print("H1 error = ", h1_error)
+    # print(h1_error_ex)
+    # print(l2_error_NodInt)
+    # print(h1_error_NodInt)
+    # print(l2_error_FEMex)
+    # print(l2_error_FEMex)
     
     errors_dictionary = {
         'l2_error':        l2_error, 
@@ -675,9 +688,9 @@ def acms_solution(mesh, dom_bnd, alpha, Bubble_modes, Edge_modes, order_v, kappa
     }
     
     solution_dictionary = {
-        'gfu_acms':  gfu
-        # 'gfu_fem' :  gfu_fem,
-        # 'grad_fem':  grad_fem
+        'gfu_acms':  gfu,
+        'gfu_fem' :  gfu_fem,
+        'grad_fem':  grad_fem
     }
     
 

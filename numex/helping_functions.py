@@ -482,13 +482,20 @@ class ACMS:
                     AA = sp.csr_matrix(aloc.mat.CSR())
                     MM = sp.csr_matrix(mloc.mat.CSR())
                     
-                    ev, evec =sp.linalg.eigs(A = AA, M = MM, k = self.edge_modes, which='SM')
-                    idx = ev.argsort()[::]   
-                    ev = ev[idx]
-                    evec = evec[:,idx]
-                    evec = evec.transpose()
-                    self.edgeversions[edgetype] = [ndofs, evec]
                 
+                    try:
+                        ev, evec =sp.linalg.eigs(A = AA, M = MM, k = self.edge_modes, which='SM')
+                    
+                        
+                        idx = ev.argsort()[::]   
+                        ev = ev[idx]
+                        evec = evec[:,idx]
+                        evec = evec.transpose()
+                        self.edgeversions[edgetype] = [ndofs, evec]
+                    except:
+                        self.edge_modes = 0
+        return self.edge_modes != 0
+    
                 
 
 

@@ -1,6 +1,6 @@
 # LIBRARIES
 from helmholtz_aux import *
-import netgen.gui
+# import netgen.gui
 
 # ngsglobals.msg_level = 1
 
@@ -25,14 +25,14 @@ import netgen.gui
 problem = 5
 ACMS_flag = 0
 omega = 0.484/10
-Href = 0
+Href = 1
 maxH = 0.05 #025 # * 4
 order_v = [1]
 Bubble_modes = [0]
-Edge_modes = [4]
+Edge_modes = [1]
 
 
-error_table = 0
+error_table = 1
 table_content_aux = ""
 table_header = ""
 table_end = ""
@@ -43,23 +43,26 @@ with TaskManager():
         print(h)
         # Variables setting
         mesh, dom_bnd, alpha, kappa, beta, f, g, sol_ex, u_ex, Du_ex, mesh_info = problem_definition(problem, maxH, omega)
-
+        
+        
         # Solve ACMS system and compute errors
-        ndofs, dofs, errors_dictionary, solution_dictionary = acms_solution(mesh, dom_bnd, alpha, Bubble_modes, Edge_modes, order_v, kappa, omega, beta, f, g, u_ex, Du_ex, mesh_info)    
+        ndofs, dofs, errors_dictionary, solution_dictionary = acms_main(mesh, dom_bnd, alpha, Bubble_modes, Edge_modes, order_v, kappa, omega, beta, f, g, u_ex, Du_ex, mesh_info)    
         
         gfu_acms = solution_dictionary["gfu_acms"]
-        # gfu_fem = solution_dictionary["gfu_fem"]
-        # grad_fem = solution_dictionary["grad_fem"]
+        gfu_fem = solution_dictionary["gfu_fem"]
+        grad_fem = solution_dictionary["grad_fem"]
         
         Draw(gfu_acms, mesh, "uacms")
-        # Draw(gfu_fem, mesh, "ufem")
+        Draw(gfu_fem, mesh, "ufem")
+        # input()
         
-        
-        # if error_table == 1:
-        #     file_name, Errors = error_table_save(maxH, problem, order_v, Bubble_modes, Edge_modes, mesh, kappa, errors_dictionary, ndofs, dofs, u_ex, sol_ex, gfu_fem, grad_fem)
-        #     file_path = f"./Results/" + file_name + ".npz"
-        #     table_header, table_content, table_end = process_file(file_path, ACMS_flag)
-        #     table_content_aux += table_content + "\\\\\n"
+        if error_table == 1:
+            file_name, Errors = error_table_save(h, problem, order_v, Bubble_modes, Edge_modes, mesh, kappa, errors_dictionary, ndofs, dofs, u_ex, sol_ex, gfu_fem, grad_fem)
+            file_path = f"./Results/" + file_name + ".npz"
+            table_header, table_content, table_end = process_file(file_path, ACMS_flag)
+            table_content_aux += table_content + "\\\\\n"
+            print(table_content_aux)
+            input()
         
 print(table_header + table_content_aux + table_end)    
 
