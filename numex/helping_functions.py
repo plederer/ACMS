@@ -104,7 +104,7 @@ class ACMS:
 
         fd = Vharm.FreeDofs()
         edges = self.mesh.Materials(dom_name).Neighbours(BND).Split()
-        for bnds in edges[:-1]:
+        for bnds in edges[0:4]:
             fd = fd & ~Vharm.GetDofs(bnds)
 
         uharm, vharm = Vharm.TnT() # Trial and test functions
@@ -252,6 +252,8 @@ class ACMS:
                                 gfu.vec[edofs[vi]] = 1-vlen/slength
                                     
                 gfu.vec.data += -(aharm_inv @ aharm_mat) * gfu.vec  
+                # gfu.vec.data += -(aharm_mat) * gfu.vec  
+                # gfu.vec[:] = 1
                 # Draw(gfu, self.mesh, "test")
                 # input()
                 localbasis[lii][:] = gfu.vec

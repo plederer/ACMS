@@ -132,6 +132,17 @@ def crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer, alpha_inner, de
     
     if incl ==1: #Circular inclusion
         inclusion = [MoveTo(0,0).Circle(Lx*i,Ly*j, r).Face() for i in range(Nx) for j in range(Ny)]
+    elif incl == 2:
+        inclusion = []
+        for i in range(Nx):
+            for j in range(Ny):
+                Mx = Lx*i
+                My = Ly * j
+                c1 = MoveTo(0,0).Circle(Mx - Lx/4,My - Ly/4, r).Face()
+                c2 = MoveTo(0,0).Circle(Mx + Lx/4,My - Ly/4, r).Face()
+                c3 = MoveTo(0,0).Circle(Mx + Lx/4,My + Ly/4, r).Face()
+                c4 = MoveTo(0,0).Circle(Mx - Lx/4,My + Ly/4, r).Face()
+                inclusion.append(Glue([c1,c2,c3,c4]))
     else: #Square inclusion
         inclusion = [MoveTo(Lx*i,Ly*j).RectangleC(r, r).Face() for i in range(Nx) for j in range(Ny)]
 
@@ -139,49 +150,70 @@ def crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer, alpha_inner, de
     # inner = [domain[i*Ny+j]*inclusion[i*Ny+j] for i in range(Nx) for j in range(Ny)]
     outer = []
     inner = []
-    for i in range(Nx):
-        for j in range(Ny):
-            outerdom = domain[i*Ny+j]
-            # outerdom.faces.name = "outer"+str(i*Ny+j)
-            outerdom.faces.name = crystaltype[int(defects[i,j])][0]+str(i*Ny+j)
-            outerdom = outerdom - inclusion[i*Ny+j]
-            outerdom.faces.edges.Min(Y).name = "E_H"
-            outerdom.faces.edges.Max(Y).name = "E_H"
-            outerdom.faces.edges.Min(X).name = "E_V"
-            outerdom.faces.edges.Max(X).name = "E_V"
 
-            innerdom = domain[i*Ny+j]*inclusion[i*Ny+j]
-            innerdom.faces.edges.name="inner_edge"+str(i*Ny+j)
-            innerdom.faces.vertices.name="inner_vertex"+str(i*Ny+j)
-            innerdom.faces.name=crystaltype[int(defects[i,j])][1]+str(i*Ny+j)
+    def GetCell(i,j):
+        outerdom = domain[i*Ny+j]
+        # outerdom.faces.name = "outer"+str(i*Ny+j)
+        outerdom.faces.name = crystaltype[int(defects[i,j])][0]+str(i*Ny+j)
+        outerdom = outerdom - inclusion[i*Ny+j]
+        outerdom.faces.edges.Min(Y).name = "E_H"
+        outerdom.faces.edges.Max(Y).name = "E_H"
+        outerdom.faces.edges.Min(X).name = "E_V"
+        outerdom.faces.edges.Max(X).name = "E_V"
 
-            if (j == 0) :
-                outerdom.faces.edges.Min(Y).name = "dom_bnd_H"
-            if (j == (Ny-1)) :
-                outerdom.faces.edges.Max(Y).name = "dom_bnd_H"
-            if (i == 0):
-                outerdom.faces.edges.Min(X).name = "dom_bnd_V"
-            if (i == (Nx-1)) :
-                outerdom.faces.edges.Max(X).name = "dom_bnd_V"
-            
-            if layers > 0:
-                if (j == layers) and (i >= layers) and (i <= Nx-1-layers):
-                    outerdom.faces.edges.Min(Y).name = "crystal_bnd_bottom_H"
-                if (j == (Ny-1-layers)) and (i >= layers) and (i <= Nx-1-layers) :
-                    outerdom.faces.edges.Max(Y).name = "crystal_bnd_top_H"
-                if (i == layers) and (j >= layers) and (j <= Ny-1-layers):
-                    outerdom.faces.edges.Min(X).name = "crystal_bnd_left_V"
-                if (i == (Nx-1-layers)) and (j >= layers) and (j <= Ny-1-layers) :
-                    outerdom.faces.edges.Max(X).name = "crystal_bnd_right_V"
-            
-                
+        innerdom = domain[i*Ny+j]*inclusion[i*Ny+j]
+        innerdom.faces.edges.name="inner_edge"+str(i*Ny+j)
+        innerdom.faces.vertices.name="inner_vertex"+str(i*Ny+j)
+        innerdom.faces.name=crystaltype[int(defects[i,j])][1]+str(i*Ny+j)
+
+        if (j == 0) :
+            outerdom.faces.edges.Min(Y).name = "dom_bnd_H"
+        if (j == (Ny-1)) :
+            outerdom.faces.edges.Max(Y).name = "dom_bnd_H"
+        if (i == 0):
+            outerdom.faces.edges.Min(X).name = "dom_bnd_V"
+        if (i == (Nx-1)) :
+            outerdom.faces.edges.Max(X).name = "dom_bnd_V"
+        
+        if layers > 0:
+            if (j == layers) and (i >= layers) and (i <= Nx-1-layers):
+                # print("HAAAAALLLLLOOO")
+                outerdom.faces.edges.Min(Y).name = "crystal_bnd_bottom_H"
+            if (j == (Ny-1-layers)) and (i >= layers) and (i <= Nx-1-layers) :
+                outerdom.faces.edges.Max(Y).name = "crystal_bnd_top_H"
+            if (i == layers) and (j >= layers) and (j <= Ny-1-layers):
+                outerdom.faces.edges.Min(X).name = "crystal_bnd_left_V"
+            if (i == (Nx-1-layers)) and (j >= layers) and (j <= Ny-1-layers) :
+                outerdom.faces.edges.Max(X).name = "crystal_bnd_right_V"
+
+        return innerdom, outerdom
+    
+    
+    for i in range(layers, Nx-layers):
+        for j in range(layers, Ny-layers):
+            innerdom, outerdom = GetCell(i,j)
             outer.append(outerdom)
             inner.append(innerdom)
+    
+    if layers > 0:
+
+        for i in [ii for ii in range(0, layers)] + [ii for ii in range(Nx-layers,Nx)]:
+            for j in range(0,Ny):
+                innerdom, outerdom = GetCell(i,j)
+                outer.append(outerdom)
+                inner.append(innerdom)
+        
+        for j in [jj for jj in range(0, layers)] + [jj for jj in range(Ny-layers,Ny)]:
+            for i in range(layers,Nx-layers):
+                innerdom, outerdom = GetCell(i,j)
+                outer.append(outerdom)
+                inner.append(innerdom)
+        
 
     
     outershapes = [out_dom for out_dom in outer]
     innershapes = [in_dom for in_dom in inner]
-    
+
     crystalshape = Glue(outershapes + innershapes)
     mesh = Mesh(OCCGeometry(crystalshape, dim=2).GenerateMesh(maxh = maxH))
     mesh.Curve(10)
@@ -190,8 +222,10 @@ def crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer, alpha_inner, de
     nmat = len(mesh.GetMaterials())
     nbnd = len(mesh.GetBoundaries())
     nvert = len(mesh.GetBBoundaries())
+    # print(mesh.GetBoundaries())
+    # print(mesh.GetMaterials())
     
-                
+    
     dom_bnd = ""
     bi = 0
     for i in range(nbnd): #
@@ -204,6 +238,7 @@ def crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer, alpha_inner, de
                         mesh.ngmesh.SetBCName(i,"E_H" + str(i))
                 else:
                     name = mesh.ngmesh.GetBCName(i)
+                    # print(name)
                     mesh.ngmesh.SetBCName(i,name + str(i))
         else:
             if "V" in mesh.ngmesh.GetBCName(i):
@@ -243,10 +278,29 @@ def crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer, alpha_inner, de
     
     # ########################
     # rename inner domains give them the same name as the outer one has  inner name just used 
+    # print("nmat = ", nmat)
     for d in range(nmat):
-        if "inner" in mesh.ngmesh.GetMaterial(d+1):
-            mesh.ngmesh.SetMaterial(d+1, "outer" + str(d-int(nmat/2)))
+        if "inner" in mesh.ngmesh.GetMaterial(d+1): # the +1 comes from the asking the negten mesh instead of the ngsolve mesh!
+            offset = int(nmat/(1+incl**2))
+            ii = int((d-offset)/incl**2) 
+            # jj = 0
+            # if incl >1:
+            #     # jj = d % offset
+            #     jj = d % (incl**2)
+            
+            # # iii = d-jj-offset-(ii)*(incl**2)
+            # iii = ii
+            # print("d = ", d)
+            # print("ii = ", ii)
+            # print("jj = ", jj)
+            # print("iii = ", iii)
+            # print("offset = ", offset)
+            # input()
+            mesh.ngmesh.SetMaterial(d+1, mesh.ngmesh.GetMaterial(ii+1))
+            # mesh.ngmesh.SetMaterial(d+1, "outer" + str(iii))
+            #     mesh.ngmesh.SetMaterial(d+1, "outer" + str(d-int(nmat/2)))
     
+
     mesh_info = GetMeshinfo(mesh)
     mesh_info["dom_bnd"] = dom_bnd
     
@@ -255,6 +309,14 @@ def crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer, alpha_inner, de
     # print(mesh.GetMaterials())
     # print(mesh.GetBoundaries())
     # print(mesh.GetBBoundaries())
+    # input()
+    # V = H1(mesh, dirichlet = ".*")
+    # gfu = GridFunction(V)
+    # # gfu.Set(1, definedon = mesh.Boundaries("crystal_bnd_bottom_H"))
+    # gfu.Set(1, definedon = mesh.Materials("outer1"))
+    # Draw(gfu)
+    # input()  
+    # alpha = 1   
     return mesh, dom_bnd, alpha, mesh_info
 
 
@@ -357,14 +419,16 @@ def problem_definition(problem, maxH, omega):
     elif problem == 5:  #Problem setting - PERIODIC CRYSTAL - Circular Inclusions
         
         r  = 0.126 # radius of inclusion
-        Lx = 0.484 #"c"
+        incl = 2 #circular
+
+        # Lx = 0.484 #"c"
+        Lx = incl * 0.484 #"c"
         Ly = Lx #0.685 #"a"
 
         Nx = 2 #int(input("Number of cells on each direction: "))
         #20 # number of cells in x
         Ny = Nx # number of cells in y
         
-        incl = 1 #circular
         alpha_outer = 1/12.1 #SILICON
         alpha_inner = 1 #0 #AIR
 
@@ -373,7 +437,6 @@ def problem_definition(problem, maxH, omega):
         
         ix = [i for i in range(layers)] + [Nx - 1 - i for i in range(layers)]
         iy = [i for i in range(layers)] + [Ny - 1 - i for i in range(layers)]
-        
         
         defects = np.ones((Nx,Ny))
         for i in ix: 
