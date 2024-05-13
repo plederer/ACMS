@@ -315,7 +315,17 @@ def compute_l2_h1_relative_errors(mesh, gfu_ex, grad_uex, l2_error, h1_error, di
 
 
 
-def save_error_file_exact(file_name, dictionary, mesh, l2_error, h1_error, l2_error_fem, h1_error_fem, l2_error_FEMex, h1_error_FEMex, l2_error_NodInt, h1_error_NodInt, dim, ndofs, dofs, u_ex, Du_ex, gfu_fem, grad_fem):
+def save_error_file_exact(file_name, dictionary, mesh, errors_dictionary, dim, ndofs, dofs, u_ex, Du_ex, gfu_fem, grad_fem):
+       
+    l2_error = errors_dictionary["l2_error_ex"]
+    h1_error = errors_dictionary["h1_error_ex"] 
+    l2_error_fem = errors_dictionary["l2_error"] 
+    h1_error_fem = errors_dictionary["h1_error"]
+    l2_error_FEMex = errors_dictionary["l2_error_FEMex"]
+    h1_error_FEMex = errors_dictionary["h1_error_FEMex"] 
+    l2_error_NodInt = errors_dictionary["l2_error_NodInt"]
+    h1_error_NodInt = errors_dictionary["h1_error_NodInt"]
+    
     
     save_dir = Path('./Results') #Saves local folder name
     save_dir.mkdir(exist_ok=True) #Creates folder Results if it does not exists already

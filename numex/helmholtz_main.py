@@ -24,15 +24,15 @@ from helmholtz_aux import *
 # For testing
 problem = 5
 ACMS_flag = 0
-omega = 0.484/10
-Href = 1
+omega = 1#0.484/10
+Href = 0
 maxH = 0.05 #025 # * 4
-order_v = [1]
+order_v = [1,2]
 Bubble_modes = [0]
-Edge_modes = [1]
+Edge_modes = [1,4]
 
 
-error_table = 1
+error_table = 0
 table_content_aux = ""
 table_header = ""
 table_end = ""
@@ -42,9 +42,10 @@ with TaskManager():
     for h in maxH/(2**np.arange(0, Href + 1 , 1)):
         print(h)
         # Variables setting
-        mesh, dom_bnd, alpha, kappa, beta, f, g, sol_ex, u_ex, Du_ex, mesh_info = problem_definition(problem, maxH, omega)
-        
-        
+        mesh, dom_bnd, alpha, kappa, beta, f, g, sol_ex, u_ex, Du_ex, mesh_info = problem_definition(problem, h, omega)
+        # sol_ex = 1      
+        # u_ex = exp(-1J * ( x + y))
+                        
         # Solve ACMS system and compute errors
         ndofs, dofs, errors_dictionary, solution_dictionary = acms_main(mesh, dom_bnd, alpha, Bubble_modes, Edge_modes, order_v, kappa, omega, beta, f, g, u_ex, Du_ex, mesh_info)    
         
@@ -55,14 +56,13 @@ with TaskManager():
         Draw(gfu_acms, mesh, "uacms")
         Draw(gfu_fem, mesh, "ufem")
         # input()
-        
+                
         if error_table == 1:
             file_name, Errors = error_table_save(h, problem, order_v, Bubble_modes, Edge_modes, mesh, kappa, errors_dictionary, ndofs, dofs, u_ex, sol_ex, gfu_fem, grad_fem)
             file_path = f"./Results/" + file_name + ".npz"
             table_header, table_content, table_end = process_file(file_path, ACMS_flag)
             table_content_aux += table_content + "\\\\\n"
-            print(table_content_aux)
-            input()
+        
         
 print(table_header + table_content_aux + table_end)    
 
