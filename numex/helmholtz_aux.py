@@ -446,20 +446,13 @@ def problem_definition(problem, maxH, omega):
     elif problem == 5:  #Problem setting - PERIODIC CRYSTAL - Circular Inclusions
         
         r  = 0.126 # radius of inclusion
-        incl = 2 #circular
-
-        # Lx = 0.484 #"c"
+        incl = 1 #circular
         Lx = incl * 0.484 #"c"
-        Ly = Lx #0.685 #"a"
-
+        Ly = Lx #0.685 #"a
         Nx = 3 #int(input("Number of cells on each direction: "))
-        #20 # number of cells in x
         Ny = Nx # number of cells in y
-        
         alpha_outer = 1/12.1 #SILICON
-        alpha_inner = 1 #0 #AIR
-
-        
+        alpha_inner = 1 #0 #AIR        
         layers = 1
         
         ix = [i for i in range(layers)] + [Nx - 1 - i for i in range(layers)]
@@ -474,6 +467,52 @@ def problem_definition(problem, maxH, omega):
             for i in range(Nx): 
                 defects[i,j] = 0.0
 
+        mesh, dom_bnd, alpha, mesh_info = crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer, alpha_inner, defects, layers)
+        
+        # print(Integrate(x, mesh, definedon = mesh.Boundaries("measure_edge_left")))
+        # print(Integrate(x, mesh, definedon = mesh.Boundaries("measure_edge_right")))
+        # quit()
+        # omega = Lx /0.6
+        kappa = omega #**2 * alpha 
+        # k = kappa * CF((0.6,0.8)) #CF = CoefficientFunction
+        # / 30.4878
+        k_ext = omega #**2 # * alpha=1
+        k = k_ext * CF((1,0)) #CF = CoefficientFunction
+        beta = - k_ext / omega
+        f = 0 
+        g = 1j * (k_ext - k * specialcf.normal(2)) * exp(-1j * (k[0] * x + k[1] * y)) # Incoming plane wave 
+        Draw(g, mesh, "g")
+        u_ex = 0
+        sol_ex = 0
+        Du_ex = 0
+        print("beta = ", beta)
+        gamma = 1
+        
+        
+    elif problem == 6:  #Problem setting - PERIODIC CRYSTAL - FOUR Circular Inclusions Per Cell
+        
+        r  = 0.126 # radius of inclusion
+        incl = 2 #circular 2x2 (four inclusions per cell)
+        Lx = incl * 0.484 #"c"
+        Ly = Lx #0.685 #"a"
+        Nx = 3 #int(input("Number of cells on each direction: "))
+        Ny = Nx # number of cells in y
+
+        alpha_outer = 1/12.1 #SILICON
+        alpha_inner = 1 #0 #AIR
+        layers = 1
+        
+        ix = [i for i in range(layers)] + [Nx - 1 - i for i in range(layers)]
+        iy = [i for i in range(layers)] + [Ny - 1 - i for i in range(layers)]
+        
+        defects = np.ones((Nx,Ny))
+        for i in ix: 
+            for j in range(Ny): 
+                defects[i,j] = 0.0
+        
+        for j in iy:
+            for i in range(Nx): 
+                defects[i,j] = 0.0
         
         mesh, dom_bnd, alpha, mesh_info = crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer, alpha_inner, defects, layers)
         # input()
@@ -497,6 +536,7 @@ def problem_definition(problem, maxH, omega):
         Du_ex = 0
         print("beta = ", beta)
         gamma = 1
+        
         
 
     return mesh, dom_bnd, alpha, kappa, beta, gamma, f, g, sol_ex, u_ex, Du_ex, mesh_info
@@ -583,7 +623,7 @@ def compute_l2_error(gfu, gfu_fem, mesh):
 
 def append_acms_errors(mesh, gfu, gfu_fem, u_ex, grad_fem, Du_ex, l2_error, l2_error_ex, h1_error, h1_error_ex):
     
-    print("Energy = ", sqrt(Integrate(gfu_fem**2, mesh)))
+    # print("Energy = ", sqrt(Integrate(gfu_fem**2, mesh)))
     l2_error_aux = compute_l2_error(gfu, gfu_fem, mesh)
     l2_error.append(l2_error_aux)
     h1_error_aux = compute_h1_error(gfu, grad_fem, mesh)
@@ -653,24 +693,23 @@ def compute_acms_solution(mesh, V, acms, edge_basis):
         usmall = ainvsmall * f_small
         
         gfu.vec[:] = 0.0
-        print("norm of usmall = ", Norm(usmall))
+        # print("norm of usmall = ", Norm(usmall))
 
-        int_bnd_name = "crystal_bnd_right" #"dom_bnd"
-        # integral = acms.IntegrateACMS(bndname = "crystal_bnd_right", coeffs = usmall)
-        integral = acms.IntegrateACMS(bndname = int_bnd_name, coeffs = usmall)
-        print("myint = ", integral)
-
+        # int_bnd_name = "crystal_bnd_right" #"dom_bnd"
+        # # integral = acms.IntegrateACMS(bndname = "crystal_bnd_right", coeffs = usmall)
+        # integral = acms.IntegrateACMS(bndname = int_bnd_name, coeffs = usmall)
+        # print("myint = ", integral)
 
         acms.SetGlobalFunction(gfu, usmall)
         Draw(gfu, mesh, "uacms")
 
-        intval = 0
-        for edgename in mesh.GetBoundaries():
-                if int_bnd_name in edgename:
-                    # print(edgename)
-                    intval += Integrate(gfu, mesh, definedon = mesh.Boundaries(edgename))
-                    # print(intval)
-        print("error integral = ", intval - integral)
+        # intval = 0
+        # for edgename in mesh.GetBoundaries():
+        #         if int_bnd_name in edgename:
+        #             # print(edgename)
+        #             intval += Integrate(gfu, mesh, definedon = mesh.Boundaries(edgename))
+        #             # print(intval)
+        # print("error integral = ", intval - integral)
 
 
         print("finished_acms")
