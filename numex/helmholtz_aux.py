@@ -447,13 +447,13 @@ def problem_definition(problem, maxH, omega):
         
         r  = 0.126 # radius of inclusion
         incl = 1 #circular
-        Lx = incl * 0.484 #"c"
+        Lx = 1 #incl * 0.484 #"c"
         Ly = Lx #0.685 #"a
-        Nx = 3 #int(input("Number of cells on each direction: "))
-        Ny = Nx # number of cells in y
+        Nx = 14 #int(input("Number of cells on each direction: "))
+        Ny = 14 # number of cells in y
         alpha_outer = 1/12.1 #SILICON
         alpha_inner = 1 #0 #AIR        
-        layers = 1
+        layers = 2
         
         ix = [i for i in range(layers)] + [Nx - 1 - i for i in range(layers)]
         iy = [i for i in range(layers)] + [Ny - 1 - i for i in range(layers)]
@@ -493,9 +493,9 @@ def problem_definition(problem, maxH, omega):
         
         r  = 0.126 # radius of inclusion
         incl = 2 #circular 2x2 (four inclusions per cell)
-        Lx = incl * 0.484 #"c"
+        Lx = 2 #incl * 0.484 #"c"
         Ly = Lx #0.685 #"a"
-        Nx = 3 #int(input("Number of cells on each direction: "))
+        Nx = 7 #int(input("Number of cells on each direction: "))
         Ny = Nx # number of cells in y
 
         alpha_outer = 1/12.1 #SILICON
@@ -714,7 +714,7 @@ def compute_acms_solution(mesh, V, acms, edge_basis):
 
 
         # print("finished_acms")
-        # input()
+        input()
     return gfu, num
 
 ##################################################################
