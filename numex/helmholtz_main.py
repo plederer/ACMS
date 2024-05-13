@@ -9,7 +9,7 @@ from helmholtz_aux import *
 # PROBLEM = 2: localised interior source (Example 5.2, Table 5.6), no exact solution, use of bubbles
 # PROBLEM = 3: localised boundary source (Example 5.3, Table 5.7), no exact solution, periodic structure (NOT YET IMPLEMENTED -> mesh needs to change)
 
-problem = float(input("Choose the problem. \n 1 = PW. \n 2 = LIS. \n 3 = LBS. \n 4 = Crystal SI. \n 5 = Crystal CI1. \n 6 = Crystal CI2. \n Problem =  "))
+# problem = float(input("Choose the problem. \n 1 = PW. \n 2 = LIS. \n 3 = LBS. \n 4 = Crystal SI. \n 5 = Crystal CI1. \n 6 = Crystal CI2. \n Problem =  "))
 # omega = float(input("Wavenumber k: "))
 # maxH = float(input("maxH: "))
 # Href = int(input("Number of mesh refinements refH (0 is no refinements): "))
@@ -21,16 +21,17 @@ problem = float(input("Choose the problem. \n 1 = PW. \n 2 = LIS. \n 3 = LBS. \n
 # print("Number of edge modes is ", Edge_modes)
 
 # For testing
-# problem = 5
+problem = 1
 ACMS_flag = 0
-omega = 0.484/10
-Href = 3
+omega = 1 #0.484/10
+Href = 0
 maxH = 0.05 #025 # * 4
 order_v = [1]
 Bubble_modes = [0]
+Edge_modes = [1,4]
 
 
-error_table = 0
+error_table = 1
 table_content_aux = ""
 table_header = ""
 table_end = ""
