@@ -9,9 +9,8 @@ from helmholtz_aux import *
 # PROBLEM = 2: localised interior source (Example 5.2, Table 5.6), no exact solution, use of bubbles
 # PROBLEM = 3: localised boundary source (Example 5.3, Table 5.7), no exact solution, periodic structure (NOT YET IMPLEMENTED -> mesh needs to change)
 
-# problem = float(input("Choose the problem. \n 1 = plane wave. \n 2 = local interior source. \n 3 = localised boundary source. \n Problem =  "))
+problem = float(input("Choose the problem. \n 1 = PW. \n 2 = LIS. \n 3 = LBS. \n 4 = Crystal SI. \n 5 = Crystal CI1. \n 6 = Crystal CI2. \n Problem =  "))
 # omega = float(input("Wavenumber k: "))
-# # ATTENTION: if the mesh is too coarse, we cannot have many bubbles/modes
 # maxH = float(input("maxH: "))
 # Href = int(input("Number of mesh refinements refH (0 is no refinements): "))
 # order_v = list(map(int, input("Order of approximation. Vector = ").split())) # Vector [1, 2, 3]
@@ -22,14 +21,13 @@ from helmholtz_aux import *
 # print("Number of edge modes is ", Edge_modes)
 
 # For testing
-problem = 1
+# problem = 5
 ACMS_flag = 0
-omega = 1#0.484/10
-Href = 0
+omega = 0.484/10
+Href = 3
 maxH = 0.05 #025 # * 4
-order_v = [2]
+order_v = [1]
 Bubble_modes = [0]
-Edge_modes = [1,4]
 
 
 error_table = 0
@@ -43,7 +41,6 @@ with TaskManager():
         print(h)
         # Variables setting
         mesh, dom_bnd, alpha, kappa, beta, gamma, f, g, sol_ex, u_ex, Du_ex, mesh_info = problem_definition(problem, h, omega)
-        
         
         # Solve ACMS system and compute errors
         ndofs, dofs, errors_dictionary, solution_dictionary = acms_main(mesh, dom_bnd, alpha, Bubble_modes, Edge_modes, order_v, kappa, omega, beta, gamma, f, g, u_ex, Du_ex, mesh_info)    
