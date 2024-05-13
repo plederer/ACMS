@@ -58,25 +58,43 @@ def unit_disc(maxH):
     circ = WorkPlane().Circle(0, 0, r).Face()
     rect = WorkPlane().Rotate(45).RectangleC(l, l).Face()
     quadUR = MoveTo(r/2,r/2).RectangleC(r, r).Face()
+    # quadUR.edges[0] = 
     quadUL = MoveTo(-r/2,r/2).RectangleC(r, r).Face()
     quadLR = MoveTo(r/2,-r/2).RectangleC(r, r).Face()
     quadLL = MoveTo(-r/2,-r/2).RectangleC(r, r).Face()
 
     triangleUR = rect - quadUR 
+    triangleUR.faces.edges[0].name = "test_D"
+    triangleUR.faces.edges[2].name = "test_V"
+    triangleUR.faces.edges[3].name = "test_H"
+    triangleUR.faces.edges[1].name = "test_D"
+    triangleUR.faces.edges[4].name = "test_D"
+
+    
     triangleUL = rect - quadUL
+    triangleUL.faces.edges[1].name = "test_H"
+    triangleUL.faces.edges[3].name = "test_D"
     triangleLR = rect - quadLR
+    triangleLR.faces.edges[4].name = "test_V"
     triangleLL = rect - quadLL
 
-    circ.edges.name = "dom_bnd"
+    circ.edges.name = "dom_bnd_C"
     outer = circ - rect
 
-    shape = Glue([outer, triangleUR, triangleUL, triangleLR, triangleLL])
+    shape = Glue([triangleUR, triangleUL, triangleLR, triangleLL, outer])
+    # shape = triangleUR
     # DrawGeo(shape)
 
     mesh = Mesh(OCCGeometry(shape, dim=2).GenerateMesh(maxh = maxH))
     mesh.Curve(10)
     # Draw(mesh)
-    
+    # print(mesh.GetBoundaries())
+    # V = H1(mesh, dirichlet = ".*")
+    # gfu = GridFunction(V)
+    # gfu.Set(1, definedon = mesh.Boundaries("dom_bnd_C"))
+    # # gfu.Set(1, definedon = mesh.Materials("outer1"))
+    # Draw(gfu)
+    # input()
     nmat = len(mesh.GetMaterials())
     nbnd = len(mesh.GetBoundaries())
     nvert = len(mesh.GetBBoundaries())
@@ -89,10 +107,15 @@ def unit_disc(maxH):
     bi = 0
     for i in range(nbnd):
         if not "dom_bnd" in mesh.ngmesh.GetBCName(i): # != "dom_bnd":
-            mesh.ngmesh.SetBCName(i,"E" + str(i))
+            if "V" in mesh.ngmesh.GetBCName(i):
+                mesh.ngmesh.SetBCName(i,"E_V" + str(i))
+            elif "H" in mesh.ngmesh.GetBCName(i):
+                mesh.ngmesh.SetBCName(i,"E_H" + str(i))
+            else:
+                mesh.ngmesh.SetBCName(i,"E_D" + str(i))
         else:
-            mesh.ngmesh.SetBCName(i,"dom_bnd_" + str(bi))
-            dom_bnd += "dom_bnd_" + str(bi) + "|"
+            mesh.ngmesh.SetBCName(i,"dom_bnd_C_" + str(bi))
+            dom_bnd += "dom_bnd_C_" + str(bi) + "|"
             bi+=1
     dom_bnd = dom_bnd[:-1]
     
@@ -101,15 +124,15 @@ def unit_disc(maxH):
 
         
     # print(mesh.nv)
-    # print(mesh.GetMaterials()) # 8 subdomains
-    # print(mesh.GetBoundaries()) # 12 edges
-    # print(mesh.GetBBoundaries()) # 5 vertices
+    print(mesh.GetMaterials()) # 8 subdomains
+    print(mesh.GetBoundaries()) # 12 edges
+    print(mesh.GetBBoundaries()) # 5 vertices
 
     alpha = 1 #mesh.MaterialCF(1, default=0)
 
     mesh_info = GetMeshinfo(mesh)
     mesh_info["dom_bnd"] = dom_bnd
-
+    # input()
     return mesh, dom_bnd, alpha, mesh_info
 
 
@@ -341,6 +364,7 @@ def problem_definition(problem, maxH, omega):
         g = -1j * (k[0] * x + k[1] * y) * u_ex - 1j *beta * kappa * u_ex
         Du_ex = CF((u_ex.Diff(x), u_ex.Diff(y)))
         sol_ex = 1
+        gamma = 1
     
 
     elif problem == 2:  #Problem setting - INTERIOR SOURCE
@@ -360,6 +384,7 @@ def problem_definition(problem, maxH, omega):
         u_ex = 0
         sol_ex = 0
         Du_ex = 0
+        gamma = 1
 
     elif problem == 3:  #Problem setting - BOUNDARY SOURCE
         # #Generate mesh: unit disco with 8 subdomains
@@ -378,6 +403,7 @@ def problem_definition(problem, maxH, omega):
         u_ex = 0
         sol_ex = 0
         Du_ex = 0
+        gamma = 1
 
 
     elif problem == 4:  #Problem setting - PERIODIC CRYSTAL - Squared Inclusions
@@ -413,6 +439,7 @@ def problem_definition(problem, maxH, omega):
         u_ex = 0
         sol_ex = 0
         Du_ex = 0
+        gamma = 1
         
         
         
@@ -425,7 +452,7 @@ def problem_definition(problem, maxH, omega):
         Lx = incl * 0.484 #"c"
         Ly = Lx #0.685 #"a"
 
-        Nx = 2 #int(input("Number of cells on each direction: "))
+        Nx = 3 #int(input("Number of cells on each direction: "))
         #20 # number of cells in x
         Ny = Nx # number of cells in y
         
@@ -468,10 +495,11 @@ def problem_definition(problem, maxH, omega):
         u_ex = 0
         sol_ex = 0
         Du_ex = 0
+        print("beta = ", beta)
+        gamma = 1
         
-        
 
-    return mesh, dom_bnd, alpha, kappa, beta, f, g, sol_ex, u_ex, Du_ex, mesh_info
+    return mesh, dom_bnd, alpha, kappa, beta, gamma, f, g, sol_ex, u_ex, Du_ex, mesh_info
 
 
 ##################################################################
@@ -481,7 +509,7 @@ def problem_definition(problem, maxH, omega):
 
 
 
-def ground_truth(mesh, dom_bnd, alpha, kappa, omega, beta, f, g, ord):
+def ground_truth(mesh, dom_bnd, alpha, kappa, omega, beta, f, g, ord, gamma):
     #  RESOLUTION OF GROUND TRUTH SOLUTION
     #Computing the FEM solution /  ground truth solution with higher resolution
     
@@ -493,7 +521,7 @@ def ground_truth(mesh, dom_bnd, alpha, kappa, omega, beta, f, g, ord):
 
         a = BilinearForm(V)
         a += alpha * grad(u) * grad(v) * dx() 
-        a += - kappa**2 * u * v * dx()
+        a += - gamma * kappa**2 * u * v * dx()
         a += -1J * omega * beta * u * v * ds(dom_bnd, bonus_intorder = 10)
         a.Assemble()
 
@@ -627,21 +655,25 @@ def compute_acms_solution(mesh, V, acms, edge_basis):
         gfu.vec[:] = 0.0
         print("norm of usmall = ", Norm(usmall))
 
-        integral = acms.IntegrateACMS(bndname = "crystal_bnd_right", coeffs = usmall)
+        int_bnd_name = "crystal_bnd_right" #"dom_bnd"
+        # integral = acms.IntegrateACMS(bndname = "crystal_bnd_right", coeffs = usmall)
+        integral = acms.IntegrateACMS(bndname = int_bnd_name, coeffs = usmall)
         print("myint = ", integral)
-        
+
+
         acms.SetGlobalFunction(gfu, usmall)
+        Draw(gfu, mesh, "uacms")
 
-        # Draw(gfu, mesh, "uacms")
-        # intval = 0
-        # for edgename in mesh.GetBoundaries():
-        #         if "crystal_bnd_right" in edgename:
-        #             # print(edgename)
-        #             intval += Integrate(gfu, mesh, definedon = mesh.Boundaries(edgename))
-        #             # print(intval)
-        # print("global integral = ", intval - integral)
-        # print("finished_acms")
+        intval = 0
+        for edgename in mesh.GetBoundaries():
+                if int_bnd_name in edgename:
+                    # print(edgename)
+                    intval += Integrate(gfu, mesh, definedon = mesh.Boundaries(edgename))
+                    # print(intval)
+        print("error integral = ", intval - integral)
 
+
+        print("finished_acms")
         # input()
     return gfu, num
 
@@ -654,7 +686,7 @@ def compute_acms_solution(mesh, V, acms, edge_basis):
  
  
   
-def acms_main(mesh, dom_bnd, alpha, Bubble_modes, Edge_modes, order_v, kappa, omega, beta, f, g, u_ex, Du_ex, mesh_info):
+def acms_main(mesh, dom_bnd, alpha, Bubble_modes, Edge_modes, order_v, kappa, omega, beta, gamma, f, g, u_ex, Du_ex, mesh_info):
     #  ACMS RESOLUTION
 
     l2_error = []
@@ -678,12 +710,13 @@ def acms_main(mesh, dom_bnd, alpha, Bubble_modes, Edge_modes, order_v, kappa, om
             
             #FEM solution with same order of approximation
             start = time.time()
-            gfu_fem, grad_fem = ground_truth(mesh, dom_bnd, alpha, kappa, omega, beta, f, g, order)
+            gfu_fem, grad_fem = ground_truth(mesh, dom_bnd, alpha, kappa, omega, beta, f, g, order, gamma)
             # Draw(gfu_fem, mesh, "gfu_fem")
             print("FEM computation = ", time.time() - start)
             
             V = H1(mesh, order = order, complex = True)
             ndofs.append(V.ndof)
+            print("ndofs = ", V.ndof)
 
             Iu = GridFunction(V) #Nodal interpolant            
             
@@ -693,26 +726,23 @@ def acms_main(mesh, dom_bnd, alpha, Bubble_modes, Edge_modes, order_v, kappa, om
                             
                             #Computing full basis with max number of modes 
                             # bi = bonus int order - should match the curved mesh order
-                            acms = ACMS(order = order, mesh = mesh, bm = BM, em = EM, bi = mesh.GetCurveOrder(), mesh_info = mesh_info, alpha = alpha, omega = omega, kappa = kappa, f = f, g = g)
-                            
-                            start = time.time()
-                            acms.CalcHarmonicExtensions(kappa = kappa)
+                            acms = ACMS(order = order, mesh = mesh, bm = BM, em = EM, bi = mesh.GetCurveOrder(), mesh_info = mesh_info, alpha = alpha, omega = omega, kappa = kappa, f = f, g = g, beta = beta, gamma = gamma)
                             
                             edges_time = time.time() 
                             edge_basis = acms.calc_edge_basis()
                             print("Edge basis functions computation in --- %s seconds ---" % (time.time() - edges_time))
                             print("time to compute harmonic extensions = ", time.time() - start)
-                            # print("edge_basis = ", edge_basis)
-                            # quit()
-                            
-                            
-                            assemble_start = time.time()
-                            for m in acms.doms:
-                                acms.Assemble_localA(m)
-                            print("assemble = ", time.time() - assemble_start)
 
-                            # acms.IntegrateACMS(bndname = "crystal_bnd_right", coeffs = Vector(5))
-                            # input()
+                            if edge_basis:
+                                start = time.time()
+                                acms.CalcHarmonicExtensions()
+                                                            
+                                
+                                assemble_start = time.time()
+                                for m in acms.doms:
+                                    acms.Assemble_localA(m)
+                                print("assemble = ", time.time() - assemble_start)
+
                                         
                             # if (EM <= acms.edge_modes) and (BM <= acms.bubble_modes):
                             gfu, num = compute_acms_solution(mesh, V, acms, edge_basis)
@@ -731,9 +761,9 @@ def acms_main(mesh, dom_bnd, alpha, Bubble_modes, Edge_modes, order_v, kappa, om
                 
     
     print("L2 error = ", l2_error)   
-    # print(l2_error_ex)
+    print(l2_error_ex)
     print("H1 error = ", h1_error)
-    # print(h1_error_ex)
+    print(h1_error_ex)
     # print(l2_error_NodInt)
     # print(h1_error_NodInt)
     # print(l2_error_FEMex)

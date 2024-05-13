@@ -27,7 +27,7 @@ def GetVertexNeighbours(vname, mesh):
 # EXTENSIONS
 
 class ACMS:
-    def __init__(self, order, mesh, bm = 0, em = 0, mesh_info = None, bi = 0, alpha = 1, kappa = 1, omega = 1, f = 1, g = 1):
+    def __init__(self, order, mesh, bm = 0, em = 0, mesh_info = None, bi = 0, alpha = 1, kappa = 1, omega = 1, f = 1, g = 1, beta = 1, gamma = 1):
         self.order = order # Polynomial degree of approximation
         self.dirichlet = mesh_info["dir_edges"]
         self.dom_bnd = mesh_info["dom_bnd"] 
@@ -39,6 +39,7 @@ class ACMS:
 
         self.f = f 
         self.g = g 
+        
 
         self.edge_extensions = {}
         self.vol_extensions = {}
@@ -50,6 +51,8 @@ class ACMS:
         # self.basis_all = MultiVector(self.gfuc.vec, 0) 
         
         self.alpha = alpha
+        self.beta = beta
+        self.gamma = gamma
         self.kappa = kappa
         self.omega = omega
         self.verts = mesh_info["verts"]
@@ -111,7 +114,7 @@ class ACMS:
         aharm = BilinearForm(Vharm)
         #Setting bilinear form: - int (Grad u Grad v) d\Omega_j
         aharm += self.alpha * grad(uharm)*grad(vharm)*dx(definedon = self.mesh.Materials(dom_name), bonus_intorder = self.bi) #Why no alpha here works?
-        aharm += -self.kappa**2 * uharm*vharm*dx(definedon = self.mesh.Materials(dom_name), bonus_intorder = self.bi)
+        aharm += -self.gamma * self.kappa**2 * uharm*vharm*dx(definedon = self.mesh.Materials(dom_name), bonus_intorder = self.bi)
         aharm.Assemble()
 
         aharm_inv = aharm.mat.Inverse(fd, inverse = "sparsecholesky")
@@ -125,7 +128,7 @@ class ACMS:
 
     # Define harmonic extension on specific subdomain
     # Returns the Sobolev space H^{1/2}_00(e), the stiffness matrix and its inverse
-    def GetHarmonicExtensionEdge(self, edge_name, kappa = 0):
+    def GetHarmonicExtensionEdge(self, edge_name):
         fd_all = self.V.GetDofs(self.mesh.Boundaries(edge_name)) # Dofs of specific edge
         bnd = "" # Initialize empty boundary 
          # The space construction requires bc specified on the full domain 
@@ -184,6 +187,8 @@ class ACMS:
         nbnd = self.mesh.Materials(acms_cell).Neighbours(BND)
         nbbnd = self.mesh.Materials(acms_cell).Neighbours(BBND)
 
+        offset = sum(nbbnd.Mask())
+        
         vertices = nbbnd.Mask() & self.FreeVertices
         edges = nbnd.Mask() & self.FreeEdges
         
@@ -194,6 +199,9 @@ class ACMS:
         gfu = GridFunction(Vharm)
         localbasis = MultiVector(gfu.vec, 4 + 4 * self.edge_modes)
         
+
+        
+
         dofs = []
         lii = 0
         
@@ -227,7 +235,8 @@ class ACMS:
                             vals.reverse()
 
                         # print(Vharm.GetDofs(bnds))
-                        offset = 5 # 4 vertices + 1 vertex in the middle that was created for the circle domain
+
+                        # offset = 5 # 4 vertices + 1 vertex in the middle that was created for the circle domain
                         bdofs = Vharm.GetDofs(bnds)
                         iii = 1
                         for ii, bb in enumerate(bdofs):
@@ -240,15 +249,28 @@ class ACMS:
                 else:            
                     Vxcoord = self.mesh.vertices[i].point[0]
                     Vycoord = self.mesh.vertices[i].point[1]
+
                     for bnds in vnbnd.Split():
-                        slength = Integrate(1, self.mesh, definedon=bnds, order = 0)
-                        
+                        # slength = Integrate(1, self.mesh, definedon=bnds, order = 0)
+                        slength = 0
+
+                        Xcoords = []
+                        Ycoords = []
+                        for e in bnds.Elements():
+                            
+                            
+                            for vi, v in enumerate(e.vertices):
+                                xcoord = self.mesh.vertices[v.nr].point[0]
+                                Xcoords.append(xcoord)
+                                ycoord = self.mesh.vertices[v.nr].point[1] 
+                                Ycoords.append(ycoord)
+                            
+                            el_len = sqrt((Xcoords[0] - Xcoords[1])**2 + (Ycoords[0] - Ycoords[1])**2)
+                            slength += el_len
+                            # vlen = sqrt((xcoord - Vxcoord)**2 + (ycoord - Vycoord)**2)
                         for e in bnds.Elements():
                             edofs = Vharm.GetDofNrs(e)
                             for vi, v in enumerate(e.vertices):
-                                xcoord = self.mesh.vertices[v.nr].point[0]
-                                ycoord = self.mesh.vertices[v.nr].point[1] 
-                                vlen = sqrt((xcoord - Vxcoord)**2 + (ycoord - Vycoord)**2)
                                 gfu.vec[edofs[vi]] = 1-vlen/slength
                                     
                 gfu.vec.data += -(aharm_inv @ aharm_mat) * gfu.vec  
@@ -277,6 +299,10 @@ class ACMS:
                     edgetype = "V"
                 elif "H" in bndname:
                     edgetype = "H"
+                elif "D" in bndname:
+                    edgetype = "D"
+                elif "C" in bndname:
+                    edgetype = "C"
 
                 for l in range(self.edge_modes):
                     ii = 0
@@ -294,12 +320,12 @@ class ACMS:
         uharm, vharm = Vharm.TnT() 
         local_a = BilinearForm(Vharm, check_unused=False)
         
-        beta = -1 # ATTENTION: This should be given in input
+        beta = self.beta # ATTENTION: This should be given in input
         
 
         local_dom_bnd = local_dom_bnd[:-1]
         if local_dom_bnd != "":
-            local_a += -1J * self.omega * beta * uharm * vharm * ds(local_dom_bnd) #, bonus_intorder = 10)
+            local_a += -1J * self.omega * beta * uharm * vharm * ds(local_dom_bnd, bonus_intorder = self.bi)
         local_a.Assemble()
 
         local_a.mat.AsVector().data += aharm_mat.AsVector()
@@ -385,7 +411,7 @@ class ACMS:
             for i, b in enumerate(vertices):
                 if b == 1:
                     vname = self.mesh.GetBBoundaries()[i]
-                    if sum(self.mesh.BBoundaries(vname).Neighbours(BND).Mask()) == 4:
+                    if sum(self.mesh.BBoundaries(vname).Neighbours(BND).Mask()) >= 4:
                         v_names += vname + "|"
                     
             v_names = v_names[:-1]
@@ -451,7 +477,12 @@ class ACMS:
                     edgetype = "V"
                 elif "H" in edge_name[1]:
                     edgetype = "H"
+                elif "D" in edge_name[1]:
+                    edgetype = "D"
+                elif "C" in edge_name[1]:
+                    edgetype = "C"
                 else:
+                    print("edge_name = ", edge_name)
                     raise Exception("wrong edge type")
                 
 

@@ -22,17 +22,17 @@ from helmholtz_aux import *
 # print("Number of edge modes is ", Edge_modes)
 
 # For testing
-problem = 5
+problem = 1
 ACMS_flag = 0
-omega = 0.484/10
+omega = 1 #0.484/10
 Href = 1
-maxH = 0.05 #025 # * 4
-order_v = [1]
+maxH = 0.1 #025 # * 4
+order_v = [1,2]
 Bubble_modes = [0]
-Edge_modes = [1]
+Edge_modes = [1,2,4,8]
 
 
-error_table = 1
+error_table = 0
 table_content_aux = ""
 table_header = ""
 table_end = ""
@@ -42,11 +42,11 @@ with TaskManager():
     for h in maxH/(2**np.arange(0, Href + 1 , 1)):
         print(h)
         # Variables setting
-        mesh, dom_bnd, alpha, kappa, beta, f, g, sol_ex, u_ex, Du_ex, mesh_info = problem_definition(problem, maxH, omega)
+        mesh, dom_bnd, alpha, kappa, beta, gamma, f, g, sol_ex, u_ex, Du_ex, mesh_info = problem_definition(problem, maxH, omega)
         
         
         # Solve ACMS system and compute errors
-        ndofs, dofs, errors_dictionary, solution_dictionary = acms_main(mesh, dom_bnd, alpha, Bubble_modes, Edge_modes, order_v, kappa, omega, beta, f, g, u_ex, Du_ex, mesh_info)    
+        ndofs, dofs, errors_dictionary, solution_dictionary = acms_main(mesh, dom_bnd, alpha, Bubble_modes, Edge_modes, order_v, kappa, omega, beta, gamma, f, g, u_ex, Du_ex, mesh_info)    
         
         gfu_acms = solution_dictionary["gfu_acms"]
         gfu_fem = solution_dictionary["gfu_fem"]
