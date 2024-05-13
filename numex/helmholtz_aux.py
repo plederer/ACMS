@@ -646,6 +646,7 @@ def compute_acms_solution(mesh, V, acms, edge_basis):
         
         invstart = time.time()
         asmall = acms.asmall
+        # print(asmall)
         print("calc asmall = ", time.time() - invstart)
         
         ainvsmall = Matrix(numpy.linalg.inv(asmall))
@@ -673,7 +674,7 @@ def compute_acms_solution(mesh, V, acms, edge_basis):
         print("error integral = ", intval - integral)
 
 
-        print("finished_acms")
+        # print("finished_acms")
         # input()
     return gfu, num
 

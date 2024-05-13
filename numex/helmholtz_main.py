@@ -27,7 +27,7 @@ ACMS_flag = 0
 omega = 1#0.484/10
 Href = 0
 maxH = 0.05 #025 # * 4
-order_v = [1,2]
+order_v = [2]
 Bubble_modes = [0]
 Edge_modes = [1,4]
 

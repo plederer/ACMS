@@ -108,7 +108,7 @@ class ACMS:
         fd = Vharm.FreeDofs()
         edges = self.mesh.Materials(dom_name).Neighbours(BND).Split()
         for bnds in edges[0:4]:
-            fd = fd & ~Vharm.GetDofs(bnds)
+            fd &= ~Vharm.GetDofs(bnds)
 
         uharm, vharm = Vharm.TnT() # Trial and test functions
         aharm = BilinearForm(Vharm)
@@ -120,7 +120,7 @@ class ACMS:
         aharm_inv = aharm.mat.Inverse(fd, inverse = "sparsecholesky")
         # print("Harmonic extensions domain = ", time.time() - start)
         # input()
-        return Vharm, aharm.mat, aharm_inv 
+        return Vharm, aharm.mat, aharm_inv
 
 
 ###############################################################
@@ -197,10 +197,9 @@ class ACMS:
         local_vertex_dofs = Vharm.GetDofs(nbbnd)
         
         gfu = GridFunction(Vharm)
-        localbasis = MultiVector(gfu.vec, 4 + 4 * self.edge_modes)
-        
 
-        
+        localbasis = MultiVector(gfu.vec, sum(vertices) + sum(edges) * self.edge_modes + self.bubble_modes)
+                
 
         dofs = []
         lii = 0
@@ -315,6 +314,58 @@ class ACMS:
                     localbasis[lii][:] = gfu.vec
                     lii+=1
                     gfu.vec[:] = 0
+
+        if self.bubble_modes > 0:
+            voli = int(np.nonzero(self.mesh.Materials(acms_cell).Mask())[0][0])
+            # print(voli)
+            for l in range(self.bubble_modes):
+                dofs.append(self.nverts + self.nedges*self.edge_modes + voli * self.bubble_modes + l)
+                
+            uloc, vloc = Vharm.TnT()
+            aloc = BilinearForm(Vharm)
+            aloc += self.alpha * grad(uloc) * grad(vloc) * dx(bonus_intorder = self.bi)
+            aloc.Assemble()
+
+            #Setting bilinear form: int  u v d\Omega_j
+            mloc = BilinearForm(Vharm)
+            mloc += uloc * vloc * dx(bonus_intorder = self.bi)
+            mloc.Assemble()
+
+            # minv = mloc.mat.Inverse(Vharm.FreeDofs()) #, inverse = "sparsecholesky")
+
+            # Solving eigenvalue problem: AA x = ev MM x
+            
+            ddd = []
+            
+            for i in range(Vharm.ndof):
+                if Vharm.FreeDofs()[i]:
+                    ddd.append(i)   
+            # AA = sp.csr_matrix(aloc.mat.CSR())
+            # MM = sp.csr_matrix(mloc.mat.CSR())
+            AA = aloc.mat.ToDense().NumPy()
+            MM = mloc.mat.ToDense().NumPy()
+            
+            MI = np.zeros((Vharm.ndof,Vharm.ndof), dtype=complex)
+            submat = MM[np.ix_(ddd,ddd)]
+            # print(submat)
+            submat_inv = np.linalg.inv(submat)
+            MI[np.ix_(ddd,ddd)] = submat_inv
+            
+
+                            
+            ev, evec =scipy.sparse.linalg.eigs(A = AA, M = MM, Minv = MI, k = self.bubble_modes, which='SM')
+            idx = ev.argsort()[::]   
+            ev = ev[idx]
+            evec = evec[:,idx]
+            evec = evec.transpose()
+
+            for e in evec:
+                gfu.vec[:]=0.0
+                gfu.vec[:] = e
+                # Draw(gfu, self.mesh, "bubb")
+                # input()
+                localbasis[lii][:] = gfu.vec
+                lii+=1
         
         self.localbasis[acms_cell] = (localbasis, dofs)
         uharm, vharm = Vharm.TnT() 
@@ -332,10 +383,11 @@ class ACMS:
         
 
         localmat = InnerProduct(localbasis, (local_a.mat * localbasis).Evaluate(), conjugate = False)
-        
+        # print(localmat)
+        # input()
 
         local_f = LinearForm(Vharm)
-        # local_f += f * vharm * dx(definedon = self.mesh.Materials(acms_cell)) #bonus_intorder=10)
+        local_f += self.f * vharm * dx(definedon = self.mesh.Materials(acms_cell), bonus_intorder=10)
         local_f += self.g * vharm * ds(local_dom_bnd)
         local_f.Assemble()
         
@@ -527,7 +579,7 @@ class ACMS:
                         self.edgeversions[edgetype] = [ndofs, evec]
                     except:
                         self.edge_modes = 0
-        return self.edge_modes != 0
+        return (self.edge_modes != 0) or (self.bubble_modes != 0)
     
                 
 
