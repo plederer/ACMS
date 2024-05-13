@@ -717,7 +717,6 @@ def acms_main(mesh, dom_bnd, alpha, Bubble_modes, Edge_modes, order_v, kappa, om
                             # if (EM <= acms.edge_modes) and (BM <= acms.bubble_modes):
                             gfu, num = compute_acms_solution(mesh, V, acms, edge_basis)
                             dofs.append(num)
-                            print(num)
                             l2_error, l2_error_ex, h1_error, h1_error_ex = append_acms_errors(mesh, gfu, gfu_fem, u_ex, grad_fem, Du_ex, l2_error, l2_error_ex, h1_error, h1_error_ex)
 
                 l2_error_NodInt, h1_error_NodInt, l2_error_FEMex, h1_error_FEMex = append_NI_FEM_errors(mesh, gfu_fem, u_ex, Du_ex, Iu, l2_error_NodInt, h1_error_NodInt, l2_error_FEMex, h1_error_FEMex)
@@ -756,6 +755,8 @@ def acms_main(mesh, dom_bnd, alpha, Bubble_modes, Edge_modes, order_v, kappa, om
         'grad_fem':  grad_fem
     }
     
+    print("ndofs = ", ndofs)
+    print("dofs = ", dofs)
 
     return ndofs, dofs, errors_dictionary, solution_dictionary
 
@@ -777,6 +778,7 @@ def error_table_save(maxH, problem, order_v, Bubble_modes, Edge_modes, mesh, kap
     
     # Save both H1 and H1-relative errors on file named "file_name.npz" 
     dim = (len(order_v), len(Edge_modes), len(Bubble_modes))
+    
     dictionary = {
         1            : ["The keys are: meshsize, order, bubbles, edges, vertices, problem, wavenumber."],
         'meshsize'   : ["The mesh size is", maxH],
