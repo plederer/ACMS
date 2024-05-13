@@ -24,12 +24,12 @@ from helmholtz_aux import *
 # For testing
 problem = 1
 ACMS_flag = 0
-omega = 1 #0.484/10
-Href = 1
-maxH = 0.1 #025 # * 4
+omega = 1#0.484/10
+Href = 0
+maxH = 0.05 #025 # * 4
 order_v = [1,2]
 Bubble_modes = [0]
-Edge_modes = [1,2,4,8]
+Edge_modes = [1,4]
 
 
 error_table = 0
@@ -42,7 +42,7 @@ with TaskManager():
     for h in maxH/(2**np.arange(0, Href + 1 , 1)):
         print(h)
         # Variables setting
-        mesh, dom_bnd, alpha, kappa, beta, gamma, f, g, sol_ex, u_ex, Du_ex, mesh_info = problem_definition(problem, maxH, omega)
+        mesh, dom_bnd, alpha, kappa, beta, gamma, f, g, sol_ex, u_ex, Du_ex, mesh_info = problem_definition(problem, h, omega)
         
         
         # Solve ACMS system and compute errors
@@ -55,14 +55,13 @@ with TaskManager():
         Draw(gfu_acms, mesh, "uacms")
         Draw(gfu_fem, mesh, "ufem")
         # input()
-        
+                
         if error_table == 1:
             file_name, Errors = error_table_save(h, problem, order_v, Bubble_modes, Edge_modes, mesh, kappa, errors_dictionary, ndofs, dofs, u_ex, sol_ex, gfu_fem, grad_fem)
             file_path = f"./Results/" + file_name + ".npz"
             table_header, table_content, table_end = process_file(file_path, ACMS_flag)
             table_content_aux += table_content + "\\\\\n"
-            print(table_content_aux)
-            input()
+        
         
 print(table_header + table_content_aux + table_end)    
 
