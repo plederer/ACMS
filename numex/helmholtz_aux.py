@@ -534,7 +534,7 @@ def ground_truth(mesh, dom_bnd, alpha, kappa, omega, beta, f, g, ord, gamma):
     #  RESOLUTION OF GROUND TRUTH SOLUTION
     #Computing the FEM solution /  ground truth solution with higher resolution
     
-    # SetNumThreads(8)
+    SetNumThreads(16)
     with TaskManager():
         V = H1(mesh, order = ord, complex = True)
         
@@ -724,7 +724,7 @@ def acms_main(mesh, dom_bnd, alpha, Bubble_modes, Edge_modes, order_v, kappa, om
     # max_em = Edge_modes[-1]
 
         
-    # SetNumThreads(1)
+    SetNumThreads(16)
     with TaskManager():
         for order in order_v:
             print(order)
