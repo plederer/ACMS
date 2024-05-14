@@ -200,7 +200,6 @@ def crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer, alpha_inner, de
         
         if layers > 0:
             if (j == layers) and (i >= layers) and (i <= Nx-1-layers):
-                # print("HAAAAALLLLLOOO")
                 outerdom.faces.edges.Min(Y).name = "crystal_bnd_bottom_H"
             if (j == (Ny-1-layers)) and (i >= layers) and (i <= Nx-1-layers) :
                 outerdom.faces.edges.Max(Y).name = "crystal_bnd_top_H"
@@ -306,19 +305,6 @@ def crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer, alpha_inner, de
         if "inner" in mesh.ngmesh.GetMaterial(d+1): # the +1 comes from the asking the negten mesh instead of the ngsolve mesh!
             offset = int(nmat/(1+incl**2))
             ii = int((d-offset)/incl**2) 
-            # jj = 0
-            # if incl >1:
-            #     # jj = d % offset
-            #     jj = d % (incl**2)
-            
-            # # iii = d-jj-offset-(ii)*(incl**2)
-            # iii = ii
-            # print("d = ", d)
-            # print("ii = ", ii)
-            # print("jj = ", jj)
-            # print("iii = ", iii)
-            # print("offset = ", offset)
-            # input()
             mesh.ngmesh.SetMaterial(d+1, mesh.ngmesh.GetMaterial(ii+1))
             # mesh.ngmesh.SetMaterial(d+1, "outer" + str(iii))
             #     mesh.ngmesh.SetMaterial(d+1, "outer" + str(d-int(nmat/2)))
@@ -329,9 +315,6 @@ def crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer, alpha_inner, de
     
     Draw(alpha, mesh, "alpha")
     
-    # print(mesh.GetMaterials())
-    # print(mesh.GetBoundaries())
-    # print(mesh.GetBBoundaries())
     # input()
     # V = H1(mesh, dirichlet = ".*")
     # gfu = GridFunction(V)
@@ -447,13 +430,13 @@ def problem_definition(problem, maxH, omega):
         
         r  = 0.126 # radius of inclusion
         incl = 1 #circular
-        Lx = incl * 0.484 #"c"
+        Lx = 1* incl #* 0.484 #"c"
         Ly = Lx #0.685 #"a
-        Nx = 3 #int(input("Number of cells on each direction: "))
+        Nx = 14 #int(input("Number of cells on each direction: "))
         Ny = Nx # number of cells in y
         alpha_outer = 1/12.1 #SILICON
         alpha_inner = 1 #0 #AIR        
-        layers = 1
+        layers = 2
         
         ix = [i for i in range(layers)] + [Nx - 1 - i for i in range(layers)]
         iy = [i for i in range(layers)] + [Ny - 1 - i for i in range(layers)]
@@ -485,7 +468,6 @@ def problem_definition(problem, maxH, omega):
         u_ex = 0
         sol_ex = 0
         Du_ex = 0
-        print("beta = ", beta)
         gamma = 1
         
         
@@ -493,9 +475,9 @@ def problem_definition(problem, maxH, omega):
         
         r  = 0.126 # radius of inclusion
         incl = 2 #circular 2x2 (four inclusions per cell)
-        Lx = incl * 0.484 #"c"
+        Lx = 1 * incl #* 0.484 #"c"
         Ly = Lx #0.685 #"a"
-        Nx = 3 #int(input("Number of cells on each direction: "))
+        Nx = 7 #int(input("Number of cells on each direction: "))
         Ny = Nx # number of cells in y
 
         alpha_outer = 1/12.1 #SILICON
@@ -534,7 +516,6 @@ def problem_definition(problem, maxH, omega):
         u_ex = 0
         sol_ex = 0
         Du_ex = 0
-        print("beta = ", beta)
         gamma = 1
         
         
@@ -800,9 +781,9 @@ def acms_main(mesh, dom_bnd, alpha, Bubble_modes, Edge_modes, order_v, kappa, om
                 
     
     print("L2 error = ", l2_error)   
-    print(l2_error_ex)
+    print("L2 error exact= ", l2_error_ex)
     print("H1 error = ", h1_error)
-    print(h1_error_ex)
+    print("H1 error exact= ", h1_error_ex)
     # print(l2_error_NodInt)
     # print(h1_error_NodInt)
     # print(l2_error_FEMex)

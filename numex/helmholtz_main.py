@@ -9,26 +9,26 @@ from helmholtz_aux import *
 # PROBLEM = 2: localised interior source (Example 5.2, Table 5.6), no exact solution, use of bubbles
 # PROBLEM = 3: localised boundary source (Example 5.3, Table 5.7), no exact solution, periodic structure (NOT YET IMPLEMENTED -> mesh needs to change)
 
-# problem = float(input("Choose the problem. \n 1 = PW. \n 2 = LIS. \n 3 = LBS. \n 4 = Crystal SI. \n 5 = Crystal CI1. \n 6 = Crystal CI2. \n Problem =  "))
+problem = float(input("Choose the problem. \n 1 = PW. \n 2 = LIS. \n 3 = LBS. \n 4 = Crystal SI. \n 5 = Crystal CI1. \n 6 = Crystal CI2. \n Problem =  "))
 # omega = float(input("Wavenumber k: "))
-# maxH = float(input("maxH: "))
-# Href = int(input("Number of mesh refinements refH (0 is no refinements): "))
-# order_v = list(map(int, input("Order of approximation. Vector = ").split())) # Vector [1, 2, 3]
-# print("Order of approximation is ", order_v)
+maxH = float(input("maxH: "))
+Href = int(input("Number of mesh refinements refH (0 is no refinements): "))
+order_v = list(map(int, input("Order of approximation. Vector = ").split())) # Vector [1, 2, 3]
+print("Order of approximation is ", order_v)
 # Bubble_modes = list(map(int, input("Number of bubble modes. Vector = ").split())) # Vector [2,4,8,16,32,64,128]
 # print("Number of bubble modes is ", Bubble_modes)
-# Edge_modes = list(map(int, input("Number of edge modes. Vector = ").split())) # Vector [2,4,8,16,32,64,128]
-# print("Number of edge modes is ", Edge_modes)
+Edge_modes = list(map(int, input("Number of edge modes. Vector = ").split())) # Vector [2,4,8,16,32,64,128]
+print("Number of edge modes is ", Edge_modes)
 
 # For testing
-problem = 1
-ACMS_flag = 0
+# problem = 5
+ACMS_flag = 0 #1 = exact sol 0 = fem error
 omega = 1 #0.484/10
-Href = 0
-maxH = 0.05 #025 # * 4
-order_v = [1]
+# Href = 2
+# maxH = 0.1 #025 # * 4
+# order_v = [1,2,3]
 Bubble_modes = [0]
-Edge_modes = [1,4]
+# Edge_modes = [1,2,4,8,16,32,64,128]
 
 
 error_table = 1
@@ -53,7 +53,7 @@ with TaskManager():
         Draw(gfu_acms, mesh, "uacms")
         Draw(gfu_fem, mesh, "ufem")
         # input()
-                
+              
         if error_table == 1:
             file_name, Errors = error_table_save(h, problem, order_v, Bubble_modes, Edge_modes, mesh, kappa, errors_dictionary, ndofs, dofs, u_ex, sol_ex, gfu_fem, grad_fem)
             file_path = f"./Results/" + file_name + ".npz"

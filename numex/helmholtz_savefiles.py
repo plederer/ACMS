@@ -171,8 +171,9 @@ def create_latex_table_FEM(dictionary):
     position_gamma = 4 + len(dictionary["edges"]) // 2
     table_header = "\\begin{table}[h!]\n\\caption{$\\kappa = " + str(dictionary['kwave']) + "$}\n" \
         "\\centering\\small\\setlength\\tabcolsep{0.55em}\n" \
+        "\\scalebox{0.7}{\n" \
         "\\begin{tabular}{ " + "c "*num_columns + "}\n" \
-        "\\toprule\n & \\multicolumn{" + str(position_gamma) + "}{c}{$|S_\\Gamma|$}\\\\\n" \
+        "\\toprule\n & \\multicolumn{" + str(position_gamma) + "}{c}{$I_e$}\\\\\n" \
         "h & $\\# V$ & DoFs & $p$ & " \
         + " & ".join(["\\multicolumn{1}{c}{" + str(e) + "}" for e in dictionary["edges"]]) \
         + " \\\\\n\\toprule\\\\\n"
@@ -185,7 +186,7 @@ def create_latex_table_FEM(dictionary):
             line += f"& ${number_LTX(l2_err[0])}$ "
         table_content += line + "\\\\\n"
     
-    table_end = "\\bottomrule\n\\end{tabular}\n\\end{table}"
+    table_end = "\\bottomrule\n\\end{tabular}\n}\n\\end{table}"
     # table = table_header + table_content + table_end
     return table_header, table_content, table_end
 
@@ -201,8 +202,9 @@ def create_latex_table_exact(dictionary):
     position_gamma = 6 + len(dictionary["edges"]) // 2
     table_header = "\\begin{table}[h!]\n\\caption{$\\kappa = " + str(dictionary['kwave']) + "$}\n" \
         "\\centering\\small\\setlength\\tabcolsep{0.55em}\n" \
+        "\\scalebox{0.7}{\n" \
         "\\begin{tabular}{ " + "c "*num_columns + "}\n" \
-        "\\toprule\n & \\multicolumn{" + str(position_gamma) + "}{c}{$|S_\\Gamma|$}\\\\\n" \
+        "\\toprule\n & \\multicolumn{" + str(position_gamma) + "}{c}{$I_e$}\\\\\n" \
         "h & $\\# V$ & DoFs & $p$ & $L^2_{FEM}$ & $L^2_{\mathcal{I}_h}$ & " \
         + " & ".join(["\\multicolumn{1}{c}{" + str(e) + "}" for e in dictionary["edges"]]) \
         + " \\\\\n\\toprule\\\\\n"
@@ -216,11 +218,9 @@ def create_latex_table_exact(dictionary):
             line += f"& ${number_LTX(l2_err[0])}$ "
         table_content += line + "\\\\\n"
     
-    table_end = "\\bottomrule\n\\end{tabular}\n\\end{table}"
+    table_end = "\\bottomrule\n\\end{tabular}\n}\n\\end{table}"
     # table = table_header + table_content + table_end
     return table_header, table_content, table_end
-
-
 
 
 
@@ -240,7 +240,8 @@ def create_error_file(problem, kappa, maxH, order_v, Bubble_modes, Edge_modes, e
         2 : "LIS",
         3 : "LBS",
         4 : "CrystalQuad",
-        5 : "CrystalCirc"
+        5 : "CrystalCirc",
+        6 : "CrystalCirc2"
     }
 
     err_type_dict = {
