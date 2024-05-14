@@ -1,6 +1,6 @@
 # LIBRARIES
 from helmholtz_aux import *
-# import netgen.gui
+import netgen.gui
 
 # ngsglobals.msg_level = 1
 
@@ -24,11 +24,11 @@ print("Number of edge modes is ", Edge_modes)
 # problem = 5
 ACMS_flag = 0 #1 = exact sol 0 = fem error
 omega = 1 #0.484/10
-# Href = 2
-# maxH = 0.1 #025 # * 4
-# order_v = [1,2,3]
+# Href = 0
+# maxH = 0.5 #025 # * 4
+# order_v = [1]
 Bubble_modes = [0]
-# Edge_modes = [1,2,4,8,16,32,64,128]
+# Edge_modes = [1]
 
 
 error_table = 1
@@ -36,13 +36,13 @@ table_content_aux = ""
 table_header = ""
 table_end = ""
 
-# SetNumThreads(12)
+SetNumThreads(12)
 with TaskManager():
     for h in maxH/(2**np.arange(0, Href + 1 , 1)):
         print(h)
         # Variables setting
         mesh, dom_bnd, alpha, kappa, beta, gamma, f, g, sol_ex, u_ex, Du_ex, mesh_info = problem_definition(problem, h, omega)
-        
+        input()
         # Solve ACMS system and compute errors
         ndofs, dofs, errors_dictionary, solution_dictionary = acms_main(mesh, dom_bnd, alpha, Bubble_modes, Edge_modes, order_v, kappa, omega, beta, gamma, f, g, u_ex, Du_ex, mesh_info)    
         
