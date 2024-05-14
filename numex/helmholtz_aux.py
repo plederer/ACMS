@@ -695,7 +695,7 @@ def compute_acms_solution(mesh, V, acms, edge_basis):
 
 
         # print("finished_acms")
-        # input()
+        input()
     return gfu, num
 
 ##################################################################
