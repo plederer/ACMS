@@ -31,7 +31,7 @@ Bubble_modes = [0]
 # Edge_modes = [1]
 
 
-error_table = 1
+error_table = 0
 table_content_aux = ""
 table_header = ""
 table_end = ""

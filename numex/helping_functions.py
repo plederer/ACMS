@@ -538,6 +538,7 @@ class ACMS:
 
                 if edgetype not in self.edgeversions:                           
                     ndofs = sum(fd)
+                    print("ndofs = ", ndofs)
 
                     base_space = H1(self.mesh, order = self.order, dirichlet = self.dirichlet) # Creating Sobolev space
                     Vloc = Compress(base_space, fd) #Restricting Sobolev space on edge (with Dirichlet bc)
@@ -560,12 +561,11 @@ class ACMS:
                     # Solving eigenvalue problem: AA x = ev MM x
                     AA = sp.csr_matrix(aloc.mat.CSR())
                     MM = sp.csr_matrix(mloc.mat.CSR())
-                    
+                    print(AA.shape)
                 
                     try:
                         ev, evec =sp.linalg.eigs(A = AA, M = MM, k = self.edge_modes, which='SM')
-                    
-                        
+                        print("TRY")
                         idx = ev.argsort()[::]   
                         ev = ev[idx]
                         evec = evec[:,idx]
@@ -573,7 +573,11 @@ class ACMS:
                         self.edgeversions[edgetype] = [ndofs, evec]
                     except:
                         self.edge_modes = 0
-        return (self.edge_modes != 0) or (self.bubble_modes != 0)
+                        
+                    print("self.edge_modes = ", self.edge_modes)
+                    print("self.bubble_modes = ", self.bubble_modes)
+        
+        return (self.edge_modes != 0) #or (self.bubble_modes != 0)
     
                 
 

@@ -124,9 +124,9 @@ def unit_disc(maxH):
 
         
     # print(mesh.nv)
-    print(mesh.GetMaterials()) # 8 subdomains
-    print(mesh.GetBoundaries()) # 12 edges
-    print(mesh.GetBBoundaries()) # 5 vertices
+    # print(mesh.GetMaterials()) # 8 subdomains
+    # print(mesh.GetBoundaries()) # 12 edges
+    # print(mesh.GetBBoundaries()) # 5 vertices
 
     alpha = 1 #mesh.MaterialCF(1, default=0)
 
@@ -735,7 +735,7 @@ def acms_main(mesh, dom_bnd, alpha, Bubble_modes, Edge_modes, order_v, kappa, om
             print("ndofs = ", V.ndof)
 
             Iu = GridFunction(V) #Nodal interpolant            
-            
+                        
             if V.ndof < 10000000:
                 for EM in Edge_modes:
                         for BM in Bubble_modes:
@@ -748,7 +748,8 @@ def acms_main(mesh, dom_bnd, alpha, Bubble_modes, Edge_modes, order_v, kappa, om
                             edge_basis = acms.calc_edge_basis()
                             print("Edge basis functions computation in --- %s seconds ---" % (time.time() - edges_time))
                             print("time to compute harmonic extensions = ", time.time() - start)
-
+                            print(edge_basis)
+                            quit()
                             if edge_basis:
                                 start = time.time()
                                 acms.CalcHarmonicExtensions()
@@ -763,6 +764,7 @@ def acms_main(mesh, dom_bnd, alpha, Bubble_modes, Edge_modes, order_v, kappa, om
                             # if (EM <= acms.edge_modes) and (BM <= acms.bubble_modes):
                             gfu, num = compute_acms_solution(mesh, V, acms, edge_basis)
                             dofs.append(num)
+                            print("dofs = ", dofs)
                             l2_error, l2_error_ex, h1_error, h1_error_ex = append_acms_errors(mesh, gfu, gfu_fem, u_ex, grad_fem, Du_ex, l2_error, l2_error_ex, h1_error, h1_error_ex)
 
                 l2_error_NodInt, h1_error_NodInt, l2_error_FEMex, h1_error_FEMex = append_NI_FEM_errors(mesh, gfu_fem, u_ex, Du_ex, Iu, l2_error_NodInt, h1_error_NodInt, l2_error_FEMex, h1_error_FEMex)
