@@ -119,7 +119,7 @@ class ACMS:
 
         aharm_inv = aharm.mat.Inverse(fd, inverse = "sparsecholesky")
         # print("Harmonic extensions domain = ", time.time() - start)
-        # input()
+    
         return Vharm, aharm.mat, aharm_inv
 
 
@@ -227,7 +227,6 @@ class ACMS:
                         nels = len(els)
                         # orient = sum(Integrate(specialcf.tangential(2), self.mesh, definedon=bnds, order = 0))
                         # print(orient)
-                        # input()
                         vals = [i/(nels) for i in range(0,nels+1) ]
                     
                         if els[0].vertices[0].nr == i: # or els[0].vertices[1].nr == 1:
@@ -276,7 +275,6 @@ class ACMS:
                 # gfu.vec.data += -(aharm_mat) * gfu.vec  
                 # gfu.vec[:] = 1
                 # Draw(gfu, self.mesh, "test")
-                # input()
                 localbasis[lii][:] = gfu.vec
                 lii +=1
                 gfu.vec[:] = 0
@@ -362,8 +360,6 @@ class ACMS:
             for e in evec:
                 gfu.vec[:]=0.0
                 gfu.vec[:] = e
-                # Draw(gfu, self.mesh, "bubb")
-                # input()
                 localbasis[lii][:] = gfu.vec
                 lii+=1
         
@@ -383,8 +379,6 @@ class ACMS:
         
 
         localmat = InnerProduct(localbasis, (local_a.mat * localbasis).Evaluate(), conjugate = False)
-        # print(localmat)
-        # input()
 
         local_f = LinearForm(Vharm)
         local_f += self.f * vharm * dx(definedon = self.mesh.Materials(acms_cell), bonus_intorder=10)
@@ -430,7 +424,7 @@ class ACMS:
                     
                         gfu.vec.data = (localbasis * localcoeffs).Evaluate()
                         Draw(gfu, self.mesh, "cell")
-                        # input()
+                        
                         integral+= Integrate(gfu, self.mesh, definedon = self.mesh.Boundaries(edgename))
                         # print(integral)
         

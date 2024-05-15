@@ -10,7 +10,7 @@ from helmholtz_aux import *
 # PROBLEM = 3: localised boundary source (Example 5.3, Table 5.7), no exact solution, periodic structure (NOT YET IMPLEMENTED -> mesh needs to change)
 
 problem = float(input("Choose the problem. \n 1 = PW. \n 2 = LIS. \n 3 = LBS. \n 4 = Crystal SI. \n 5 = Crystal CI1. \n 6 = Crystal CI2. \n Problem =  "))
-# omega = float(input("Wavenumber k: "))
+omega = float(input("Wavenumber k: "))
 maxH = float(input("maxH: "))
 Href = int(input("Number of mesh refinements refH (0 is no refinements): "))
 order_v = list(map(int, input("Order of approximation. Vector = ").split())) # Vector [1, 2, 3]
@@ -23,7 +23,7 @@ print("Number of edge modes is ", Edge_modes)
 # For testing
 # problem = 5
 ACMS_flag = 0 #1 = exact sol 0 = fem error
-omega = 1 #0.484/10
+# omega = 1 #0.484/10
 # Href = 0
 # maxH = 0.5 #025 # * 4
 # order_v = [1]
@@ -42,7 +42,7 @@ with TaskManager():
         print(h)
         # Variables setting
         mesh, dom_bnd, alpha, kappa, beta, gamma, f, g, sol_ex, u_ex, Du_ex, mesh_info = problem_definition(problem, h, omega)
-        input()
+
         # Solve ACMS system and compute errors
         ndofs, dofs, errors_dictionary, solution_dictionary = acms_main(mesh, dom_bnd, alpha, Bubble_modes, Edge_modes, order_v, kappa, omega, beta, gamma, f, g, u_ex, Du_ex, mesh_info)    
         
@@ -52,7 +52,6 @@ with TaskManager():
         
         Draw(gfu_acms, mesh, "uacms")
         Draw(gfu_fem, mesh, "ufem")
-        # input()
               
         if error_table == 1:
             file_name, Errors = error_table_save(h, problem, order_v, Bubble_modes, Edge_modes, mesh, kappa, errors_dictionary, ndofs, dofs, u_ex, sol_ex, gfu_fem, grad_fem)

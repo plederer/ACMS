@@ -94,7 +94,7 @@ def unit_disc(maxH):
     # gfu.Set(1, definedon = mesh.Boundaries("dom_bnd_C"))
     # # gfu.Set(1, definedon = mesh.Materials("outer1"))
     # Draw(gfu)
-    # input()
+
     nmat = len(mesh.GetMaterials())
     nbnd = len(mesh.GetBoundaries())
     nvert = len(mesh.GetBBoundaries())
@@ -132,7 +132,7 @@ def unit_disc(maxH):
 
     mesh_info = GetMeshinfo(mesh)
     mesh_info["dom_bnd"] = dom_bnd
-    # input()
+
     return mesh, dom_bnd, alpha, mesh_info
 
 
@@ -315,13 +315,11 @@ def crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer, alpha_inner, de
     
     Draw(alpha, mesh, "alpha")
     
-    # input()
     # V = H1(mesh, dirichlet = ".*")
     # gfu = GridFunction(V)
     # # gfu.Set(1, definedon = mesh.Boundaries("crystal_bnd_bottom_H"))
     # gfu.Set(1, definedon = mesh.Materials("outer1"))
     # Draw(gfu)
-    # input()  
     # alpha = 1   
     return mesh, dom_bnd, alpha, mesh_info
 
@@ -432,11 +430,11 @@ def problem_definition(problem, maxH, omega):
         incl = 1 #circular
         Lx = 1* incl #* 0.484 #"c"
         Ly = Lx #0.685 #"a
-        Nx = 14 #int(input("Number of cells on each direction: "))
+        Nx = 2 #int(input("Number of cells on each direction: "))
         Ny = Nx # number of cells in y
         alpha_outer = 1/12.1 #SILICON
         alpha_inner = 1 #0 #AIR        
-        layers = 2
+        layers = 0
         
         ix = [i for i in range(layers)] + [Nx - 1 - i for i in range(layers)]
         iy = [i for i in range(layers)] + [Ny - 1 - i for i in range(layers)]
@@ -477,12 +475,12 @@ def problem_definition(problem, maxH, omega):
         incl = 2 #circular 2x2 (four inclusions per cell)
         Lx = 1 * incl #* 0.484 #"c"
         Ly = Lx #0.685 #"a"
-        Nx = 7 #int(input("Number of cells on each direction: "))
+        Nx = 2 #int(input("Number of cells on each direction: "))
         Ny = Nx # number of cells in y
 
         alpha_outer = 1/12.1 #SILICON
         alpha_inner = 1 #0 #AIR
-        layers = 1
+        layers = 0
         
         ix = [i for i in range(layers)] + [Nx - 1 - i for i in range(layers)]
         iy = [i for i in range(layers)] + [Ny - 1 - i for i in range(layers)]
@@ -496,9 +494,7 @@ def problem_definition(problem, maxH, omega):
             for i in range(Nx): 
                 defects[i,j] = 0.0
         
-        mesh, dom_bnd, alpha, mesh_info = crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer, alpha_inner, defects, layers)
-        # input()
-        
+        mesh, dom_bnd, alpha, mesh_info = crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer, alpha_inner, defects, layers)        
         
         # print(Integrate(x, mesh, definedon = mesh.Boundaries("measure_edge_left")))
         # print(Integrate(x, mesh, definedon = mesh.Boundaries("measure_edge_right")))
@@ -534,7 +530,7 @@ def ground_truth(mesh, dom_bnd, alpha, kappa, omega, beta, f, g, ord, gamma):
     #  RESOLUTION OF GROUND TRUTH SOLUTION
     #Computing the FEM solution /  ground truth solution with higher resolution
     
-    SetNumThreads(16)
+    # SetNumThreads(16)
     with TaskManager():
         V = H1(mesh, order = ord, complex = True)
         
@@ -695,7 +691,6 @@ def compute_acms_solution(mesh, V, acms, edge_basis):
 
 
         # print("finished_acms")
-        input()
     return gfu, num
 
 ##################################################################
@@ -724,7 +719,7 @@ def acms_main(mesh, dom_bnd, alpha, Bubble_modes, Edge_modes, order_v, kappa, om
     # max_em = Edge_modes[-1]
 
         
-    SetNumThreads(16)
+    # SetNumThreads(16)
     with TaskManager():
         for order in order_v:
             print(order)
