@@ -158,49 +158,46 @@ def crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer, alpha_inner, de
     
     if incl ==1: #Circular inclusion
         inclusion = [MoveTo(0,0).Circle(Lx*i,Ly*j, r).Face() for i in range(Nx) for j in range(Ny)]
-    elif incl == 2:
+        
+    # elif incl == 2:
+    #     inclusion = []
+    #     for i in range(Nx):
+    #         for j in range(Ny):
+    #             Mx = Lx*i
+    #             My = Ly * j
+    #             c1 = MoveTo(0,0).Circle(Mx - Lx/4,My - Ly/4, r).Face()
+    #             c2 = MoveTo(0,0).Circle(Mx + Lx/4,My - Ly/4, r).Face()
+    #             c3 = MoveTo(0,0).Circle(Mx + Lx/4,My + Ly/4, r).Face()
+    #             c4 = MoveTo(0,0).Circle(Mx - Lx/4,My + Ly/4, r).Face()
+    #             inclusion.append(Glue([c1,c2,c3,c4]))
+                
+    elif incl >= 2:
         inclusion = []
+        
         for i in range(Nx):
-            for j in range(Ny):
+            for j in range(Ny):   
                 Mx = Lx*i
-                My = Ly * j
-                c1 = MoveTo(0,0).Circle(Mx - Lx/4,My - Ly/4, r).Face()
-                c2 = MoveTo(0,0).Circle(Mx + Lx/4,My - Ly/4, r).Face()
-                c3 = MoveTo(0,0).Circle(Mx + Lx/4,My + Ly/4, r).Face()
-                c4 = MoveTo(0,0).Circle(Mx - Lx/4,My + Ly/4, r).Face()
-                inclusion.append(Glue([c1,c2,c3,c4]))
-#     elif incl == 4:
-#         inclusion = []
-#         outer = [domain[j*Nx+i]-inclusion[j*Nx+i] for i in range(Nx) for j in range(Ny)]
-# inner = [domain[j*Nx+i]*inclusion[j*Nx+i] for i in range(Nx) for j in range(Ny)]
-# outershapes = Glue([out_dom for out_dom in outer])
-# innershapes = Glue([in_dom for in_dom in inner])
-# crystalshape = Glue([outershapes,innershapes])
-#         for i in range(Nx):
-#             for j in range(Ny):   
-                     
-#                 for kk in range(incl//2):
-#                     for ll in range(incl//2):
-#                         Mx = Lx*i + (2*Lx/incl)*kk 
-#                         My = Ly*j + (2*Lx/incl)*ll
-#                         c1 = MoveTo(0,0).Circle(Mx - Lx/(incl*2),          My - Ly/(incl*2), r).Face()
-#                         c2 = MoveTo(0,0).Circle(Mx - (incl-1)*Lx/(incl*2), My - Ly/(incl*2), r).Face()
-#                         c3 = MoveTo(0,0).Circle(Mx - (incl-1)*Lx/(incl*2), My - (incl-1)*Ly/(incl*2), r).Face()
-#                         c4 = MoveTo(0,0).Circle(Mx - Lx/(incl*2),          My - (incl-1)*Ly/(incl*2), r).Face()
-#                         aux = Glue([c1,c2,c3,c4])
-#                         mesh_aux = Mesh(OCCGeometry(aux, dim=2).GenerateMesh(maxh = maxH))
-#                         Draw(mesh_aux)
-                    
-#                         # aux2 = Glue([aux1, c3])
-#                 # aux2 = Glue([aux2,aux])
-#                         # inclusion.append(Glue([aux2, aux3]))
-#                 inclusion.append(aux)
+                My = Ly*j
+                exponent = 2
+                circular_incl = [MoveTo(0,0).Circle(Mx + (-1)**ee * Lx/incl * (kk + 1/2), My + (-1)**ff * Ly/incl * (ll + 1/2), r).Face()  for ee in range(exponent)  for ff in range(exponent) for kk in range(incl//2) for ll in range(incl//2)]
+                inclusion.append(Glue([circ for circ in circular_incl]))
+                
+                # c1 = [MoveTo(0,0).Circle(Mx - Lx/incl * (kk + 1/2), My - Ly/incl * (ll + 1/2), r).Face()  for kk in range(incl//2) for ll in range(incl//2)]
+                # c2 = [MoveTo(0,0).Circle(Mx - Lx/incl * (kk + 1/2), My + Ly/incl * (ll + 1/2), r).Face()  for kk in range(incl//2) for ll in range(incl//2)]
+                # c3 = [MoveTo(0,0).Circle(Mx + Lx/incl * (kk + 1/2), My - Ly/incl * (ll + 1/2), r).Face()  for kk in range(incl//2) for ll in range(incl//2)]
+                # c4 = [MoveTo(0,0).Circle(Mx + Lx/incl * (kk + 1/2), My + Ly/incl * (ll + 1/2), r).Face()  for kk in range(incl//2) for ll in range(incl//2)]
+                
+                # aux1 = Glue([circ for circ in c1])
+                # aux2 = Glue([circ for circ in c2])
+                # aux3 = Glue([circ for circ in c3])
+                # aux4 = Glue([circ for circ in c4])
+                # inclusion.append(Glue([aux1, aux2, aux3, aux4]))
+                
                 
     else: #Square inclusion
         inclusion = [MoveTo(Lx*i,Ly*j).RectangleC(r, r).Face() for i in range(Nx) for j in range(Ny)]
+    
     # input()
-    
-    
     
     
     
@@ -275,10 +272,10 @@ def crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer, alpha_inner, de
     mesh = Mesh(OCCGeometry(crystalshape, dim=2).GenerateMesh(maxh = maxH))
     mesh.Curve(10)
     Draw(mesh)
-    # input()
+    input()
     
     
-    # quit()
+    quit()
 
     nmat = len(mesh.GetMaterials())
     nbnd = len(mesh.GetBoundaries())
@@ -557,7 +554,7 @@ def problem_definition(problem, maxH, omega):
     elif problem == 7:  #LOOP TEST
         
         r  = 0.126 # radius of inclusion
-        incl = 4 #circular 2x2 (four inclusions per cell)
+        incl = 16 #circular 2x2 (four inclusions per cell)
         Lx = 1 * incl #* 0.484 #"c"
         Ly = Lx #0.685 #"a"
         Nx = 1 #int(input("Number of cells on each direction: "))

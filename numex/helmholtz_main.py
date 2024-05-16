@@ -1,6 +1,6 @@
 # LIBRARIES
 from helmholtz_aux import *
-# import netgen.gui
+import netgen.gui
 
 # ngsglobals.msg_level = 1
 
@@ -21,17 +21,17 @@ from helmholtz_aux import *
 # print("Number of edge modes is ", Edge_modes)
 
 # For testing
-problem = 5
+problem = 7
 ACMS_flag = 0 #1 = exact sol 0 = fem error
 omega = 1 #0.484/10
 Href = 0
-maxH = 0.1 #025 # * 4
-order_v = [1,2,3]
+maxH = 0.2 #025 # * 4
+order_v = [1]
 Bubble_modes = [0]
-Edge_modes = [1,2,4]
+Edge_modes = [1]
 
 
-error_table = 1
+error_table = 0
 table_content_aux = ""
 table_header = ""
 table_end = ""
