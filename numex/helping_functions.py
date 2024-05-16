@@ -1,6 +1,7 @@
 from ngsolve import *
 # from netgen.geom2d import SplineGeometry
 
+from ngsolve.eigenvalues import *
 from ngsolve.la import Real2ComplexMatrix
 import scipy.linalg
 import scipy.sparse as sp
@@ -305,7 +306,8 @@ class ACMS:
                     ii = 0
                     for d, bb in enumerate(ddofs):
                         if bb == 1:
-                            gfu.vec[d] = self.edgeversions[edgetype][1][l,ii]#.real
+                            gfu.vec[d] = self.edgeversions[edgetype][1][l][ii]#.real
+                            # gfu.vec[d] = self.edgeversions[edgetype][1][l,ii]#.real
                             ii+=1
                         
                     gfu.vec.data += -(aharm_inv @ aharm_mat) * gfu.vec
@@ -538,9 +540,8 @@ class ACMS:
 
                 if edgetype not in self.edgeversions:                           
                     ndofs = sum(fd)
-                    print("ndofs = ", ndofs)
 
-                    base_space = H1(self.mesh, order = self.order, dirichlet = self.dirichlet) # Creating Sobolev space
+                    base_space = H1(self.mesh, order = self.order)#, dirichlet = self.dirichlet) # Creating Sobolev space
                     Vloc = Compress(base_space, fd) #Restricting Sobolev space on edge (with Dirichlet bc)
                     uloc, vloc = Vloc.TnT() # Trial and test functions
                     t = specialcf.tangential(2)
@@ -559,23 +560,30 @@ class ACMS:
                     
                     
                     # Solving eigenvalue problem: AA x = ev MM x
-                    AA = sp.csr_matrix(aloc.mat.CSR())
-                    MM = sp.csr_matrix(mloc.mat.CSR())
-                    print(AA.shape)
-                
-                    try:
-                        ev, evec =sp.linalg.eigs(A = AA, M = MM, k = self.edge_modes, which='SM')
-                        print("TRY")
-                        idx = ev.argsort()[::]   
-                        ev = ev[idx]
-                        evec = evec[:,idx]
-                        evec = evec.transpose()
-                        self.edgeversions[edgetype] = [ndofs, evec]
-                    except:
-                        self.edge_modes = 0
+                    # AA = sp.csr_matrix(aloc.mat.CSR())
+                    # MM = sp.csr_matrix(mloc.mat.CSR())
+                    # print("edge type = ", edgetype)
+                    
+                    minv = aloc.mat.Inverse(Vloc.FreeDofs()) #IdentityMatrix(Vloc.ndof)
+
+                    # try:
+                    lams, uvecs = PINVIT(aloc.mat, mloc.mat, pre = minv, num = self.edge_modes, printrates = False, maxit = 20)
+                    self.edgeversions[edgetype] = [ndofs, uvecs]
+                    
+                        # ev, evec =sp.linalg.eigs(A = AA, M = MM, k = self.edge_modes, which='SM', tol = 1e-8)
+                        # print("TRY")
+                        # idx = ev.argsort()[::]   
+                        # ev = ev[idx]
+                        # print("ev = ",ev)
+                        # print("ndofs=", ndofs)
+                        # evec = evec[:,idx]
+                        # evec = evec.transpose()
+                        # self.edgeversions[edgetype] = [ndofs, evec]
+                    # except:
+                        # self.edge_modes = 0
                         
-                    print("self.edge_modes = ", self.edge_modes)
-                    print("self.bubble_modes = ", self.bubble_modes)
+                    # print("self.edge_modes = ", self.edge_modes)
+                    # print("self.bubble_modes = ", self.bubble_modes)
         
         return (self.edge_modes != 0) #or (self.bubble_modes != 0)
     

@@ -87,6 +87,9 @@ def unit_disc(maxH):
 
     mesh = Mesh(OCCGeometry(shape, dim=2).GenerateMesh(maxh = maxH))
     mesh.Curve(10)
+    
+    
+    
     # Draw(mesh)
     # print(mesh.GetBoundaries())
     # V = H1(mesh, dirichlet = ".*")
@@ -166,9 +169,41 @@ def crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer, alpha_inner, de
                 c3 = MoveTo(0,0).Circle(Mx + Lx/4,My + Ly/4, r).Face()
                 c4 = MoveTo(0,0).Circle(Mx - Lx/4,My + Ly/4, r).Face()
                 inclusion.append(Glue([c1,c2,c3,c4]))
+#     elif incl == 4:
+#         inclusion = []
+#         outer = [domain[j*Nx+i]-inclusion[j*Nx+i] for i in range(Nx) for j in range(Ny)]
+# inner = [domain[j*Nx+i]*inclusion[j*Nx+i] for i in range(Nx) for j in range(Ny)]
+# outershapes = Glue([out_dom for out_dom in outer])
+# innershapes = Glue([in_dom for in_dom in inner])
+# crystalshape = Glue([outershapes,innershapes])
+#         for i in range(Nx):
+#             for j in range(Ny):   
+                     
+#                 for kk in range(incl//2):
+#                     for ll in range(incl//2):
+#                         Mx = Lx*i + (2*Lx/incl)*kk 
+#                         My = Ly*j + (2*Lx/incl)*ll
+#                         c1 = MoveTo(0,0).Circle(Mx - Lx/(incl*2),          My - Ly/(incl*2), r).Face()
+#                         c2 = MoveTo(0,0).Circle(Mx - (incl-1)*Lx/(incl*2), My - Ly/(incl*2), r).Face()
+#                         c3 = MoveTo(0,0).Circle(Mx - (incl-1)*Lx/(incl*2), My - (incl-1)*Ly/(incl*2), r).Face()
+#                         c4 = MoveTo(0,0).Circle(Mx - Lx/(incl*2),          My - (incl-1)*Ly/(incl*2), r).Face()
+#                         aux = Glue([c1,c2,c3,c4])
+#                         mesh_aux = Mesh(OCCGeometry(aux, dim=2).GenerateMesh(maxh = maxH))
+#                         Draw(mesh_aux)
+                    
+#                         # aux2 = Glue([aux1, c3])
+#                 # aux2 = Glue([aux2,aux])
+#                         # inclusion.append(Glue([aux2, aux3]))
+#                 inclusion.append(aux)
+                
     else: #Square inclusion
         inclusion = [MoveTo(Lx*i,Ly*j).RectangleC(r, r).Face() for i in range(Nx) for j in range(Ny)]
-
+    # input()
+    
+    
+    
+    
+    
     # outer = [domain[i*Ny+j]-inclusion[i*Ny+j] for i in range(Nx) for j in range(Ny)]
     # inner = [domain[i*Ny+j]*inclusion[i*Ny+j] for i in range(Nx) for j in range(Ny)]
     outer = []
@@ -239,7 +274,11 @@ def crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer, alpha_inner, de
     crystalshape = Glue(outershapes + innershapes)
     mesh = Mesh(OCCGeometry(crystalshape, dim=2).GenerateMesh(maxh = maxH))
     mesh.Curve(10)
+    Draw(mesh)
+    # input()
     
+    
+    # quit()
 
     nmat = len(mesh.GetMaterials())
     nbnd = len(mesh.GetBoundaries())
@@ -430,7 +469,7 @@ def problem_definition(problem, maxH, omega):
         incl = 1 #circular
         Lx = 1* incl #* 0.484 #"c"
         Ly = Lx #0.685 #"a
-        Nx = 2 #int(input("Number of cells on each direction: "))
+        Nx = 7 #int(input("Number of cells on each direction: "))
         Ny = Nx # number of cells in y
         alpha_outer = 1/12.1 #SILICON
         alpha_inner = 1 #0 #AIR        
@@ -514,6 +553,34 @@ def problem_definition(problem, maxH, omega):
         Du_ex = 0
         gamma = 1
         
+        
+    elif problem == 7:  #LOOP TEST
+        
+        r  = 0.126 # radius of inclusion
+        incl = 4 #circular 2x2 (four inclusions per cell)
+        Lx = 1 * incl #* 0.484 #"c"
+        Ly = Lx #0.685 #"a"
+        Nx = 1 #int(input("Number of cells on each direction: "))
+        Ny = Nx # number of cells in y
+
+        alpha_outer = 1/12.1 #SILICON
+        alpha_inner = 1 #0 #AIR
+        layers = 0
+        
+        ix = [i for i in range(layers)] + [Nx - 1 - i for i in range(layers)]
+        iy = [i for i in range(layers)] + [Ny - 1 - i for i in range(layers)]
+        
+        defects = np.ones((Nx,Ny))
+        for i in ix: 
+            for j in range(Ny): 
+                defects[i,j] = 0.0
+        
+        for j in iy:
+            for i in range(Nx): 
+                defects[i,j] = 0.0
+        
+        mesh, dom_bnd, alpha, mesh_info = crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer, alpha_inner, defects, layers)        
+                
         
 
     return mesh, dom_bnd, alpha, kappa, beta, gamma, f, g, sol_ex, u_ex, Du_ex, mesh_info
@@ -749,7 +816,7 @@ def acms_main(mesh, dom_bnd, alpha, Bubble_modes, Edge_modes, order_v, kappa, om
                             print("Edge basis functions computation in --- %s seconds ---" % (time.time() - edges_time))
                             print("time to compute harmonic extensions = ", time.time() - start)
                             print(edge_basis)
-                            quit()
+                            # quit()
                             if edge_basis:
                                 start = time.time()
                                 acms.CalcHarmonicExtensions()
