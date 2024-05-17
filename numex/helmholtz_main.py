@@ -17,13 +17,11 @@ order_v = list(map(int, input("Order of approximation. Vector = ").split())) # V
 print("Order of approximation is ", order_v)
 # Bubble_modes = list(map(int, input("Number of bubble modes. Vector = ").split())) # Vector [2,4,8,16,32,64,128]
 # print("Number of bubble modes is ", Bubble_modes)
-Bubble_modes = [0]
 Edge_modes = list(map(int, input("Number of edge modes. Vector = ").split())) # Vector [2,4,8,16,32,64,128]
 print("Number of edge modes is ", Edge_modes)
 
 # For testing
 # problem = 5
-# ACMS_flag = 0 #1 = exact sol 0 = fem error
 # omega = 1 #0.484/10
 # Href = 0
 # maxH = 0.2
@@ -31,6 +29,8 @@ print("Number of edge modes is ", Edge_modes)
 # Bubble_modes = [0]
 # Edge_modes = [1]
 
+Bubble_modes = [0]
+ACMS_flag = 0 #1 = exact sol 0 = fem error
 if problem == 5:
     incl = int(input("Number of inclusions in one direction per cell incl (Power of 2): "))
 else:
