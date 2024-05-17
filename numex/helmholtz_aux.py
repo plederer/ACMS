@@ -617,18 +617,13 @@ def compute_acms_solution(mesh, V, acms, edge_basis):
         gfu = 0
         num = 0
         
-    else: 
-            
-        
+    else:         
         setupstart = time.time()
         
         num = acms.acmsdofs #len(basis)
-        print("finished setup", time.time() - setupstart)
-        print("ndofs = ", num)
-        
+        print("finished setup", time.time() - setupstart)        
         invstart = time.time()
         asmall = acms.asmall
-        # print(asmall)
         print("calc asmall = ", time.time() - invstart)
         
         ainvsmall = Matrix(numpy.linalg.inv(asmall))
@@ -654,8 +649,7 @@ def compute_acms_solution(mesh, V, acms, edge_basis):
         #             # print(intval)
         # print("error integral = ", intval - integral)
 
-
-        # print("finished_acms")
+        print("finished_acms")
     return gfu, num
 
 ##################################################################
@@ -680,10 +674,7 @@ def acms_main(mesh, dom_bnd, alpha, Bubble_modes, Edge_modes, order_v, kappa, om
     h1_error_FEMex = []
     dofs =[]
     ndofs = []
-    # max_bm = Bubble_modes[-1]
-    # max_em = Edge_modes[-1]
-
-        
+    
     # SetNumThreads(16)
     with TaskManager():
         for order in order_v:
@@ -697,40 +688,36 @@ def acms_main(mesh, dom_bnd, alpha, Bubble_modes, Edge_modes, order_v, kappa, om
             
             V = H1(mesh, order = order, complex = True)
             ndofs.append(V.ndof)
-            print("ndofs = ", V.ndof)
 
             Iu = GridFunction(V) #Nodal interpolant            
                         
             if V.ndof < 10000000:
                 for EM in Edge_modes:
-                        for BM in Bubble_modes:
-                            
-                            #Computing full basis with max number of modes 
-                            # bi = bonus int order - should match the curved mesh order
-                            acms = ACMS(order = order, mesh = mesh, bm = BM, em = EM, bi = mesh.GetCurveOrder(), mesh_info = mesh_info, alpha = alpha, omega = omega, kappa = kappa, f = f, g = g, beta = beta, gamma = gamma)
-                            
-                            edges_time = time.time() 
-                            edge_basis = acms.calc_edge_basis()
-                            print("Edge basis functions computation in --- %s seconds ---" % (time.time() - edges_time))
-                            print("time to compute harmonic extensions = ", time.time() - start)
-                            print(edge_basis)
-                            # quit()
-                            if edge_basis:
-                                start = time.time()
-                                acms.CalcHarmonicExtensions()
-                                                            
-                                
-                                assemble_start = time.time()
-                                for m in acms.doms:
-                                    acms.Assemble_localA(m)
-                                print("assemble = ", time.time() - assemble_start)
-
-                                        
-                            # if (EM <= acms.edge_modes) and (BM <= acms.bubble_modes):
-                            gfu, num = compute_acms_solution(mesh, V, acms, edge_basis)
-                            dofs.append(num)
-                            print("dofs = ", dofs)
-                            l2_error, l2_error_ex, h1_error, h1_error_ex = append_acms_errors(mesh, gfu, gfu_fem, u_ex, grad_fem, Du_ex, l2_error, l2_error_ex, h1_error, h1_error_ex)
+                    print("Edge modes =", EM)
+                    for BM in Bubble_modes:
+                        
+                        #Computing full basis with max number of modes 
+                        # bi = bonus int order - should match the curved mesh order
+                        acms = ACMS(order = order, mesh = mesh, bm = BM, em = EM, bi = mesh.GetCurveOrder(), mesh_info = mesh_info, alpha = alpha, omega = omega, kappa = kappa, f = f, g = g, beta = beta, gamma = gamma)
+                        
+                        edges_time = time.time() 
+                        edge_basis = acms.calc_edge_basis()
+                        print("Edge basis functions computation in --- %s seconds ---" % (time.time() - edges_time))
+                        print("time to compute harmonic extensions = ", time.time() - start)
+                        # print(edge_basis)
+                        
+                        if edge_basis:
+                            start = time.time()
+                            acms.CalcHarmonicExtensions()
+                                                        
+                            assemble_start = time.time()
+                            for m in acms.doms:
+                                acms.Assemble_localA(m)
+                            print("assemble = ", time.time() - assemble_start)
+        
+                        gfu, num = compute_acms_solution(mesh, V, acms, edge_basis)
+                        dofs.append(num)
+                        l2_error, l2_error_ex, h1_error, h1_error_ex = append_acms_errors(mesh, gfu, gfu_fem, u_ex, grad_fem, Du_ex, l2_error, l2_error_ex, h1_error, h1_error_ex)
 
                 l2_error_NodInt, h1_error_NodInt, l2_error_FEMex, h1_error_FEMex = append_NI_FEM_errors(mesh, gfu_fem, u_ex, Du_ex, Iu, l2_error_NodInt, h1_error_NodInt, l2_error_FEMex, h1_error_FEMex)
            

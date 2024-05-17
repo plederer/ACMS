@@ -114,7 +114,7 @@ class ACMS:
         uharm, vharm = Vharm.TnT() # Trial and test functions
         aharm = BilinearForm(Vharm)
         #Setting bilinear form: - int (Grad u Grad v) d\Omega_j
-        aharm += self.alpha * grad(uharm)*grad(vharm)*dx(definedon = self.mesh.Materials(dom_name), bonus_intorder = self.bi) #Why no alpha here works?
+        aharm += self.alpha * grad(uharm)*grad(vharm)*dx(definedon = self.mesh.Materials(dom_name), bonus_intorder = self.bi) 
         aharm += -self.gamma * self.kappa**2 * uharm*vharm*dx(definedon = self.mesh.Materials(dom_name), bonus_intorder = self.bi)
         aharm.Assemble()
 
@@ -566,9 +566,9 @@ class ACMS:
                     
                     minv = aloc.mat.Inverse(Vloc.FreeDofs()) #IdentityMatrix(Vloc.ndof)
 
-                    # try:
-                    lams, uvecs = PINVIT(aloc.mat, mloc.mat, pre = minv, num = self.edge_modes, printrates = False, maxit = 20)
-                    self.edgeversions[edgetype] = [ndofs, uvecs]
+                    try:
+                        lams, uvecs = PINVIT(aloc.mat, mloc.mat, pre = minv, num = self.edge_modes, printrates = False, maxit = 20)
+                        self.edgeversions[edgetype] = [ndofs, uvecs]
                     
                         # ev, evec =sp.linalg.eigs(A = AA, M = MM, k = self.edge_modes, which='SM', tol = 1e-8)
                         # print("TRY")
@@ -579,8 +579,8 @@ class ACMS:
                         # evec = evec[:,idx]
                         # evec = evec.transpose()
                         # self.edgeversions[edgetype] = [ndofs, evec]
-                    # except:
-                        # self.edge_modes = 0
+                    except:
+                        self.edge_modes = 0
                         
                     # print("self.edge_modes = ", self.edge_modes)
                     # print("self.bubble_modes = ", self.bubble_modes)

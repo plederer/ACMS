@@ -30,7 +30,7 @@ print("Number of edge modes is ", Edge_modes)
 # Edge_modes = [1]
 
 Bubble_modes = [0]
-ACMS_flag = 0 #1 = exact sol 0 = fem error
+ACMS_flag = 0   #1 = exact sol 0 = fem error
 if problem == 5:
     incl = int(input("Number of inclusions in one direction per cell incl (Power of 2): "))
 else:
