@@ -146,10 +146,7 @@ def crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer, alpha_inner, de
     if len(defects) == 0:
         defects = np.ones((Nx,Ny))
 
-    # 0 = full crystal
-    # 1 = air defect in crystal
-    # 2 = air
-
+    #Crystal type: 0 = full crystal # 1 = air defect in crystal  # 2 = air
     crystaltype = [["outer","outer"], 
                    ["outer","inner"],
                    ["inner", "inner"]]
@@ -158,22 +155,9 @@ def crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer, alpha_inner, de
     
     if incl ==1: #Circular inclusion
         inclusion = [MoveTo(0,0).Circle(Lx*i,Ly*j, r).Face() for i in range(Nx) for j in range(Ny)]
-        
-    # elif incl == 2:
-    #     inclusion = []
-    #     for i in range(Nx):
-    #         for j in range(Ny):
-    #             Mx = Lx*i
-    #             My = Ly * j
-    #             c1 = MoveTo(0,0).Circle(Mx - Lx/4,My - Ly/4, r).Face()
-    #             c2 = MoveTo(0,0).Circle(Mx + Lx/4,My - Ly/4, r).Face()
-    #             c3 = MoveTo(0,0).Circle(Mx + Lx/4,My + Ly/4, r).Face()
-    #             c4 = MoveTo(0,0).Circle(Mx - Lx/4,My + Ly/4, r).Face()
-    #             inclusion.append(Glue([c1,c2,c3,c4]))
                 
-    elif incl >= 2:
+    elif incl >= 2: #Circular inclusions (incl on one side)
         inclusion = []
-        
         for i in range(Nx):
             for j in range(Ny):   
                 Mx = Lx*i
@@ -181,26 +165,10 @@ def crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer, alpha_inner, de
                 exponent = 2
                 circular_incl = [MoveTo(0,0).Circle(Mx + (-1)**ee * Lx/incl * (kk + 1/2), My + (-1)**ff * Ly/incl * (ll + 1/2), r).Face()  for ee in range(exponent)  for ff in range(exponent) for kk in range(incl//2) for ll in range(incl//2)]
                 inclusion.append(Glue([circ for circ in circular_incl]))
-                
-                # c1 = [MoveTo(0,0).Circle(Mx - Lx/incl * (kk + 1/2), My - Ly/incl * (ll + 1/2), r).Face()  for kk in range(incl//2) for ll in range(incl//2)]
-                # c2 = [MoveTo(0,0).Circle(Mx - Lx/incl * (kk + 1/2), My + Ly/incl * (ll + 1/2), r).Face()  for kk in range(incl//2) for ll in range(incl//2)]
-                # c3 = [MoveTo(0,0).Circle(Mx + Lx/incl * (kk + 1/2), My - Ly/incl * (ll + 1/2), r).Face()  for kk in range(incl//2) for ll in range(incl//2)]
-                # c4 = [MoveTo(0,0).Circle(Mx + Lx/incl * (kk + 1/2), My + Ly/incl * (ll + 1/2), r).Face()  for kk in range(incl//2) for ll in range(incl//2)]
-                
-                # aux1 = Glue([circ for circ in c1])
-                # aux2 = Glue([circ for circ in c2])
-                # aux3 = Glue([circ for circ in c3])
-                # aux4 = Glue([circ for circ in c4])
-                # inclusion.append(Glue([aux1, aux2, aux3, aux4]))
-                
-                
-    else: #Square inclusion
+
+    else: #Square inclusion (incl = 0)
         inclusion = [MoveTo(Lx*i,Ly*j).RectangleC(r, r).Face() for i in range(Nx) for j in range(Ny)]
-    
-    # input()
-    
-    
-    
+      
     # outer = [domain[i*Ny+j]-inclusion[i*Ny+j] for i in range(Nx) for j in range(Ny)]
     # inner = [domain[i*Ny+j]*inclusion[i*Ny+j] for i in range(Nx) for j in range(Ny)]
     outer = []
@@ -263,7 +231,6 @@ def crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer, alpha_inner, de
                 outer.append(outerdom)
                 inner.append(innerdom)
         
-
     
     outershapes = [out_dom for out_dom in outer]
     innershapes = [in_dom for in_dom in inner]
@@ -272,11 +239,8 @@ def crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer, alpha_inner, de
     mesh = Mesh(OCCGeometry(crystalshape, dim=2).GenerateMesh(maxh = maxH))
     mesh.Curve(10)
     Draw(mesh)
-    input()
     
     
-    quit()
-
     nmat = len(mesh.GetMaterials())
     nbnd = len(mesh.GetBoundaries())
     nvert = len(mesh.GetBBoundaries())
@@ -316,10 +280,8 @@ def crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer, alpha_inner, de
     Draw(mesh)
 
     # ########################
-    # definition of diffusion coefficient
+    # definition of diffusion coefficient: alpha_outer = 1/12.1 #SILICON  # alpha_inner = 1 #AIR
     coeffs = {}
-    # alpha_outer = 1/12.1 #SILICON
-    # alpha_inner = 1 #AIR
 
     for d in range(len(mesh.GetMaterials())):
         dom_name = mesh.ngmesh.GetMaterial(d+1) 
@@ -336,39 +298,58 @@ def crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer, alpha_inner, de
     
     # ########################
     # rename inner domains give them the same name as the outer one has  inner name just used 
-    # print("nmat = ", nmat)
     for d in range(nmat):
         if "inner" in mesh.ngmesh.GetMaterial(d+1): # the +1 comes from the asking the negten mesh instead of the ngsolve mesh!
             offset = int(nmat/(1+incl**2))
             ii = int((d-offset)/incl**2) 
             mesh.ngmesh.SetMaterial(d+1, mesh.ngmesh.GetMaterial(ii+1))
-            # mesh.ngmesh.SetMaterial(d+1, "outer" + str(iii))
-            #     mesh.ngmesh.SetMaterial(d+1, "outer" + str(d-int(nmat/2)))
     
-
     mesh_info = GetMeshinfo(mesh)
     mesh_info["dom_bnd"] = dom_bnd
     
     Draw(alpha, mesh, "alpha")
     
-    # V = H1(mesh, dirichlet = ".*")
-    # gfu = GridFunction(V)
-    # # gfu.Set(1, definedon = mesh.Boundaries("crystal_bnd_bottom_H"))
-    # gfu.Set(1, definedon = mesh.Materials("outer1"))
-    # Draw(gfu)
-    # alpha = 1   
+    
     return mesh, dom_bnd, alpha, mesh_info
 
 
 
 #################################################################
 #################################################################
+# V = H1(mesh, dirichlet = ".*")
+    # gfu = GridFunction(V)
+    # # gfu.Set(1, definedon = mesh.Boundaries("crystal_bnd_bottom_H"))
+    # gfu.Set(1, definedon = mesh.Materials("outer1"))
+    # Draw(gfu)
+    # alpha = 1   
+    # 
+    # # elif incl == 2:
+    #     inclusion = []
+    #     for i in range(Nx):
+    #         for j in range(Ny):
+    #             Mx = Lx*i
+    #             My = Ly * j
+    #             c1 = MoveTo(0,0).Circle(Mx - Lx/4,My - Ly/4, r).Face()
+    #             c2 = MoveTo(0,0).Circle(Mx + Lx/4,My - Ly/4, r).Face()
+    #             c3 = MoveTo(0,0).Circle(Mx + Lx/4,My + Ly/4, r).Face()
+    #             c4 = MoveTo(0,0).Circle(Mx - Lx/4,My + Ly/4, r).Face()
+    #             inclusion.append(Glue([c1,c2,c3,c4]))
+                # c1 = [MoveTo(0,0).Circle(Mx - Lx/incl * (kk + 1/2), My - Ly/incl * (ll + 1/2), r).Face()  for kk in range(incl//2) for ll in range(incl//2)]
+                # c2 = [MoveTo(0,0).Circle(Mx - Lx/incl * (kk + 1/2), My + Ly/incl * (ll + 1/2), r).Face()  for kk in range(incl//2) for ll in range(incl//2)]
+                # c3 = [MoveTo(0,0).Circle(Mx + Lx/incl * (kk + 1/2), My - Ly/incl * (ll + 1/2), r).Face()  for kk in range(incl//2) for ll in range(incl//2)]
+                # c4 = [MoveTo(0,0).Circle(Mx + Lx/incl * (kk + 1/2), My + Ly/incl * (ll + 1/2), r).Face()  for kk in range(incl//2) for ll in range(incl//2)]
+                
+                # aux1 = Glue([circ for circ in c1])
+                # aux2 = Glue([circ for circ in c2])
+                # aux3 = Glue([circ for circ in c3])
+                # aux4 = Glue([circ for circ in c4])
+                # inclusion.append(Glue([aux1, aux2, aux3, aux4]))
 #################################################################
 #################################################################
 
 
 
-def problem_definition(problem, maxH, omega):
+def problem_definition(problem, incl, maxH, omega):
 
     if problem ==1:  #Problem setting - PLANE WAVE
         # #Generate mesh: unit disco with 8 subdomains
@@ -462,15 +443,14 @@ def problem_definition(problem, maxH, omega):
         
     elif problem == 5:  #Problem setting - PERIODIC CRYSTAL - Circular Inclusions
         
-        r  = 0.126 # radius of inclusion
-        incl = 1 #circular
-        Lx = 1* incl #* 0.484 #"c"
-        Ly = Lx #0.685 #"a
-        Nx = 7 #int(input("Number of cells on each direction: "))
-        Ny = Nx # number of cells in y
+        r  = 0.126     # radius of inclusion
+        Lx = 1 * incl   #* 0.484 #"c"
+        Ly = Lx        #0.685 #"a
+        Nx = 16 // incl # number of cells in x direction
+        Ny = Nx        # number of cells in y direction
         alpha_outer = 1/12.1 #SILICON
         alpha_inner = 1 #0 #AIR        
-        layers = 0
+        layers = 0 
         
         ix = [i for i in range(layers)] + [Nx - 1 - i for i in range(layers)]
         iy = [i for i in range(layers)] + [Ny - 1 - i for i in range(layers)]
@@ -488,12 +468,9 @@ def problem_definition(problem, maxH, omega):
         
         # print(Integrate(x, mesh, definedon = mesh.Boundaries("measure_edge_left")))
         # print(Integrate(x, mesh, definedon = mesh.Boundaries("measure_edge_right")))
-        # quit()
         # omega = Lx /0.6
-        kappa = omega #**2 * alpha 
-        # k = kappa * CF((0.6,0.8)) #CF = CoefficientFunction
-        # / 30.4878
-        k_ext = omega #**2 # * alpha=1
+        kappa = omega    #**2 * alpha 
+        k_ext = omega    #**2 # * alpha=1
         k = k_ext * CF((1,0)) #CF = CoefficientFunction
         beta = - k_ext / omega
         f = 0 
@@ -503,82 +480,6 @@ def problem_definition(problem, maxH, omega):
         sol_ex = 0
         Du_ex = 0
         gamma = 1
-        
-        
-    elif problem == 6:  #Problem setting - PERIODIC CRYSTAL - FOUR Circular Inclusions Per Cell
-        
-        r  = 0.126 # radius of inclusion
-        incl = 2 #circular 2x2 (four inclusions per cell)
-        Lx = 1 * incl #* 0.484 #"c"
-        Ly = Lx #0.685 #"a"
-        Nx = 2 #int(input("Number of cells on each direction: "))
-        Ny = Nx # number of cells in y
-
-        alpha_outer = 1/12.1 #SILICON
-        alpha_inner = 1 #0 #AIR
-        layers = 0
-        
-        ix = [i for i in range(layers)] + [Nx - 1 - i for i in range(layers)]
-        iy = [i for i in range(layers)] + [Ny - 1 - i for i in range(layers)]
-        
-        defects = np.ones((Nx,Ny))
-        for i in ix: 
-            for j in range(Ny): 
-                defects[i,j] = 0.0
-        
-        for j in iy:
-            for i in range(Nx): 
-                defects[i,j] = 0.0
-        
-        mesh, dom_bnd, alpha, mesh_info = crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer, alpha_inner, defects, layers)        
-        
-        # print(Integrate(x, mesh, definedon = mesh.Boundaries("measure_edge_left")))
-        # print(Integrate(x, mesh, definedon = mesh.Boundaries("measure_edge_right")))
-        # quit()
-        # omega = Lx /0.6
-        kappa = omega #**2 * alpha 
-        # k = kappa * CF((0.6,0.8)) #CF = CoefficientFunction
-        # / 30.4878
-        k_ext = omega #**2 # * alpha=1
-        k = k_ext * CF((1,0)) #CF = CoefficientFunction
-        beta = - k_ext / omega
-        f = 0 
-        g = 1j * (k_ext - k * specialcf.normal(2)) * exp(-1j * (k[0] * x + k[1] * y)) # Incoming plane wave 
-        Draw(g, mesh, "g")
-        u_ex = 0
-        sol_ex = 0
-        Du_ex = 0
-        gamma = 1
-        
-        
-    elif problem == 7:  #LOOP TEST
-        
-        r  = 0.126 # radius of inclusion
-        incl = 16 #circular 2x2 (four inclusions per cell)
-        Lx = 1 * incl #* 0.484 #"c"
-        Ly = Lx #0.685 #"a"
-        Nx = 1 #int(input("Number of cells on each direction: "))
-        Ny = Nx # number of cells in y
-
-        alpha_outer = 1/12.1 #SILICON
-        alpha_inner = 1 #0 #AIR
-        layers = 0
-        
-        ix = [i for i in range(layers)] + [Nx - 1 - i for i in range(layers)]
-        iy = [i for i in range(layers)] + [Ny - 1 - i for i in range(layers)]
-        
-        defects = np.ones((Nx,Ny))
-        for i in ix: 
-            for j in range(Ny): 
-                defects[i,j] = 0.0
-        
-        for j in iy:
-            for i in range(Nx): 
-                defects[i,j] = 0.0
-        
-        mesh, dom_bnd, alpha, mesh_info = crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer, alpha_inner, defects, layers)        
-                
-        
 
     return mesh, dom_bnd, alpha, kappa, beta, gamma, f, g, sol_ex, u_ex, Du_ex, mesh_info
 

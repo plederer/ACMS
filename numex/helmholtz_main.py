@@ -1,6 +1,6 @@
 # LIBRARIES
 from helmholtz_aux import *
-import netgen.gui
+# import netgen.gui
 
 # ngsglobals.msg_level = 1
 
@@ -9,29 +9,35 @@ import netgen.gui
 # PROBLEM = 2: localised interior source (Example 5.2, Table 5.6), no exact solution, use of bubbles
 # PROBLEM = 3: localised boundary source (Example 5.3, Table 5.7), no exact solution, periodic structure (NOT YET IMPLEMENTED -> mesh needs to change)
 
-# problem = float(input("Choose the problem. \n 1 = PW. \n 2 = LIS. \n 3 = LBS. \n 4 = Crystal SI. \n 5 = Crystal CI1. \n 6 = Crystal CI2. \n Problem =  "))
-# omega = float(input("Wavenumber k: "))
-# maxH = float(input("maxH: "))
-# Href = int(input("Number of mesh refinements refH (0 is no refinements): "))
-# order_v = list(map(int, input("Order of approximation. Vector = ").split())) # Vector [1, 2, 3]
-# print("Order of approximation is ", order_v)
-# # Bubble_modes = list(map(int, input("Number of bubble modes. Vector = ").split())) # Vector [2,4,8,16,32,64,128]
-# # print("Number of bubble modes is ", Bubble_modes)
-# Edge_modes = list(map(int, input("Number of edge modes. Vector = ").split())) # Vector [2,4,8,16,32,64,128]
-# print("Number of edge modes is ", Edge_modes)
+problem = float(input("Choose the problem. \n 1 = PW. \n 2 = LIS. \n 3 = LBS. \n 4 = Crystal Sq. \n 5 = Crystal \n Problem =  "))
+omega = float(input("Wavenumber k: "))
+maxH = float(input("maxH: "))
+Href = int(input("Number of mesh refinements refH (0 is no refinements): "))
+order_v = list(map(int, input("Order of approximation. Vector = ").split())) # Vector [1, 2, 3]
+print("Order of approximation is ", order_v)
+# Bubble_modes = list(map(int, input("Number of bubble modes. Vector = ").split())) # Vector [2,4,8,16,32,64,128]
+# print("Number of bubble modes is ", Bubble_modes)
+Bubble_modes = [0]
+Edge_modes = list(map(int, input("Number of edge modes. Vector = ").split())) # Vector [2,4,8,16,32,64,128]
+print("Number of edge modes is ", Edge_modes)
 
 # For testing
-problem = 7
-ACMS_flag = 0 #1 = exact sol 0 = fem error
-omega = 1 #0.484/10
-Href = 0
-maxH = 0.2 #025 # * 4
-order_v = [1]
-Bubble_modes = [0]
-Edge_modes = [1]
+# problem = 5
+# ACMS_flag = 0 #1 = exact sol 0 = fem error
+# omega = 1 #0.484/10
+# Href = 0
+# maxH = 0.2
+# order_v = [1]
+# Bubble_modes = [0]
+# Edge_modes = [1]
+
+if problem == 5:
+    incl = int(input("Number of inclusions in one direction per cell incl (Power of 2): "))
+else:
+    incl = 0
 
 
-error_table = 0
+error_table = 1
 table_content_aux = ""
 table_header = ""
 table_end = ""
@@ -41,7 +47,8 @@ with TaskManager():
     for h in maxH/(2**np.arange(0, Href + 1 , 1)):
         print(h)
         # Variables setting
-        mesh, dom_bnd, alpha, kappa, beta, gamma, f, g, sol_ex, u_ex, Du_ex, mesh_info = problem_definition(problem, h, omega)
+        mesh, dom_bnd, alpha, kappa, beta, gamma, f, g, sol_ex, u_ex, Du_ex, mesh_info = problem_definition(problem, incl, h, omega)
+        print(mesh.nv)
 
         # Solve ACMS system and compute errors
         ndofs, dofs, errors_dictionary, solution_dictionary = acms_main(mesh, dom_bnd, alpha, Bubble_modes, Edge_modes, order_v, kappa, omega, beta, gamma, f, g, u_ex, Du_ex, mesh_info)    
