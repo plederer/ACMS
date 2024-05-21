@@ -156,6 +156,19 @@ def crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer, alpha_inner, de
     if incl ==1: #Circular inclusion
         inclusion = [MoveTo(0,0).Circle(Lx*i,Ly*j, r).Face() for i in range(Nx) for j in range(Ny)]
                 
+                
+    # elif incl == 2:
+    #     inclusion = []
+    #     for i in range(Nx):
+    #         for j in range(Ny):
+    #             Mx = Lx*i
+    #             My = Ly * j
+    #             c1 = MoveTo(0,0).Circle(Mx - Lx/4,My - Ly/4, r).Face()
+    #             c2 = MoveTo(0,0).Circle(Mx + Lx/4,My - Ly/4, r).Face()
+    #             c3 = MoveTo(0,0).Circle(Mx + Lx/4,My + Ly/4, r).Face()
+    #             c4 = MoveTo(0,0).Circle(Mx - Lx/4,My + Ly/4, r).Face()
+    #             inclusion.append(Glue([c1,c2,c3,c4]))
+                
     elif incl >= 2: #Circular inclusions (incl on one side)
         inclusion = []
         for i in range(Nx):
@@ -239,13 +252,14 @@ def crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer, alpha_inner, de
     mesh = Mesh(OCCGeometry(crystalshape, dim=2).GenerateMesh(maxh = maxH))
     mesh.Curve(10)
     Draw(mesh)
-    
+    # input()
     
     nmat = len(mesh.GetMaterials())
     nbnd = len(mesh.GetBoundaries())
     nvert = len(mesh.GetBBoundaries())
-    # print(mesh.GetBoundaries())
-    # print(mesh.GetMaterials())
+    
+    print(mesh.GetBoundaries())
+    print(mesh.GetMaterials())
     
     
     dom_bnd = ""
