@@ -258,8 +258,8 @@ def crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer, alpha_inner, de
     nbnd = len(mesh.GetBoundaries())
     nvert = len(mesh.GetBBoundaries())
     
-    print(mesh.GetBoundaries())
-    print(mesh.GetMaterials())
+    # print(mesh.GetBoundaries())
+    # print(mesh.GetMaterials())
     
     
     dom_bnd = ""
