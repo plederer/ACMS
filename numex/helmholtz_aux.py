@@ -511,7 +511,7 @@ def ground_truth(mesh, dom_bnd, alpha, kappa, omega, beta, f, g, ord, gamma):
     
     # SetNumThreads(16)
     with TaskManager():
-        V = H1(mesh, order = ord, complex = True)
+        V = H1(mesh, order = ord, complex = True) 
         
         u, v = V.TnT()
 
@@ -696,7 +696,7 @@ def acms_main(mesh, dom_bnd, alpha, Bubble_modes, Edge_modes, order_v, kappa, om
             
             #FEM solution with same order of approximation
             start = time.time()
-            gfu_fem, grad_fem = ground_truth(mesh, dom_bnd, alpha, kappa, omega, beta, f, g, order, gamma)
+            gfu_fem, grad_fem = ground_truth(mesh, dom_bnd, alpha, kappa, omega, beta, f, g, order_v[-1]+2, gamma)
             # Draw(gfu_fem, mesh, "gfu_fem")
             print("FEM computation = ", time.time() - start)
             
