@@ -259,7 +259,11 @@ def crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer, alpha_inner, de
     nvert = len(mesh.GetBBoundaries())
     
     # print(mesh.GetBoundaries())
-    # print(mesh.GetMaterials())
+    # V = H1(mesh, dirichlet = ".*")
+    # gfu = GridFunction(V)
+    # gfu.Set(1, definedon = mesh.Boundaries("dom_bnd_H"))
+    # Draw(gfu)
+    # input()
     
     
     dom_bnd = ""
@@ -292,6 +296,12 @@ def crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer, alpha_inner, de
             mesh.ngmesh.SetCD2Name(i+1,"V" + str(i))
 
     Draw(mesh)
+    
+    
+    
+    
+    
+    
 
     # ########################
     # definition of diffusion coefficient: alpha_outer = 1/12.1 #SILICON  # alpha_inner = 1 #AIR
@@ -320,6 +330,15 @@ def crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer, alpha_inner, de
     
     mesh_info = GetMeshinfo(mesh)
     mesh_info["dom_bnd"] = dom_bnd
+    
+    
+    # print(mesh.GetMaterials())
+    # V = H1(mesh, dirichlet = ".*")
+    # gfu = GridFunction(V)
+    # gfu.Set(1, definedon = mesh.Materials("outer0"))
+    # Draw(gfu)
+    # input()
+    
     
     Draw(alpha, mesh, "alpha")
     

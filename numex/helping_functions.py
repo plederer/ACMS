@@ -301,6 +301,8 @@ class ACMS:
                     edgetype = "D"
                 elif "C" in bndname:
                     edgetype = "C"
+                    
+                edgetype += "_" + str(sum(ddofs))
 
                 for l in range(self.edge_modes):
                     ii = 0
@@ -309,6 +311,7 @@ class ACMS:
                             gfu.vec[d] = self.edgeversions[edgetype][1][l][ii]#.real
                             # gfu.vec[d] = self.edgeversions[edgetype][1][l,ii]#.real
                             ii+=1
+                    # input()
                         
                     gfu.vec.data += -(aharm_inv @ aharm_mat) * gfu.vec
                     localbasis[lii][:] = gfu.vec
@@ -536,10 +539,12 @@ class ACMS:
 
                 vertex_dofs = self.V.GetDofs(self.mesh.BBoundaries(".*")) # Global vertices (coarse mesh)
                 fd = self.V.GetDofs(self.mesh.Boundaries(edge_name[1])) & (~vertex_dofs) 
+                
+                ndofs = sum(fd)
+                
+                edgetype += "_" + str(ndofs)
 
-
-                if edgetype not in self.edgeversions:                           
-                    ndofs = sum(fd)
+                if edgetype not in self.edgeversions:                              
 
                     base_space = H1(self.mesh, order = self.order)#, dirichlet = self.dirichlet) # Creating Sobolev space
                     Vloc = Compress(base_space, fd) #Restricting Sobolev space on edge (with Dirichlet bc)
