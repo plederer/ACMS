@@ -21,79 +21,8 @@ def process_file(file_path: str, ACMS_flag):
     #Save all variables
     errors = np.load(file_path, allow_pickle=True)
     
-    # Retrieve problem type - see if we have exact solution or not
-    problem = errors["Dictionary"][()]["problem"][1]
-
-    if ACMS_flag == 1:
-        dictionary = process_file_exact(errors, verbose = False)
-        table_header, table_content, table_end = create_latex_table_exact(dictionary)
-
-    else:
-        dictionary = process_file_FEM(errors, verbose = False)
-        table_header, table_content, table_end = create_latex_table_FEM(dictionary)
-
-    return table_header, table_content, table_end
-
-
-
-
-
-
-##################################################################
-##################################################################
-##################################################################
-##################################################################
-
-
-def process_file_FEM(errors, verbose = False):
+    # dictionary = process_file_exact(errors)
     
-    # # Retrieve h
-#     index_h = file_path.find("meshH") + 5
-#     index_us = file_path[index_h:].find("_")
-#     h = float(file_path[index_h:index_h + index_us])
-    
-    # Retrieve variables
-    h = errors["Dictionary"][()]["meshsize"][1]
-    kwave = errors["Dictionary"][()]["wavenumber"][1]
-    order = errors["Dictionary"][()]["order"][1]
-    vertices = errors["Dictionary"][()]["vertices"][1]
-    edges = errors["Dictionary"][()]["edges"][1]
-    DoFs = list(errors["nDoFs"])
-    
-      
-    # Retrieve L2 ACMS errors against FEM solution
-    L2_ACMS_FEM_errors = errors["L2_Relative_error"]
-    
-   
-    if verbose:
-        print(f"{h=}")
-        print(f"{kwave=}")
-        print(f"{order=}")
-        print(f"{vertices=}")
-        print(f"{edges=}")
-        print(f"{DoFs=}")
-        print(f"{L2_ACMS_FEM_errors=}")
-        
-    assert len(order) == len(DoFs)
-    
-    return {
-        "h"                     : h,
-        "kwave"                 : kwave,
-        "order"                 : order,
-        "vertices"              : vertices,
-        "edges"                 : edges,
-        "DoFs"                  : DoFs,
-        "L2_ACMS_FEM_errors"    : L2_ACMS_FEM_errors,
-    }
-
- ##################################################################
-##################################################################
-##################################################################
-##################################################################  
-
-
-def process_file_exact(errors, verbose = False):
-
     # Retrieve variables
     h = errors["Dictionary"][()]["meshsize"][1]
     kwave = errors["Dictionary"][()]["wavenumber"][1]
@@ -104,40 +33,47 @@ def process_file_exact(errors, verbose = False):
     
        
     # Retrieve L2 ACMS errors against exact solution
-    L2_ACMS_errors = errors["L2_Relative_error"]
+    L2_ACMS_ex_errors = errors["L2_Relative_error"]
+    H1_ACMS_ex_errors = errors["H1_Relative_error"]
+    
+    # Retrieve L2 ACMS FEM errors 
+    L2_ACMS_FEM_errors = errors["FEM_L2Rel"]
+    H1_ACMS_FEM_errors = errors["FEM_H1Rel"]
     
     # Retrieve L2 FEM errors against exact solution
-    L2_FEM_errors = errors["FEMex_L2RelEr"]
+    L2_FEMex_errors = errors["FEMex_L2RelEr"]
+    H1_FEMex_errors = errors["FEMex_H1RelEr"]
+
     
     # Retrieve L2 errors of Nodal Interpolant
     L2_error_NodInterp = errors["L2Error_NodalInterpolant"]
-    
-    if verbose:
-        print(f"{h=}")
-        print(f"{kwave=}")
-        print(f"{order=}")
-        print(f"{vertices=}")
-        print(f"{edges=}")
-        print(f"{DoFs=}")
-        print(f"{L2_ACMS_errors=}")
-        print(f"{L2_FEM_errors=}")
-        print(f"{L2_error_NodInterp=}")
-        
+    H1_error_NodInterp = errors["H1Error_NodalInterpolant"]
+          
     assert len(order) == len(DoFs)
     
-    return {
+    dictionary_table = {
         "h"                     : h,
         "kwave"                 : kwave,
         "order"                 : order,
         "vertices"              : vertices,
         "edges"                 : edges,
         "DoFs"                  : DoFs,
-        "L2_ACMS_errors"        : L2_ACMS_errors,
-        "L2_FEM_errors"         : L2_FEM_errors,
-        "L2_error_NodInterp"    : L2_error_NodInterp
+        "L2_ACMS_ex_errors"     : L2_ACMS_ex_errors,
+        "H1_ACMS_ex_errors"      : H1_ACMS_ex_errors,
+        "L2_ACMS_FEM_errors"    : L2_ACMS_FEM_errors,
+        "H1_ACMS_FEM_errors"    : H1_ACMS_FEM_errors,
+        "L2_FEMex_errors"       : L2_FEMex_errors,
+        "H1_FEMex_errors"       : H1_FEMex_errors,
+        "L2_error_NodInterp"    : L2_error_NodInterp,
+        "H1_error_NodInterp"    : H1_error_NodInterp
     }
+    
+    if ACMS_flag == 1:
+        table_header, table_content, table_end = create_latex_table_exact(dictionary_table)
+    else:
+        table_header, table_content, table_end = create_latex_table_FEM(dictionary_table)
 
- 
+    return table_header, table_content, table_end
 
     
  ##################################################################
@@ -185,6 +121,15 @@ def create_latex_table_FEM(dictionary):
         for l2_err in L2_ACMS_FEM_errors:
             line += f"& ${number_LTX(l2_err[0])}$ "
         table_content += line + "\\\\\n"
+        
+    table_content += "\\bottomrule\n\\\\\n\\toprule\n"
+    for p,dofs, H1_ACMS_FEM_errors in zip(dictionary["order"], dictionary["DoFs"], dictionary["H1_ACMS_FEM_errors"]):
+        line = f"${dictionary['h']}$ & ${dictionary['vertices']}$ & ${dofs}$ & ${p}$ "
+        
+        for h1_err in H1_ACMS_FEM_errors:
+            line += f"& ${number_LTX(h1_err[0])}$ "
+        table_content += line + "\\\\\n"
+    
     
     table_end = "\\bottomrule\n\\end{tabular}\n}\n\\end{table}"
     # table = table_header + table_content + table_end
@@ -210,12 +155,21 @@ def create_latex_table_exact(dictionary):
         + " \\\\\n\\toprule\\\\\n"
     
     table_content = ""
-    for p,dofs, l2_FEM_errors, l2_NodInt, l2_ACMS_errors in zip(dictionary["order"], dictionary["DoFs"], dictionary["L2_FEM_errors"], dictionary["L2_error_NodInterp"], dictionary["L2_ACMS_errors"]):
+    for p,dofs, l2_FEM_errors, l2_NodInt, l2_ACMS_errors in zip(dictionary["order"], dictionary["DoFs"], dictionary["L2_FEMex_errors"], dictionary["L2_error_NodInterp"], dictionary["L2_ACMS_ex_errors"]):
         line = f"${dictionary['h']}$ & ${dictionary['vertices']}$ & ${dofs}$ & ${p}$ " \
             f"& ${number_LTX(l2_FEM_errors)}$ & ${number_LTX(l2_NodInt)}$ " 
                  
         for l2_err in l2_ACMS_errors:
             line += f"& ${number_LTX(l2_err[0])}$ "
+        table_content += line + "\\\\\n"
+        
+        table_content += "\\bottomrule\n\\\\\n\\toprule\n"
+    for p,dofs, h1_FEM_errors, h1_NodInt, H1_ACMS_errors in zip(dictionary["order"], dictionary["DoFs"], dictionary["H1_FEMex_errors"], dictionary["H1_error_NodInterp"], dictionary["H1_ACMS_ex_errors"]):
+        line = f"${dictionary['h']}$ & ${dictionary['vertices']}$ & ${dofs}$ & ${p}$ " \
+            f"& ${number_LTX(h1_FEM_errors)}$ & ${number_LTX(h1_NodInt)}$ " 
+        
+        for h1_err in H1_ACMS_errors:
+            line += f"& ${number_LTX(h1_err[0])}$ "
         table_content += line + "\\\\\n"
     
     table_end = "\\bottomrule\n\\end{tabular}\n}\n\\end{table}"
@@ -241,7 +195,6 @@ def create_error_file(problem, kappa, maxH, order_v, Bubble_modes, Edge_modes, e
         3 : "LBS",
         4 : "CrystalQuad",
         5 : "CrystalCirc",
-        6 : "CrystalCirc2"
     }
 
     err_type_dict = {
@@ -260,50 +213,21 @@ def create_error_file(problem, kappa, maxH, order_v, Bubble_modes, Edge_modes, e
 ##################################################################
 ##################################################################
 
-
-
-def save_error_file(file_name, dictionary, mesh, l2_error, h1_error, dim, ndofs, dofs, gfu_fem, grad_fem):
-    
-    save_dir = Path('./Results') #Saves local folder name
-    save_dir.mkdir(exist_ok=True) #Creates folder Results if it does not exists already
-    file_path = save_dir.joinpath(file_name) # Full path where to save the results file (no .npy)
-    # print(file_path)
-    
-    # 3 dimensional vector with a matrix in bubbles-edges for each order 
-    # dim = len(order_v), len(Edge_modes), len(Bubble_modes)))
-    l2_error_3d = np.reshape(l2_error, (dim))
-    h1_error_3d = np.reshape(h1_error, (dim))
-    dofs_3d = np.reshape(dofs, (dim))
-    
-    l2_error_rel_3d, h1_error_rel_3d = compute_l2_h1_relative_errors(mesh, gfu_fem, grad_fem, l2_error, h1_error, dim)
-   
-    
-    # Save both 3d objects in the same file. They are assigned names: H1_FEM_error, H1_FEM_Relative_error
-    np.savez(file_path, FileName = file_path, Dictionary = dictionary, nDoFs = ndofs, DoFs = dofs_3d, L2_error = l2_error_3d, L2_Relative_error = l2_error_rel_3d, H1_error = h1_error_3d, H1_Relative_error = h1_error_rel_3d)
-    
-    Errors = np.load(save_dir.joinpath(file_name + ".npz"), allow_pickle = True)
-    print(Errors["FileName"])
-    return Errors
-
-
-
-##################################################################
-##################################################################
-##################################################################
-##################################################################
-
 def compute_l2_h1_relative_errors(mesh, gfu_ex, grad_uex, l2_error, h1_error, dim):
-
-    #Computing norm of the exact solution to use for relative errors
-    l2_norm_ex = Integrate ( InnerProduct(gfu_ex, gfu_ex), mesh, order = 10)
-    h1_norm_ex = l2_norm_ex +  Integrate ( InnerProduct(grad_uex,grad_uex), mesh, order = 10)
-    l2_norm_ex = sqrt(l2_norm_ex.real)
-    h1_norm_ex = sqrt(h1_norm_ex.real)
-
-    #Relative errors
-    l2_error_rel = np.dot(l2_error, 1/l2_norm_ex)
+    if gfu_ex == 0 or grad_uex == 0 :
+        l2_error_rel = np.dot(l2_error, 0)
+        h1_error_rel = np.dot(h1_error, 0)
+    else:
+        #Computing norm of the exact solution to use for relative errors
+        l2_norm_ex = Integrate ( InnerProduct(gfu_ex, gfu_ex), mesh, order = 10)
+        h1_norm_ex = l2_norm_ex +  Integrate ( InnerProduct(grad_uex,grad_uex), mesh, order = 10)
+        l2_norm_ex = sqrt(l2_norm_ex.real)
+        h1_norm_ex = sqrt(h1_norm_ex.real)
+        #Relative errors
+        l2_error_rel = np.dot(l2_error, 1/l2_norm_ex)
+        h1_error_rel = np.dot(h1_error, 1/h1_norm_ex)
+    
     l2_error_rel_3d = np.reshape(l2_error_rel, (dim))
-    h1_error_rel = np.dot(h1_error, 1/h1_norm_ex)
     h1_error_rel_3d = np.reshape(h1_error_rel, (dim))
     
     return l2_error_rel_3d, h1_error_rel_3d
@@ -316,10 +240,18 @@ def compute_l2_h1_relative_errors(mesh, gfu_ex, grad_uex, l2_error, h1_error, di
 
 
 
-def save_error_file_exact(file_name, dictionary, mesh, errors_dictionary, dim, ndofs, dofs, u_ex, Du_ex, gfu_fem, grad_fem):
-       
-    l2_error = errors_dictionary["l2_error_ex"]
-    h1_error = errors_dictionary["h1_error_ex"] 
+def save_error_file(file_name, dictionary, mesh, variables_dictionary, solution_dictionary, errors_dictionary, dim, ndofs, dofs):
+    
+    gfu_fem = solution_dictionary["gfu_fem"]
+    grad_fem = solution_dictionary["grad_fem"]
+    
+   
+    u_ex = variables_dictionary["u_ex"]
+    Du_ex = variables_dictionary["Du_ex"]
+    
+    
+    l2_error_ex = errors_dictionary["l2_error_ex"]
+    h1_error_ex = errors_dictionary["h1_error_ex"] 
     l2_error_fem = errors_dictionary["l2_error"] 
     h1_error_fem = errors_dictionary["h1_error"]
     l2_error_FEMex = errors_dictionary["l2_error_FEMex"]
@@ -335,16 +267,20 @@ def save_error_file_exact(file_name, dictionary, mesh, errors_dictionary, dim, n
     
     # 3 dimensional vector with a matrix in bubbles-edges for each order 
     # dim = len(order_v), len(Edge_modes), len(Bubble_modes)))
-    l2_error_3d = np.reshape(l2_error, (dim))
-    h1_error_3d = np.reshape(h1_error, (dim))
+    l2_error_ex_3d = np.reshape(l2_error_ex, (dim))
+    h1_error_ex_3d = np.reshape(h1_error_ex, (dim))
+    l2_error_fem_3d = np.reshape(l2_error_fem, (dim))
+    h1_error_fem_3d = np.reshape(h1_error_fem, (dim))
     dofs_3d = np.reshape(dofs, (dim))
     
-    l2_error_rel_3d, h1_error_rel_3d = compute_l2_h1_relative_errors(mesh, u_ex, Du_ex, l2_error, h1_error, dim)
+    l2_error_rel_3d, h1_error_rel_3d = compute_l2_h1_relative_errors(mesh, u_ex, Du_ex, l2_error_ex, h1_error_ex, dim)
     l2_error_rel_fem, h1_error_rel_fem = compute_l2_h1_relative_errors(mesh, gfu_fem, grad_fem, l2_error_fem, h1_error_fem, dim)
     l2_error_rel_FEMex, h1_error_rel_FEMex = compute_l2_h1_relative_errors(mesh, u_ex, Du_ex, l2_error_FEMex, h1_error_FEMex, np.size(l2_error_FEMex))
 
+    print("l2_error_rel_fem", l2_error_rel_fem)
+       
     # Save both 3d objects in the same file. They are assigned names: H1_FEM_error, H1_FEM_Relative_error
-    np.savez(file_path, FileName = file_path, Dictionary = dictionary, nDoFs = ndofs, DoFs = dofs_3d, L2_error = l2_error_3d, L2_Relative_error = l2_error_rel_3d, H1_error = h1_error_3d, H1_Relative_error = h1_error_rel_3d, FEMex_L2RelEr = l2_error_rel_FEMex, FEMex_H1RelEr = h1_error_rel_FEMex, FEM_L2Rel = l2_error_rel_fem, FEM_H1REl = h1_error_rel_fem, L2Error_NodalInterpolant = l2_error_NodInt, H1Error_NodalInterpolant = h1_error_NodInt)
+    np.savez(file_path, FileName = file_path, Dictionary = dictionary, nDoFs = ndofs, DoFs = dofs_3d, L2_error_ex = l2_error_ex_3d, L2_error_fem =l2_error_fem_3d , L2_Relative_error = l2_error_rel_3d, H1_error_ex = h1_error_ex_3d, H1_error_fem = h1_error_fem_3d, H1_Relative_error = h1_error_rel_3d, FEMex_L2RelEr = l2_error_rel_FEMex, FEMex_H1RelEr = h1_error_rel_FEMex, FEM_L2Rel = l2_error_rel_fem, FEM_H1Rel = h1_error_rel_fem, L2Error_NodalInterpolant = l2_error_NodInt, H1Error_NodalInterpolant = h1_error_NodInt)
 
     # Loading file to print errors (allow_picke means we can have strings)
     Errors = np.load(save_dir.joinpath(file_name + ".npz"), allow_pickle = True)
@@ -352,27 +288,103 @@ def save_error_file_exact(file_name, dictionary, mesh, errors_dictionary, dim, n
 
     return Errors
 
-##################################################################
-##################################################################
-##################################################################
-##################################################################
-# print(Errors['Dictionary'][()]['order'])
-    # print(Errors['Dictionary'][()]['bubbles'])
-    # print(Errors['Dictionary'][()]['edges'])
-    # print(Errors['Dictionary'][()]['vertices'])
-    # print(Errors['Dictionary'][()]['problem'])
-    # print(Errors['Dictionary'][()]['wavenumber'])
-#     print("Degrees of Freedom")
-#     print(Errors['DoFs'][0])
-#     print("System size")
-#     print(Errors['nDoFs'])    
-    # print("L2 error")
-    # print(Errors['L2_error'])
-    # print("L2 relative error")
-    # print(Errors['L2_Relative_error'])
-    # print("H1 error")
-    # print(Errors['H1_error'])
-    # print("L2 nodal interpolant error")
-    # print(Errors['L2Error_NodalInterpolant'])
-    # print(Errors['H1Error_NodalInterpolant'])
 
+
+
+
+
+
+# ##################################################################
+# ##################################################################
+# ##################################################################
+# ##################################################################  
+
+
+# def process_file_exact(errors):
+
+#     # Retrieve variables
+#     h = errors["Dictionary"][()]["meshsize"][1]
+#     kwave = errors["Dictionary"][()]["wavenumber"][1]
+#     order = errors["Dictionary"][()]["order"][1]
+#     vertices = errors["Dictionary"][()]["vertices"][1]
+#     edges = errors["Dictionary"][()]["edges"][1]
+#     DoFs = list(errors["nDoFs"])
+    
+       
+#     # Retrieve L2 ACMS errors against exact solution
+#     L2_ACMS_ex_errors = errors["L2_Relative_error"]
+#     H1_ACMS_ex_error = errors["H1_Relative_error"]
+    
+#     # Retrieve L2 ACMS FEM errors 
+#     L2_ACMS_FEM_errors = errors["FEM_L2Rel"]
+#     H1_ACMS_FEM_error = errors["FEM_H1Rel"]
+    
+#     # Retrieve L2 FEM errors against exact solution
+#     L2_FEMex_errors = errors["FEMex_L2RelEr"]
+#     H1_FEMex_error = errors["FEMex_H1RelEr"]
+
+    
+#     # Retrieve L2 errors of Nodal Interpolant
+#     L2_error_NodInterp = errors["L2Error_NodalInterpolant"]
+#     H1_error_NodInterp = errors["H1Error_NodalInterpolant"]
+          
+#     assert len(order) == len(DoFs)
+    
+#     return {
+#         "h"                     : h,
+#         "kwave"                 : kwave,
+#         "order"                 : order,
+#         "vertices"              : vertices,
+#         "edges"                 : edges,
+#         "DoFs"                  : DoFs,
+#         "L2_ACMS_ex_errors"     : L2_ACMS_ex_errors,
+#         "H1_ACMS_ex_error"      : H1_ACMS_ex_error,
+#         "L2_ACMS_FEM_errors"    : L2_ACMS_FEM_errors,
+#         "H1_ACMS_FEM_error"     : H1_ACMS_FEM_error,
+#         "L2_FEMex_errors"       : L2_FEMex_errors,
+#         "H1_FEMex_error"        : H1_FEMex_error,
+#         "L2_error_NodInterp"    : L2_error_NodInterp,
+#         "H1_error_NodInterp"    : H1_error_NodInterp
+#     }
+
+ 
+
+
+
+
+
+##################################################################
+##################################################################
+##################################################################
+##################################################################
+
+
+# def convergence_plots(plot_error, dofs, h1_error, mesh, Edge_modes, Bubble_modes, order_v):
+
+#     ## Convergence plots
+
+#     if plot_error ==1:
+
+#         h1_error = np.reshape(h1_error, (len(order_v)*len(Edge_modes), len(Bubble_modes)))
+#         dofs = np.reshape(dofs, (len(order_v)*len(Edge_modes), len(Bubble_modes)))
+
+
+#         #Bubbles
+#         plt.rcParams.update({'font.size':15})
+#         for p in range(len(order_v)):
+#             for i in range(len(Edge_modes)):
+#                 plt.loglog(Bubble_modes, h1_error[p*len(Edge_modes) + i,:], label=('Edge modes=%i' %Edge_modes[i]))
+#         plt.title('$H^1$ errors: increased bubbles deg=%i' %p)
+#         plt.legend()
+#         plt.xlabel('Bubbles')
+
+#         #Edges
+#         plt.rcParams.update({'font.size':15})
+#         for p in range(len(order_v)):
+#             for i in range(len(Bubble_modes)):
+#                 plt.loglog(Edge_modes, h1_error[p*len(Edge_modes):(p+1)*len(Edge_modes),i], label=('Bubbles=%i' %Bubble_modes[i]))
+#         plt.title('$H^1$ errors: increased edge modes deg=%i' %p)
+#         plt.legend()
+#         plt.xlabel('Edge modes')
+
+#         plt.show()

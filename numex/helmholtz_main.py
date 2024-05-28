@@ -19,9 +19,15 @@ print("Order of approximation is ", order_v)
 # print("Number of bubble modes is ", Bubble_modes)
 Edge_modes = list(map(int, input("Number of edge modes. Vector = ").split())) # Vector [2,4,8,16,32,64,128]
 print("Number of edge modes is ", Edge_modes)
+if problem == 5:
+    incl = int(input("Number of inclusions in one direction per cell incl (Power of 2): "))
+else:
+    incl = 0
+
 
 # For testing
 # problem = 5
+# incl = 1
 # omega = 1 #0.484/10
 # Href = 0
 # maxH = 0.2
@@ -29,39 +35,32 @@ print("Number of edge modes is ", Edge_modes)
 # Bubble_modes = [0]
 # Edge_modes = [1]
 
+
 Bubble_modes = [0]
 ACMS_flag = 0   #1 = exact sol 0 = fem error
-if problem == 5:
-    incl = int(input("Number of inclusions in one direction per cell incl (Power of 2): "))
-else:
-    incl = 0
-
 
 error_table = 1
 table_content_aux = ""
 table_header = ""
 table_end = ""
 
+
 SetNumThreads(12)
 with TaskManager():
     for h in maxH/(2**np.arange(0, Href + 1 , 1)):
         print(h)
         # Variables setting
-        mesh, dom_bnd, alpha, kappa, beta, gamma, f, g, sol_ex, u_ex, Du_ex, mesh_info = problem_definition(problem, incl, h, omega)
-        print(mesh.nv)
-
+        mesh, dom_bnd, mesh_info, variables_dictionary = problem_definition(problem, incl, h, omega, Bubble_modes, Edge_modes, order_v)
+        
+        #FEM solution with same order of approximation
+        solution_dictionary = ground_truth(mesh, dom_bnd, variables_dictionary, 10)
+        
         # Solve ACMS system and compute errors
-        ndofs, dofs, errors_dictionary, solution_dictionary = acms_main(mesh, dom_bnd, alpha, Bubble_modes, Edge_modes, order_v, kappa, omega, beta, gamma, f, g, u_ex, Du_ex, mesh_info)    
+        variables_dictionary, solution_dictionary, errors_dictionary = acms_main(mesh, mesh_info, dom_bnd, variables_dictionary, solution_dictionary)    
         
-        gfu_acms = solution_dictionary["gfu_acms"]
-        gfu_fem = solution_dictionary["gfu_fem"]
-        grad_fem = solution_dictionary["grad_fem"]
         
-        Draw(gfu_acms, mesh, "uacms")
-        Draw(gfu_fem, mesh, "ufem")
-              
         if error_table == 1:
-            file_name, Errors = error_table_save(h, problem, order_v, Bubble_modes, Edge_modes, mesh, kappa, errors_dictionary, ndofs, dofs, u_ex, sol_ex, gfu_fem, grad_fem)
+            file_name, Errors = error_table_save(maxH, mesh, variables_dictionary, solution_dictionary, errors_dictionary)
             file_path = f"./Results/" + file_name + ".npz"
             table_header, table_content, table_end = process_file(file_path, ACMS_flag)
             table_content_aux += table_content + "\\\\\n"

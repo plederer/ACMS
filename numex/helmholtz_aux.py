@@ -382,7 +382,7 @@ def crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer, alpha_inner, de
 
 
 
-def problem_definition(problem, incl, maxH, omega):
+def problem_definition(problem, incl, maxH, omega, Bubble_modes, Edge_modes, order_v):
 
     if problem ==1:  #Problem setting - PLANE WAVE
         # #Generate mesh: unit disco with 8 subdomains
@@ -513,8 +513,27 @@ def problem_definition(problem, incl, maxH, omega):
         sol_ex = 0
         Du_ex = 0
         gamma = 1
-
-    return mesh, dom_bnd, alpha, kappa, beta, gamma, f, g, sol_ex, u_ex, Du_ex, mesh_info
+        
+        
+    variables_dictionary = {
+        'problem'      : problem,
+        'alpha'        : alpha, 
+        'omega'        : omega,
+        'kappa'        : kappa, 
+        'beta'         : beta, 
+        'gamma'        : gamma, 
+        'f'            : f, 
+        'g'            : g,
+        'sol_ex'       : sol_ex,
+        'u_ex'         :  u_ex,
+        'Du_ex'        : Du_ex,
+        'Bubble_modes' : Bubble_modes, 
+        'Edge_modes'   : Edge_modes, 
+        'order_v'      : order_v
+    }
+    
+    return mesh, dom_bnd, mesh_info, variables_dictionary
+    # return mesh, dom_bnd, alpha, kappa, beta, gamma, f, g, sol_ex, u_ex, Du_ex, mesh_info
 
 
 ##################################################################
@@ -524,12 +543,22 @@ def problem_definition(problem, incl, maxH, omega):
 
 
 
-def ground_truth(mesh, dom_bnd, alpha, kappa, omega, beta, f, g, ord, gamma):
+def ground_truth(mesh, dom_bnd, variables_dictionary, ord):
     #  RESOLUTION OF GROUND TRUTH SOLUTION
     #Computing the FEM solution /  ground truth solution with higher resolution
     
+    alpha = variables_dictionary["alpha"]
+    omega = variables_dictionary["omega"]
+    kappa = variables_dictionary["kappa"]
+    beta = variables_dictionary["beta"]
+    gamma = variables_dictionary["gamma"]
+    f = variables_dictionary["f"]
+    g = variables_dictionary["g"]
+    
     # SetNumThreads(16)
     with TaskManager():
+        start = time.time()
+        
         V = H1(mesh, order = ord, complex = True) 
         
         u, v = V.TnT()
@@ -548,18 +577,195 @@ def ground_truth(mesh, dom_bnd, alpha, kappa, omega, beta, f, g, ord, gamma):
         gfu_fem = GridFunction(V)
         ainv = a.mat.Inverse(V.FreeDofs(), inverse = "sparsecholesky")
         gfu_fem.vec.data = ainv * l.vec
-        print("FEM finished")
+        print("FEM computation = ", time.time() - start)
 
         Draw(gfu_fem, mesh,"ufem")
         grad_fem = Grad(gfu_fem)
+        
+    solution_dictionary = {
+        'gfu_fem' :  gfu_fem,
+        'grad_fem':  grad_fem
+    }
     
-    return gfu_fem, grad_fem
+    return solution_dictionary #gfu_fem, grad_fem
 
 
 ##################################################################
 ##################################################################
 ##################################################################
 ##################################################################
+
+def compute_acms_solution(mesh, V, acms, edge_basis):    
+    
+    gfu = GridFunction(V)
+    
+    if (edge_basis == False):
+        gfu = 0
+        num = 0
+    else:         
+        setupstart = time.time()
+        
+        num = acms.acmsdofs #len(basis)
+        print("finished setup", time.time() - setupstart)        
+        invstart = time.time()
+        asmall = acms.asmall
+        print("calc asmall = ", time.time() - invstart)
+        
+        ainvsmall = Matrix(numpy.linalg.inv(asmall))
+        f_small = acms.fsmall
+        usmall = ainvsmall * f_small
+        
+        gfu.vec[:] = 0.0
+        # print("norm of usmall = ", Norm(usmall))
+
+        acms.SetGlobalFunction(gfu, usmall)
+        Draw(gfu, mesh, "uacms")
+     
+        print("finished_acms")
+    return gfu, num
+
+##################################################################
+##################################################################
+# int_bnd_name = "crystal_bnd_right" #"dom_bnd"
+        # # integral = acms.IntegrateACMS(bndname = "crystal_bnd_right", coeffs = usmall)
+        # integral = acms.IntegrateACMS(bndname = int_bnd_name, coeffs = usmall)
+        # print("myint = ", integral)
+        
+           # intval = 0
+        # for edgename in mesh.GetBoundaries():
+        #         if int_bnd_name in edgename:
+        #             # print(edgename)
+        #             intval += Integrate(gfu, mesh, definedon = mesh.Boundaries(edgename))
+        #             # print(intval)
+        # print("error integral = ", intval - integral)
+
+##################################################################
+##################################################################
+
+ 
+ 
+ 
+  
+def acms_main(mesh, mesh_info, dom_bnd, variables_dictionary, solution_dictionary):
+    #  ACMS RESOLUTION
+
+    l2_error = []
+    l2_error_ex = []
+    h1_error = []
+    h1_error_ex = []
+    l2_error_NodInt = []
+    h1_error_NodInt = []
+    l2_error_FEMex = []
+    h1_error_FEMex = []
+    dofs =[]
+    ndofs = []
+    
+   
+    Bubble_modes = variables_dictionary["Bubble_modes"]
+    Edge_modes = variables_dictionary["Edge_modes"]
+    order_v = variables_dictionary["order_v"]
+    
+    alpha = variables_dictionary["alpha"]
+    omega = variables_dictionary["omega"]
+    kappa = variables_dictionary["kappa"]
+    beta = variables_dictionary["beta"]
+    gamma = variables_dictionary["gamma"]
+    f = variables_dictionary["f"]
+    g = variables_dictionary["g"]
+    u_ex = variables_dictionary["u_ex"]
+    Du_ex = variables_dictionary["Du_ex"]
+    
+    gfu_fem = solution_dictionary["gfu_fem"]
+    grad_fem = solution_dictionary["grad_fem"]
+    
+    # SetNumThreads(16)
+    with TaskManager():
+        for order in order_v:
+            print(order)      
+              
+            V = H1(mesh, order = order, complex = True)
+            ndofs.append(V.ndof)
+
+            Iu = GridFunction(V) #Nodal interpolant            
+                        
+            if V.ndof < 10000000:
+                for EM in Edge_modes:
+                    print("Edge modes =", EM)
+                    for BM in Bubble_modes:
+                        
+                        start = time.time()
+                        
+                        #Computing full basis with max number of modes 
+                        # bi = bonus int order - should match the curved mesh order
+                        acms = ACMS(order = order, mesh = mesh, bm = BM, em = EM, bi = mesh.GetCurveOrder(), mesh_info = mesh_info, alpha = alpha, omega = omega, kappa = kappa, f = f, g = g, beta = beta, gamma = gamma)
+                        
+                        edges_time = time.time() 
+                        edge_basis = acms.calc_edge_basis()
+                        print("Edge basis functions computation in --- %s seconds ---" % (time.time() - edges_time))
+                        print("time to compute harmonic extensions = ", time.time() - start)
+                        # print(edge_basis)
+                        
+                        if edge_basis:
+                            start = time.time()
+                            acms.CalcHarmonicExtensions()
+                                                        
+                            assemble_start = time.time()
+                            for m in acms.doms:
+                                acms.Assemble_localA(m)
+                            print("assemble = ", time.time() - assemble_start)
+        
+                        gfu, num = compute_acms_solution(mesh, V, acms, edge_basis)
+                        dofs.append(num)
+                        l2_error, l2_error_ex, h1_error, h1_error_ex = append_acms_errors(mesh, gfu, gfu_fem, u_ex, grad_fem, Du_ex, l2_error, l2_error_ex, h1_error, h1_error_ex)
+
+                l2_error_NodInt, h1_error_NodInt, l2_error_FEMex, h1_error_FEMex = append_NI_FEM_errors(mesh, gfu_fem, u_ex, Du_ex, Iu, l2_error_NodInt, h1_error_NodInt, l2_error_FEMex, h1_error_FEMex)
+           
+            else:
+                for EM in Edge_modes:
+                    for BM in Bubble_modes:
+                        l2_error, l2_error_ex, h1_error, h1_error_ex = append_acms_errors(mesh, 0, 0, 0, 0, 0, l2_error, l2_error_ex, h1_error, h1_error_ex)
+
+                l2_error_NodInt, h1_error_NodInt, l2_error_FEMex, h1_error_FEMex = append_NI_FEM_errors(mesh, 0, 0, 0, 0, l2_error_NodInt, h1_error_NodInt, l2_error_FEMex, h1_error_FEMex)
+                
+    
+    print("L2 error = ", l2_error)   
+    print("L2 error exact= ", l2_error_ex)
+    print("H1 error = ", h1_error)
+    print("H1 error exact= ", h1_error_ex)
+    # print(l2_error_NodInt)
+    # print(h1_error_NodInt)
+    # print(l2_error_FEMex)
+    # print(l2_error_FEMex)
+    
+    errors_dictionary = {
+        'l2_error':        l2_error, 
+        'l2_error_ex':     l2_error_ex, 
+        'h1_error':        h1_error, 
+        'h1_error_ex':     h1_error_ex, 
+        'l2_error_NodInt': l2_error_NodInt, 
+        'h1_error_NodInt': h1_error_NodInt, 
+        'l2_error_FEMex':  l2_error_FEMex, 
+        'h1_error_FEMex':  h1_error_FEMex
+    }
+    
+    solution_dictionary.update({'gfu_acms':  gfu})
+    variables_dictionary.update({'ndofs':  ndofs})
+    variables_dictionary.update({'dofs':  dofs})
+    
+    print("ndofs = ", ndofs)
+    print("dofs = ", dofs)
+
+    return variables_dictionary, solution_dictionary, errors_dictionary
+
+
+
+
+
+##################################################################
+##################################################################
+##################################################################
+##################################################################
+
 
 
 def compute_h1_error(gfu, grad_fem, mesh):
@@ -640,174 +846,21 @@ def append_NI_FEM_errors(mesh, gfu_fem, u_ex, Du_ex, Iu, l2_error_NodInt, h1_err
 ##################################################################
 
  
- 
-def compute_acms_solution(mesh, V, acms, edge_basis):    
+
+
+
+
+def error_table_save(maxH, mesh, variables_dictionary, solution_dictionary, errors_dictionary):
     
+    Bubble_modes = variables_dictionary["Bubble_modes"]
+    Edge_modes = variables_dictionary["Edge_modes"]
+    order_v = variables_dictionary["order_v"]
     
-    gfu = GridFunction(V)
-    
-    if (edge_basis == False):
-        gfu = 0
-        num = 0
-        
-    else:         
-        setupstart = time.time()
-        
-        num = acms.acmsdofs #len(basis)
-        print("finished setup", time.time() - setupstart)        
-        invstart = time.time()
-        asmall = acms.asmall
-        print("calc asmall = ", time.time() - invstart)
-        
-        ainvsmall = Matrix(numpy.linalg.inv(asmall))
-        f_small = acms.fsmall
-        usmall = ainvsmall * f_small
-        
-        gfu.vec[:] = 0.0
-        # print("norm of usmall = ", Norm(usmall))
-
-        # int_bnd_name = "crystal_bnd_right" #"dom_bnd"
-        # # integral = acms.IntegrateACMS(bndname = "crystal_bnd_right", coeffs = usmall)
-        # integral = acms.IntegrateACMS(bndname = int_bnd_name, coeffs = usmall)
-        # print("myint = ", integral)
-
-        acms.SetGlobalFunction(gfu, usmall)
-        Draw(gfu, mesh, "uacms")
-
-        # intval = 0
-        # for edgename in mesh.GetBoundaries():
-        #         if int_bnd_name in edgename:
-        #             # print(edgename)
-        #             intval += Integrate(gfu, mesh, definedon = mesh.Boundaries(edgename))
-        #             # print(intval)
-        # print("error integral = ", intval - integral)
-
-        print("finished_acms")
-    return gfu, num
-
-##################################################################
-##################################################################
-##################################################################
-##################################################################
-
- 
- 
- 
-  
-def acms_main(mesh, dom_bnd, alpha, Bubble_modes, Edge_modes, order_v, kappa, omega, beta, gamma, f, g, u_ex, Du_ex, mesh_info):
-    #  ACMS RESOLUTION
-
-    l2_error = []
-    l2_error_ex = []
-    h1_error = []
-    h1_error_ex = []
-    l2_error_NodInt = []
-    h1_error_NodInt = []
-    l2_error_FEMex = []
-    h1_error_FEMex = []
-    dofs =[]
-    ndofs = []
-    
-    # SetNumThreads(16)
-    with TaskManager():
-        for order in order_v:
-            print(order)
-            
-            #FEM solution with same order of approximation
-            start = time.time()
-            gfu_fem, grad_fem = ground_truth(mesh, dom_bnd, alpha, kappa, omega, beta, f, g, order_v[-1]+2, gamma)
-            # Draw(gfu_fem, mesh, "gfu_fem")
-            print("FEM computation = ", time.time() - start)
-            
-            V = H1(mesh, order = order, complex = True)
-            ndofs.append(V.ndof)
-
-            Iu = GridFunction(V) #Nodal interpolant            
-                        
-            if V.ndof < 10000000:
-                for EM in Edge_modes:
-                    print("Edge modes =", EM)
-                    for BM in Bubble_modes:
-                        
-                        #Computing full basis with max number of modes 
-                        # bi = bonus int order - should match the curved mesh order
-                        acms = ACMS(order = order, mesh = mesh, bm = BM, em = EM, bi = mesh.GetCurveOrder(), mesh_info = mesh_info, alpha = alpha, omega = omega, kappa = kappa, f = f, g = g, beta = beta, gamma = gamma)
-                        
-                        edges_time = time.time() 
-                        edge_basis = acms.calc_edge_basis()
-                        print("Edge basis functions computation in --- %s seconds ---" % (time.time() - edges_time))
-                        print("time to compute harmonic extensions = ", time.time() - start)
-                        # print(edge_basis)
-                        
-                        if edge_basis:
-                            start = time.time()
-                            acms.CalcHarmonicExtensions()
-                                                        
-                            assemble_start = time.time()
-                            for m in acms.doms:
-                                acms.Assemble_localA(m)
-                            print("assemble = ", time.time() - assemble_start)
-        
-                        gfu, num = compute_acms_solution(mesh, V, acms, edge_basis)
-                        dofs.append(num)
-                        l2_error, l2_error_ex, h1_error, h1_error_ex = append_acms_errors(mesh, gfu, gfu_fem, u_ex, grad_fem, Du_ex, l2_error, l2_error_ex, h1_error, h1_error_ex)
-
-                l2_error_NodInt, h1_error_NodInt, l2_error_FEMex, h1_error_FEMex = append_NI_FEM_errors(mesh, gfu_fem, u_ex, Du_ex, Iu, l2_error_NodInt, h1_error_NodInt, l2_error_FEMex, h1_error_FEMex)
-           
-            else:
-                for EM in Edge_modes:
-                    for BM in Bubble_modes:
-                        l2_error, l2_error_ex, h1_error, h1_error_ex = append_acms_errors(mesh, 0, 0, 0, 0, 0, l2_error, l2_error_ex, h1_error, h1_error_ex)
-
-                l2_error_NodInt, h1_error_NodInt, l2_error_FEMex, h1_error_FEMex = append_NI_FEM_errors(mesh, 0, 0, 0, 0, l2_error_NodInt, h1_error_NodInt, l2_error_FEMex, h1_error_FEMex)
-                
-    
-    print("L2 error = ", l2_error)   
-    print("L2 error exact= ", l2_error_ex)
-    print("H1 error = ", h1_error)
-    print("H1 error exact= ", h1_error_ex)
-    # print(l2_error_NodInt)
-    # print(h1_error_NodInt)
-    # print(l2_error_FEMex)
-    # print(l2_error_FEMex)
-    
-    errors_dictionary = {
-        'l2_error':        l2_error, 
-        'l2_error_ex':     l2_error_ex, 
-        'h1_error':        h1_error, 
-        'h1_error_ex':     h1_error_ex, 
-        'l2_error_NodInt': l2_error_NodInt, 
-        'h1_error_NodInt': h1_error_NodInt, 
-        'l2_error_FEMex':  l2_error_FEMex, 
-        'h1_error_FEMex':  h1_error_FEMex
-    }
-    
-    solution_dictionary = {
-        'gfu_acms':  gfu,
-        'gfu_fem' :  gfu_fem,
-        'grad_fem':  grad_fem
-    }
-    
-    print("ndofs = ", ndofs)
-    print("dofs = ", dofs)
-
-    return ndofs, dofs, errors_dictionary, solution_dictionary
-
-
-
-
-
-##################################################################
-##################################################################
-##################################################################
-##################################################################
-
-
-
-
-
-def error_table_save(maxH, problem, order_v, Bubble_modes, Edge_modes, mesh, kappa, errors_dictionary, ndofs, dofs, u_ex, sol_ex, gfu_fem, grad_fem):
-    plot_error = 0
+    problem = variables_dictionary["problem"]
+    kappa = variables_dictionary["kappa"]
+    sol_ex = variables_dictionary["sol_ex"]
+    ndofs = variables_dictionary["ndofs"]
+    dofs = variables_dictionary["dofs"]
     
     # Save both H1 and H1-relative errors on file named "file_name.npz" 
     dim = (len(order_v), len(Edge_modes), len(Bubble_modes))
@@ -823,105 +876,14 @@ def error_table_save(maxH, problem, order_v, Bubble_modes, Edge_modes, mesh, kap
         "wavenumber" : ["Chosen wavenumber is", kappa]
     }
     
-    
-    if sol_ex == 0:
-        print("Error with FEM of order max as ground truth solution")
-        file_name = create_error_file(problem, kappa, maxH, order_v, Bubble_modes, Edge_modes, 0)
-        Errors = save_error_file(file_name, dictionary, mesh, errors_dictionary["l2_error"], errors_dictionary["h1_error"], dim, ndofs, dofs, gfu_fem, grad_fem)
-        convergence_plots(plot_error, dofs, errors_dictionary["h1_error"], mesh, Edge_modes, Bubble_modes, order_v)
-        
-    elif sol_ex == 1:
-        print("Error with exact solution")
-        Du_ex = CF((u_ex.Diff(x), u_ex.Diff(y))) #If we have analytical solution defined
-        #Error with FEM
-        file_name = create_error_file(problem, kappa, maxH, order_v, Bubble_modes, Edge_modes, 1)
-        Errors = save_error_file_exact(file_name, dictionary, mesh, errors_dictionary, dim, ndofs, dofs, u_ex, Du_ex, gfu_fem, grad_fem)
-        convergence_plots(plot_error, dofs, errors_dictionary["h1_error_ex"], mesh, Edge_modes, Bubble_modes, order_v)
 
+    file_name = create_error_file(problem, kappa, maxH, order_v, Bubble_modes, Edge_modes, sol_ex)
+    Errors = save_error_file(file_name, dictionary, mesh, variables_dictionary, solution_dictionary, errors_dictionary, dim, ndofs, dofs)
+    
     return file_name, Errors
      
         
-        
-        
-        
-#  def main(maxH, problem, omega, order_v, Bubble_modes, Edge_modes):
-#     plot_error = 0
-#     # Variables setting
-#     mesh, dom_bnd, alpha, kappa, beta, f, g, sol_ex, u_ex, Du_ex, mesh_info = problem_definition(problem, maxH, omega)
-#     # Draw(mesh)
-
-#     # Compute ground truth solution with FEM of order max on the initialised mesh
-#     gfu_fem, grad_fem = ground_truth(mesh, dom_bnd, alpha, kappa, omega, beta, f, g, order_v[-1])
-
-#     # Solve ACMS system and compute H1 error
-#     ndofs, dofs, errors_dictionary = acms_solution(mesh, dom_bnd, alpha, Bubble_modes, Edge_modes, order_v, kappa, omega, beta, f, g, gfu_fem, u_ex, Du_ex, mesh_info)    
-    
-    
-#     # Save both H1 and H1-relative errors on file named "file_name.npz" 
-#     # It needs to be loaded to be readable
-#     dim = (len(order_v), len(Edge_modes), len(Bubble_modes))
-#     dictionary = {
-#         1            : ["The keys are: meshsize, order, bubbles, edges, vertices, problem, wavenumber."],
-#         'meshsize'   : ["The mesh size is", maxH],
-#         'order'      : ["The order of approximation is",  order_v],
-#         'bubbles'    : ["The number of bubble functions is", Bubble_modes],
-#         'edges'      : ["The number of edge modes is", Edge_modes],
-#         'vertices'   : ["The number of vertices is", mesh.nv],
-#         'problem'    : ["Chosen problem", problem],
-#         "wavenumber" : ["Chosen wavenumber is", kappa]
-#     }
-    
-    
-#     if sol_ex == 0:
-#         print("Error with FEM of order max as ground truth solution")
-#         file_name = create_error_file(problem, kappa, maxH, order_v, Bubble_modes, Edge_modes, 0)
-#         Errors = save_error_file(file_name, dictionary, mesh, errors_dictionary["l2_error"], errors_dictionary["h1_error"], dim, ndofs, dofs, gfu_fem, grad_fem)
-#         convergence_plots(plot_error, dofs, errors_dictionary["h1_error"], mesh, Edge_modes, Bubble_modes, order_v)
-        
-#     elif sol_ex == 1:
-#         print("Error with exact solution")
-#         Du_ex = CF((u_ex.Diff(x), u_ex.Diff(y))) #If we have analytical solution defined
-#         #Error with FEM
-#         file_name = create_error_file(problem, kappa, maxH, order_v, Bubble_modes, Edge_modes, 1)
-#         Errors = save_error_file_exact(file_name, dictionary, mesh, errors_dictionary, dim, ndofs, dofs, u_ex, Du_ex, gfu_fem, grad_fem)
-#         convergence_plots(plot_error, dofs, errors_dictionary["h1_error_ex"], mesh, Edge_modes, Bubble_modes, order_v)
-
-#     return file_name, Errors
-     
-        
-       
-##################################################################
-##################################################################
-##################################################################
-##################################################################
 
 
-def convergence_plots(plot_error, dofs, h1_error, mesh, Edge_modes, Bubble_modes, order_v):
-
-    ## Convergence plots
-
-    if plot_error ==1:
-
-        h1_error = np.reshape(h1_error, (len(order_v)*len(Edge_modes), len(Bubble_modes)))
-        dofs = np.reshape(dofs, (len(order_v)*len(Edge_modes), len(Bubble_modes)))
 
 
-        #Bubbles
-        plt.rcParams.update({'font.size':15})
-        for p in range(len(order_v)):
-            for i in range(len(Edge_modes)):
-                plt.loglog(Bubble_modes, h1_error[p*len(Edge_modes) + i,:], label=('Edge modes=%i' %Edge_modes[i]))
-        plt.title('$H^1$ errors: increased bubbles deg=%i' %p)
-        plt.legend()
-        plt.xlabel('Bubbles')
-
-        #Edges
-        plt.rcParams.update({'font.size':15})
-        for p in range(len(order_v)):
-            for i in range(len(Bubble_modes)):
-                plt.loglog(Edge_modes, h1_error[p*len(Edge_modes):(p+1)*len(Edge_modes),i], label=('Bubbles=%i' %Bubble_modes[i]))
-        plt.title('$H^1$ errors: increased edge modes deg=%i' %p)
-        plt.legend()
-        plt.xlabel('Edge modes')
-
-        plt.show()
