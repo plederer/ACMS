@@ -29,7 +29,7 @@ else:
 
 
 Bubble_modes = [0]
-ACMS_flag = 1   # 1 = exact sol 0 = fem error
+ACMS_flag = 0   # 1 = exact sol 0 = fem error
 
 error_table = 1
 table_content_l2_aux = ""
