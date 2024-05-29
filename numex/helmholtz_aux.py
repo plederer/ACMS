@@ -519,6 +519,7 @@ def problem_definition(problem, incl, maxH, omega, Bubble_modes, Edge_modes, ord
         
     variables_dictionary = {
         'problem'      : problem,
+        'incl'         : incl,
         'alpha'        : alpha, 
         'omega'        : omega,
         'kappa'        : kappa, 

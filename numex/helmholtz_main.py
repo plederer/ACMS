@@ -12,10 +12,16 @@ print("Order of approximation is ", order_v)
 # print("Number of bubble modes is ", Bubble_modes)
 Edge_modes = list(map(int, input("Number of edge modes. Vector = ").split())) # Vector [2,4,8,16,32,64,128]
 print("Number of edge modes is ", Edge_modes)
+
 if problem == 5:
     incl = int(input("Number of inclusions in one direction per cell incl (Power of 2): "))
+    ACMS_flag = 0 #FEM vs ACMS error
+elif problem == 1:
+    incl = 0
+    ACMS_flag = int(input("Error against exact solution = 1 or FEM solution = 0. "))
 else:
     incl = 0
+    ACMS_flag = 0
 
 # For testing
 # problem = 5
@@ -27,9 +33,7 @@ else:
 # Bubble_modes = [0]
 # Edge_modes = [1]
 
-
 Bubble_modes = [0]
-ACMS_flag = 0   # 1 = exact sol 0 = fem error
 
 error_table = 1
 table_content_l2_aux = ""
@@ -49,7 +53,9 @@ with TaskManager():
         solution_dictionary = ground_truth(mesh, dom_bnd, variables_dictionary, 10)
         
         # Solve ACMS system and compute errors
-        variables_dictionary, solution_dictionary, errors_dictionary = acms_main(mesh, mesh_info, dom_bnd, variables_dictionary, solution_dictionary)            
+        variables_dictionary, solution_dictionary, errors_dictionary = acms_main(mesh, mesh_info, dom_bnd, variables_dictionary, solution_dictionary)
+        
+                    
         if error_table == 1:
             file_name = create_error_file(variables_dictionary)
             Errors = save_error_file(file_name, mesh, variables_dictionary, solution_dictionary, errors_dictionary)
@@ -60,6 +66,9 @@ with TaskManager():
         
         
 print(table_header + table_content_l2_aux + table_separation + table_content_h1_aux + table_end)    
+
+
+
 
 # PROBLEM SETTING
 # PROBLEM = 1: plane wave solution (Example 5.1, Tables 5.2-5.5), exact solution available and adjustable kwave 

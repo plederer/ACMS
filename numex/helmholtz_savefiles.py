@@ -22,6 +22,7 @@ def process_file(file_path: str, ACMS_flag):
     errors = np.load(file_path, allow_pickle=True)
           
     h = errors["Dictionary"][()]["meshsize"]
+    incl = errors["Dictionary"][()]["incl"]
     kwave = errors["Dictionary"][()]["kappa"]
     order = errors["Dictionary"][()]["order_v"]
     vertices = errors["Dictionary"][()]["vertices"]
@@ -49,13 +50,14 @@ def process_file(file_path: str, ACMS_flag):
     
     dictionary_table = {
         "h"                     : h,
+        "incl"                  : incl,
         "kwave"                 : kwave,
         "order"                 : order,
         "vertices"              : vertices,
         "edges"                 : edges,
         "DoFs"                  : DoFs,
         "L2_ACMS_ex_errors"     : L2_ACMS_ex_errors,
-        "H1_ACMS_ex_errors"      : H1_ACMS_ex_errors,
+        "H1_ACMS_ex_errors"     : H1_ACMS_ex_errors,
         "L2_ACMS_FEM_errors"    : L2_ACMS_FEM_errors,
         "H1_ACMS_FEM_errors"    : H1_ACMS_FEM_errors,
         "L2_FEMex_errors"       : L2_FEMex_errors,
@@ -101,7 +103,7 @@ def create_latex_table_FEM(dictionary):
     
     num_columns = 4 + len(dictionary["edges"])
     position_gamma = 4 + len(dictionary["edges"]) // 2
-    table_header = "\\begin{table}[h!]\n\\caption{$\\kappa = " + str(dictionary['kwave']) + "$}\n" \
+    table_header = "\\begin{table}[h!]\n\\caption{$Test with inclusion = " + str(dictionary['incl']) + ".\\kappa = " + str(dictionary['kwave']) + "$}\n" \
         "\\centering\\small\\setlength\\tabcolsep{0.55em}\n" \
         "\\scalebox{0.7}{\n" \
         "\\begin{tabular}{ " + "c "*num_columns + "}\n" \
@@ -144,7 +146,7 @@ def create_latex_table_exact(dictionary):
     
     num_columns = 6 + len(dictionary["edges"])
     position_gamma = 6 + len(dictionary["edges"]) // 2
-    table_header = "\\begin{table}[h!]\n\\caption{$\\kappa = " + str(dictionary['kwave']) + "$}\n" \
+    table_header = "\\begin{table}[h!]\n\\caption{$Test with inclusion = " + str(dictionary['incl']) + ".\\kappa = " + str(dictionary['kwave']) + "$}\n" \
         "\\centering\\small\\setlength\\tabcolsep{0.55em}\n" \
         "\\scalebox{0.7}{\n" \
         "\\begin{tabular}{ " + "c "*num_columns + "}\n" \
