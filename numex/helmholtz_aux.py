@@ -681,7 +681,7 @@ def acms_main(mesh, mesh_info, dom_bnd, variables_dictionary, solution_dictionar
     # SetNumThreads(16)
     with TaskManager():
         for order in order_v:
-            print(order)      
+            print("Order =",  order)      
               
             V = H1(mesh, order = order, complex = True)
             ndofs.append(V.ndof)
@@ -728,10 +728,10 @@ def acms_main(mesh, mesh_info, dom_bnd, variables_dictionary, solution_dictionar
                 l2_error_NodInt, h1_error_NodInt, l2_error_FEMex, h1_error_FEMex = append_NI_FEM_errors(mesh, 0, 0, 0, 0, l2_error_NodInt, h1_error_NodInt, l2_error_FEMex, h1_error_FEMex)
                 
     
-    print("L2 error = ", l2_error)   
-    print("L2 error exact= ", l2_error_ex)
-    print("H1 error = ", h1_error)
-    print("H1 error exact= ", h1_error_ex)
+    # print("L2 error = ", l2_error)   
+    # print("L2 error exact= ", l2_error_ex)
+    # print("H1 error = ", h1_error)
+    # print("H1 error exact= ", h1_error_ex)
     # print(l2_error_NodInt)
     # print(h1_error_NodInt)
     # print(l2_error_FEMex)
@@ -752,9 +752,6 @@ def acms_main(mesh, mesh_info, dom_bnd, variables_dictionary, solution_dictionar
     variables_dictionary.update({'ndofs':  ndofs})
     variables_dictionary.update({'dofs':  dofs})
     
-    print("ndofs = ", ndofs)
-    print("dofs = ", dofs)
-
     return variables_dictionary, solution_dictionary, errors_dictionary
 
 

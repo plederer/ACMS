@@ -69,11 +69,11 @@ def process_file(file_path: str, ACMS_flag):
     }
     
     if ACMS_flag == 1:
-        table_header, table_content, table_end = create_latex_table_exact(dictionary_table)
+        table_header, table_content_l2, table_separation, table_content_h1, table_end = create_latex_table_exact(dictionary_table)
     else:
-        table_header, table_content, table_end = create_latex_table_FEM(dictionary_table)
+        table_header, table_content_l2, table_separation, table_content_h1, table_end = create_latex_table_FEM(dictionary_table)
 
-    return table_header, table_content, table_end
+    return table_header, table_content_l2, table_separation, table_content_h1, table_end
 
     
  ##################################################################
@@ -114,26 +114,29 @@ def create_latex_table_FEM(dictionary):
         + " & ".join(["\\multicolumn{1}{c}{" + str(e) + "}" for e in dictionary["edges"]]) \
         + " \\\\\n\\toprule\\\\\n"
     
-    table_content = ""
+    table_content_l2 = ""
     for p,dofs, L2_ACMS_FEM_errors in zip(dictionary["order"], dictionary["DoFs"], dictionary["L2_ACMS_FEM_errors"]):
         line = f"${dictionary['h']}$ & ${dictionary['vertices']}$ & ${dofs}$ & ${p}$ "
         
         for l2_err in L2_ACMS_FEM_errors:
             line += f"& ${number_LTX(l2_err[0])}$ "
-        table_content += line + "\\\\\n"
+        table_content_l2 += line + "\\\\\n"
         
-    table_content += "\\bottomrule\n\\\\\n\\toprule\n"
+    table_content_h1 = ""
     for p,dofs, H1_ACMS_FEM_errors in zip(dictionary["order"], dictionary["DoFs"], dictionary["H1_ACMS_FEM_errors"]):
         line = f"${dictionary['h']}$ & ${dictionary['vertices']}$ & ${dofs}$ & ${p}$ "
         
         for h1_err in H1_ACMS_FEM_errors:
             line += f"& ${number_LTX(h1_err[0])}$ "
-        table_content += line + "\\\\\n"
+        table_content_h1 += line + "\\\\\n"
     
-    
+    table_separation = "\\bottomrule\n& \\multicolumn{" + str(position_gamma) + "}{c}{$I_e$}\\\\\n" \
+                        "h & $\\# V$ & DoFs & $p$ & " \
+                        + " & ".join(["\\multicolumn{1}{c}{" + str(e) + "}" for e in dictionary["edges"]]) \
+                        + " \\\\\n\\toprule\\\\\n"  
     table_end = "\\bottomrule\n\\end{tabular}\n}\n\\end{table}"
     # table = table_header + table_content + table_end
-    return table_header, table_content, table_end
+    return table_header, table_content_l2, table_separation, table_content_h1, table_end
 
 
 ##################################################################
@@ -154,27 +157,31 @@ def create_latex_table_exact(dictionary):
         + " & ".join(["\\multicolumn{1}{c}{" + str(e) + "}" for e in dictionary["edges"]]) \
         + " \\\\\n\\toprule\\\\\n"
     
-    table_content = ""
+    table_content_l2 = ""
     for p,dofs, l2_FEM_errors, l2_NodInt, l2_ACMS_errors in zip(dictionary["order"], dictionary["DoFs"], dictionary["L2_FEMex_errors"], dictionary["L2_error_NodInterp"], dictionary["L2_ACMS_ex_errors"]):
         line = f"${dictionary['h']}$ & ${dictionary['vertices']}$ & ${dofs}$ & ${p}$ " \
             f"& ${number_LTX(l2_FEM_errors)}$ & ${number_LTX(l2_NodInt)}$ " 
                  
         for l2_err in l2_ACMS_errors:
             line += f"& ${number_LTX(l2_err[0])}$ "
-        table_content += line + "\\\\\n"
+        table_content_l2 += line + "\\\\\n"
         
-        table_content += "\\bottomrule\n\\\\\n\\toprule\n"
+    table_content_h1 = ""
     for p,dofs, h1_FEM_errors, h1_NodInt, H1_ACMS_errors in zip(dictionary["order"], dictionary["DoFs"], dictionary["H1_FEMex_errors"], dictionary["H1_error_NodInterp"], dictionary["H1_ACMS_ex_errors"]):
         line = f"${dictionary['h']}$ & ${dictionary['vertices']}$ & ${dofs}$ & ${p}$ " \
             f"& ${number_LTX(h1_FEM_errors)}$ & ${number_LTX(h1_NodInt)}$ " 
         
         for h1_err in H1_ACMS_errors:
             line += f"& ${number_LTX(h1_err[0])}$ "
-        table_content += line + "\\\\\n"
-    
+        table_content_h1 += line + "\\\\\n"
+        
+        
+    table_separation = "\\bottomrule\n & \\multicolumn{" + str(position_gamma) + "}{c}{$I_e$}\\\\\n" \
+                "h & $\\# V$ & DoFs & $p$ & $H^1_{FEM}$ & $H^1_{\mathcal{I}_h}$ & " \
+                + " & ".join(["\\multicolumn{1}{c}{" + str(e) + "}" for e in dictionary["edges"]]) \
+                + " \\\\\n\\toprule\\\\\n"
     table_end = "\\bottomrule\n\\end{tabular}\n}\n\\end{table}"
-    # table = table_header + table_content + table_end
-    return table_header, table_content, table_end
+    return table_header, table_content_l2, table_separation, table_content_h1, table_end
 
 
 
@@ -276,8 +283,6 @@ def save_error_file(file_name, dictionary, mesh, variables_dictionary, solution_
     l2_error_rel_3d, h1_error_rel_3d = compute_l2_h1_relative_errors(mesh, u_ex, Du_ex, l2_error_ex, h1_error_ex, dim)
     l2_error_rel_fem, h1_error_rel_fem = compute_l2_h1_relative_errors(mesh, gfu_fem, grad_fem, l2_error_fem, h1_error_fem, dim)
     l2_error_rel_FEMex, h1_error_rel_FEMex = compute_l2_h1_relative_errors(mesh, u_ex, Du_ex, l2_error_FEMex, h1_error_FEMex, np.size(l2_error_FEMex))
-
-    print("l2_error_rel_fem", l2_error_rel_fem)
        
     # Save both 3d objects in the same file. They are assigned names: H1_FEM_error, H1_FEM_Relative_error
     np.savez(file_path, FileName = file_path, Dictionary = dictionary, nDoFs = ndofs, DoFs = dofs_3d, L2_error_ex = l2_error_ex_3d, L2_error_fem =l2_error_fem_3d , L2_Relative_error = l2_error_rel_3d, H1_error_ex = h1_error_ex_3d, H1_error_fem = h1_error_fem_3d, H1_Relative_error = h1_error_rel_3d, FEMex_L2RelEr = l2_error_rel_FEMex, FEMex_H1RelEr = h1_error_rel_FEMex, FEM_L2Rel = l2_error_rel_fem, FEM_H1Rel = h1_error_rel_fem, L2Error_NodalInterpolant = l2_error_NodInt, H1Error_NodalInterpolant = h1_error_NodInt)
