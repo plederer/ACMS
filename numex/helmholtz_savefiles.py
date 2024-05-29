@@ -20,17 +20,13 @@ def process_file(file_path: str, ACMS_flag):
  
     #Save all variables
     errors = np.load(file_path, allow_pickle=True)
-    
-    # dictionary = process_file_exact(errors)
-    
-    # Retrieve variables
-    h = errors["Dictionary"][()]["meshsize"][1]
-    kwave = errors["Dictionary"][()]["wavenumber"][1]
-    order = errors["Dictionary"][()]["order"][1]
-    vertices = errors["Dictionary"][()]["vertices"][1]
-    edges = errors["Dictionary"][()]["edges"][1]
-    DoFs = list(errors["nDoFs"])
-    
+          
+    h = errors["Dictionary"][()]["meshsize"]
+    kwave = errors["Dictionary"][()]["kappa"]
+    order = errors["Dictionary"][()]["order_v"]
+    vertices = errors["Dictionary"][()]["vertices"]
+    edges = errors["Dictionary"][()]["Edge_modes"]
+    DoFs = list(errors["Dictionary"][()]["ndofs"])
        
     # Retrieve L2 ACMS errors against exact solution
     L2_ACMS_ex_errors = errors["L2_Relative_error"]
@@ -194,7 +190,16 @@ def create_latex_table_exact(dictionary):
 
 
 
-def create_error_file(problem, kappa, maxH, order_v, Bubble_modes, Edge_modes, err_type):
+def create_error_file(variables_dictionary):
+    
+    Bubble_modes = variables_dictionary["Bubble_modes"]
+    Edge_modes = variables_dictionary["Edge_modes"]
+    order_v = variables_dictionary["order_v"]
+    problem = variables_dictionary["problem"]
+    kappa = variables_dictionary["kappa"]
+    maxH = variables_dictionary["meshsize"]
+    err_type = variables_dictionary["sol_ex"]  
+
     
     problem_dict = {
         1 : "PW",
@@ -212,7 +217,7 @@ def create_error_file(problem, kappa, maxH, order_v, Bubble_modes, Edge_modes, e
     date_time = datetime.now().strftime("%Y%m%d")
     file_name = f"L2-H1_errors_{err_type_dict[err_type]}_{problem_dict[problem]}_wave{kappa}_meshH{maxH}_o{order_v[-1]}_b{Bubble_modes[-1]}_e{Edge_modes[-1]}_{date_time}"
     # print(file_name)
-
+    
     return file_name
 
 ##################################################################
@@ -247,15 +252,16 @@ def compute_l2_h1_relative_errors(mesh, gfu_ex, grad_uex, l2_error, h1_error, di
 
 
 
-def save_error_file(file_name, dictionary, mesh, variables_dictionary, solution_dictionary, errors_dictionary, dim, ndofs, dofs):
+def save_error_file(file_name, mesh, variables_dictionary, solution_dictionary, errors_dictionary):
     
     gfu_fem = solution_dictionary["gfu_fem"]
     grad_fem = solution_dictionary["grad_fem"]
-    
    
+    dim = variables_dictionary["dim"]
+    ndofs = variables_dictionary["ndofs"]
+    dofs = variables_dictionary["dofs"]
     u_ex = variables_dictionary["u_ex"]
     Du_ex = variables_dictionary["Du_ex"]
-    
     
     l2_error_ex = errors_dictionary["l2_error_ex"]
     h1_error_ex = errors_dictionary["h1_error_ex"] 
@@ -283,9 +289,14 @@ def save_error_file(file_name, dictionary, mesh, variables_dictionary, solution_
     l2_error_rel_3d, h1_error_rel_3d = compute_l2_h1_relative_errors(mesh, u_ex, Du_ex, l2_error_ex, h1_error_ex, dim)
     l2_error_rel_fem, h1_error_rel_fem = compute_l2_h1_relative_errors(mesh, gfu_fem, grad_fem, l2_error_fem, h1_error_fem, dim)
     l2_error_rel_FEMex, h1_error_rel_FEMex = compute_l2_h1_relative_errors(mesh, u_ex, Du_ex, l2_error_FEMex, h1_error_FEMex, np.size(l2_error_FEMex))
-       
+    
+    
+    # The function variables give issues in the saving of the dictionary 
+    variables_dictionary.pop("f")
+    variables_dictionary.pop("g")
+    
     # Save both 3d objects in the same file. They are assigned names: H1_FEM_error, H1_FEM_Relative_error
-    np.savez(file_path, FileName = file_path, Dictionary = dictionary, nDoFs = ndofs, DoFs = dofs_3d, L2_error_ex = l2_error_ex_3d, L2_error_fem =l2_error_fem_3d , L2_Relative_error = l2_error_rel_3d, H1_error_ex = h1_error_ex_3d, H1_error_fem = h1_error_fem_3d, H1_Relative_error = h1_error_rel_3d, FEMex_L2RelEr = l2_error_rel_FEMex, FEMex_H1RelEr = h1_error_rel_FEMex, FEM_L2Rel = l2_error_rel_fem, FEM_H1Rel = h1_error_rel_fem, L2Error_NodalInterpolant = l2_error_NodInt, H1Error_NodalInterpolant = h1_error_NodInt)
+    np.savez(file_path, FileName = file_path, Dictionary = variables_dictionary, nDoFs = ndofs, DoFs = dofs_3d, L2_error_ex = l2_error_ex_3d, L2_error_fem =l2_error_fem_3d , L2_Relative_error = l2_error_rel_3d, H1_error_ex = h1_error_ex_3d, H1_error_fem = h1_error_fem_3d, H1_Relative_error = h1_error_rel_3d, FEMex_L2RelEr = l2_error_rel_FEMex, FEMex_H1RelEr = h1_error_rel_FEMex, FEM_L2Rel = l2_error_rel_fem, FEM_H1Rel = h1_error_rel_fem, L2Error_NodalInterpolant = l2_error_NodInt, H1Error_NodalInterpolant = h1_error_NodInt)
 
     # Loading file to print errors (allow_picke means we can have strings)
     Errors = np.load(save_dir.joinpath(file_name + ".npz"), allow_pickle = True)
@@ -303,6 +314,20 @@ def save_error_file(file_name, dictionary, mesh, variables_dictionary, solution_
 # ##################################################################
 # ##################################################################
 # ##################################################################  
+
+
+
+
+    # dictionary = {
+    #     1            : ["The keys are: meshsize, order, bubbles, edges, vertices, problem, wavenumber."],
+    #     'meshsize'   : ["The mesh size is", maxH],
+    #     'order'      : ["The order of approximation is",  order_v],
+    #     'bubbles'    : ["The number of bubble functions is", Bubble_modes],
+    #     'edges'      : ["The number of edge modes is", Edge_modes],
+    #     'vertices'   : ["The number of vertices is", mesh.nv],
+    #     'problem'    : ["Chosen problem", problem],
+    #     "wavenumber" : ["Chosen wavenumber is", kappa]
+    # }
 
 
 # def process_file_exact(errors):

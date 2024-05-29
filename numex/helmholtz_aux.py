@@ -515,6 +515,8 @@ def problem_definition(problem, incl, maxH, omega, Bubble_modes, Edge_modes, ord
         gamma = 1
         
         
+    dim = (len(order_v), len(Edge_modes), len(Bubble_modes))
+        
     variables_dictionary = {
         'problem'      : problem,
         'alpha'        : alpha, 
@@ -525,11 +527,14 @@ def problem_definition(problem, incl, maxH, omega, Bubble_modes, Edge_modes, ord
         'f'            : f, 
         'g'            : g,
         'sol_ex'       : sol_ex,
-        'u_ex'         :  u_ex,
+        'u_ex'         : u_ex,
         'Du_ex'        : Du_ex,
         'Bubble_modes' : Bubble_modes, 
         'Edge_modes'   : Edge_modes, 
-        'order_v'      : order_v
+        'order_v'      : order_v,
+        'dim'          : dim,
+        'vertices'     : mesh.nv,
+        'meshsize'     : maxH
     }
     
     return mesh, dom_bnd, mesh_info, variables_dictionary
@@ -837,49 +842,6 @@ def append_NI_FEM_errors(mesh, gfu_fem, u_ex, Du_ex, Iu, l2_error_NodInt, h1_err
     return l2_error_NodInt, h1_error_NodInt, l2_error_FEMex, h1_error_FEMex
 
 
-##################################################################
-##################################################################
-##################################################################
-##################################################################
-
- 
-
-
-
-
-def error_table_save(maxH, mesh, variables_dictionary, solution_dictionary, errors_dictionary):
-    
-    Bubble_modes = variables_dictionary["Bubble_modes"]
-    Edge_modes = variables_dictionary["Edge_modes"]
-    order_v = variables_dictionary["order_v"]
-    
-    problem = variables_dictionary["problem"]
-    kappa = variables_dictionary["kappa"]
-    sol_ex = variables_dictionary["sol_ex"]
-    ndofs = variables_dictionary["ndofs"]
-    dofs = variables_dictionary["dofs"]
-    
-    # Save both H1 and H1-relative errors on file named "file_name.npz" 
-    dim = (len(order_v), len(Edge_modes), len(Bubble_modes))
-    
-    dictionary = {
-        1            : ["The keys are: meshsize, order, bubbles, edges, vertices, problem, wavenumber."],
-        'meshsize'   : ["The mesh size is", maxH],
-        'order'      : ["The order of approximation is",  order_v],
-        'bubbles'    : ["The number of bubble functions is", Bubble_modes],
-        'edges'      : ["The number of edge modes is", Edge_modes],
-        'vertices'   : ["The number of vertices is", mesh.nv],
-        'problem'    : ["Chosen problem", problem],
-        "wavenumber" : ["Chosen wavenumber is", kappa]
-    }
-    
-
-    file_name = create_error_file(problem, kappa, maxH, order_v, Bubble_modes, Edge_modes, sol_ex)
-    Errors = save_error_file(file_name, dictionary, mesh, variables_dictionary, solution_dictionary, errors_dictionary, dim, ndofs, dofs)
-    
-    return file_name, Errors
-     
-        
 
 
 
