@@ -1,6 +1,6 @@
 # LIBRARIES
 from helmholtz_aux import *
-import netgen.gui
+# import netgen.gui
 
 problem = float(input("Choose the problem. \n 1 = PW. \n 2 = LIS. \n 3 = LBS. \n 4 = Crystal Sq. \n 5 = Crystal \n Problem =  "))
 omega = float(input("Wavenumber k: "))
