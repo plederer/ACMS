@@ -1,37 +1,39 @@
 # LIBRARIES
 from helmholtz_aux import *
-# import netgen.gui
+import netgen.gui
 
 problem = float(input("Choose the problem. \n 1 = PW. \n 2 = LIS. \n 3 = LBS. \n 4 = Crystal Sq. \n 5 = Crystal \n Problem =  "))
 omega = float(input("Wavenumber k: "))
 maxH = float(input("maxH: "))
 Href = int(input("Number of mesh refinements refH (0 is no refinements): "))
 order_v = list(map(int, input("Order of approximation. Vector = ").split())) # Vector [1, 2, 3]
-print("Order of approximation is ", order_v)
 # Bubble_modes = list(map(int, input("Number of bubble modes. Vector = ").split())) # Vector [2,4,8,16,32,64,128]
-# print("Number of bubble modes is ", Bubble_modes)
 Edge_modes = list(map(int, input("Number of edge modes. Vector = ").split())) # Vector [2,4,8,16,32,64,128]
-print("Number of edge modes is ", Edge_modes)
 
 if problem == 5:
+    Ncell = int(input("Number of cells in one direction: "))
     incl = int(input("Number of inclusions in one direction per cell incl (Power of 2): "))
     ACMS_flag = 0 #FEM vs ACMS error
 elif problem == 1:
+    Ncell = 0
     incl = 0
     ACMS_flag = int(input("Error against exact solution = 1 or FEM solution = 0. "))
 else:
+    Ncell = 0
     incl = 0
     ACMS_flag = 0
 
 # For testing
 # problem = 5
-# incl = 1
-# omega = 1 #0.484/10
-# Href = 1
-# maxH = 0.2
-# order_v = [1]
+# Ncell = 16
+# incl = 4
+# omega = 2     #0.484/10
+# Href = 0
+# maxH = 0.1
+# order_v = [5]
 # Bubble_modes = [0]
-# Edge_modes = [1]
+# Edge_modes = [32]
+# ACMS_flag = 0
 
 Bubble_modes = [0]
 
@@ -39,6 +41,7 @@ error_table = 1
 table_content_l2_aux = ""
 table_content_h1_aux = ""
 table_header = ""
+table_separation = ""
 table_end = ""
 
 
@@ -47,15 +50,16 @@ with TaskManager():
     for h in maxH/(2**np.arange(0, Href + 1 , 1)):
         print(h)
         # Variables setting
-        mesh, dom_bnd, mesh_info, variables_dictionary = problem_definition(problem, incl, h, omega, Bubble_modes, Edge_modes, order_v)
+        mesh, variables_dictionary = problem_definition(problem, Ncell, incl, h, omega, Bubble_modes, Edge_modes, order_v)
         
         #FEM solution with same order of approximation
-        solution_dictionary = ground_truth(mesh, dom_bnd, variables_dictionary, 10)
+        solution_dictionary = ground_truth(mesh, variables_dictionary, 10)
         
         # Solve ACMS system and compute errors
-        variables_dictionary, solution_dictionary, errors_dictionary = acms_main(mesh, mesh_info, dom_bnd, variables_dictionary, solution_dictionary)
+        variables_dictionary, solution_dictionary, errors_dictionary = acms_main(mesh, variables_dictionary, solution_dictionary)
+            
+        # input()
         
-                    
         if error_table == 1:
             file_name = create_error_file(variables_dictionary)
             Errors = save_error_file(file_name, mesh, variables_dictionary, solution_dictionary, errors_dictionary)
@@ -69,6 +73,17 @@ print(table_header + table_content_l2_aux + table_separation + table_content_h1_
 
 
 
+# from netgen.read_gmsh import ReadGmsh
+# from netgen.meshing import *
+# import the Gmsh file to a Netgen mesh object
+# mesh = ReadGmsh("coarse_test")
+# mesh = Mesh(mesh)
+# # mesh.ngmesh.Save("newmesh.vol")
+        # mesh2 = open("newmesh.vol")
+        # mesh2 = Mesh(mesh2)
+        # Draw(mesh2)
+        # input()
+        # quit()
 
 # PROBLEM SETTING
 # PROBLEM = 1: plane wave solution (Example 5.1, Tables 5.2-5.5), exact solution available and adjustable kwave 

@@ -382,9 +382,9 @@ def crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer, alpha_inner, de
 
 
 
-def problem_definition(problem, incl, maxH, omega, Bubble_modes, Edge_modes, order_v):
+def problem_definition(problem, Ncell, incl, maxH, omega, Bubble_modes, Edge_modes, order_v):
 
-    if problem ==1:  #Problem setting - PLANE WAVE
+    if problem == 1:  #Problem setting - PLANE WAVE
         # #Generate mesh: unit disco with 8 subdomains
         mesh, dom_bnd, alpha, mesh_info = unit_disc(maxH)
         kappa = omega
@@ -479,7 +479,7 @@ def problem_definition(problem, incl, maxH, omega, Bubble_modes, Edge_modes, ord
         r  = 0.126     # radius of inclusion
         Lx = 1 * incl   #* 0.484 #"c"
         Ly = Lx        #0.685 #"a
-        Nx = 16 // incl # number of cells in x direction
+        Nx = Ncell // incl # number of cells in x direction
         Ny = Nx        # number of cells in y direction
         alpha_outer = 1/12.1 #SILICON
         alpha_inner = 1 #0 #AIR        
@@ -535,11 +535,12 @@ def problem_definition(problem, incl, maxH, omega, Bubble_modes, Edge_modes, ord
         'order_v'      : order_v,
         'dim'          : dim,
         'vertices'     : mesh.nv,
-        'meshsize'     : maxH
+        'meshsize'     : maxH,
+        'dom_bnd'      : dom_bnd,
+        'mesh_info'    : mesh_info
     }
     
-    return mesh, dom_bnd, mesh_info, variables_dictionary
-    # return mesh, dom_bnd, alpha, kappa, beta, gamma, f, g, sol_ex, u_ex, Du_ex, mesh_info
+    return mesh, variables_dictionary
 
 
 ##################################################################
@@ -549,7 +550,7 @@ def problem_definition(problem, incl, maxH, omega, Bubble_modes, Edge_modes, ord
 
 
 
-def ground_truth(mesh, dom_bnd, variables_dictionary, ord):
+def ground_truth(mesh, variables_dictionary, ord):
     #  RESOLUTION OF GROUND TRUTH SOLUTION
     #Computing the FEM solution /  ground truth solution with higher resolution
     
@@ -560,6 +561,7 @@ def ground_truth(mesh, dom_bnd, variables_dictionary, ord):
     gamma = variables_dictionary["gamma"]
     f = variables_dictionary["f"]
     g = variables_dictionary["g"]
+    dom_bnd = variables_dictionary["dom_bnd"]
     
     # SetNumThreads(16)
     with TaskManager():
@@ -612,10 +614,10 @@ def compute_acms_solution(mesh, V, acms, edge_basis):
         setupstart = time.time()
         
         num = acms.acmsdofs #len(basis)
-        print("finished setup", time.time() - setupstart)        
+        # print("finished setup", time.time() - setupstart)        
         invstart = time.time()
         asmall = acms.asmall
-        print("calc asmall = ", time.time() - invstart)
+        # print("calc asmall = ", time.time() - invstart)
         
         ainvsmall = Matrix(numpy.linalg.inv(asmall))
         f_small = acms.fsmall
@@ -652,7 +654,7 @@ def compute_acms_solution(mesh, V, acms, edge_basis):
  
  
   
-def acms_main(mesh, mesh_info, dom_bnd, variables_dictionary, solution_dictionary):
+def acms_main(mesh, variables_dictionary, solution_dictionary):
     #  ACMS RESOLUTION
 
     l2_error = []
@@ -670,6 +672,7 @@ def acms_main(mesh, mesh_info, dom_bnd, variables_dictionary, solution_dictionar
     Bubble_modes = variables_dictionary["Bubble_modes"]
     Edge_modes = variables_dictionary["Edge_modes"]
     order_v = variables_dictionary["order_v"]
+    mesh_info = variables_dictionary["mesh_info"]
     
     alpha = variables_dictionary["alpha"]
     omega = variables_dictionary["omega"]
@@ -707,8 +710,8 @@ def acms_main(mesh, mesh_info, dom_bnd, variables_dictionary, solution_dictionar
                         
                         edges_time = time.time() 
                         edge_basis = acms.calc_edge_basis()
-                        print("Edge basis functions computation in --- %s seconds ---" % (time.time() - edges_time))
-                        print("time to compute harmonic extensions = ", time.time() - start)
+                        # print("Edge basis functions computation in --- %s seconds ---" % (time.time() - edges_time))
+                        # print("time to compute harmonic extensions = ", time.time() - start)
                         # print(edge_basis)
                         
                         if edge_basis:
@@ -718,7 +721,7 @@ def acms_main(mesh, mesh_info, dom_bnd, variables_dictionary, solution_dictionar
                             assemble_start = time.time()
                             for m in acms.doms:
                                 acms.Assemble_localA(m)
-                            print("assemble = ", time.time() - assemble_start)
+                            # print("assemble = ", time.time() - assemble_start)
         
                         gfu, num = compute_acms_solution(mesh, V, acms, edge_basis)
                         dofs.append(num)
