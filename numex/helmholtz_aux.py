@@ -21,6 +21,7 @@ import time
 
 
 
+
 ##################################################################
 ##################################################################
 ##################################################################
@@ -480,22 +481,29 @@ def problem_definition(problem, Ncell, incl, maxH, omega, Bubble_modes, Edge_mod
         Lx = 1 * incl   #* 0.484 #"c"
         Ly = Lx        #0.685 #"a
         Nx = Ncell // incl # number of cells in x direction
-        Ny = Nx        # number of cells in y direction
+        Ny = Nx       # number of cells in y direction
         alpha_outer = 1/12.1 #SILICON
         alpha_inner = 1 #0 #AIR        
+        # alpha_outer = 1  #AIR
+        # alpha_inner = 1./12.1 #0 #SILICON        
         layers = 0 
         
         ix = [i for i in range(layers)] + [Nx - 1 - i for i in range(layers)]
         iy = [i for i in range(layers)] + [Ny - 1 - i for i in range(layers)]
         
         defects = np.ones((Nx,Ny))
-        for i in ix: 
+        for i in ix:
+        # for i in [3]: 
             for j in range(Ny): 
                 defects[i,j] = 0.0
         
         for j in iy:
+        # for j in [5]:
             for i in range(Nx): 
                 defects[i,j] = 0.0
+                
+        # defects[4,5] = 0.0
+        # defects[2,8] = 0.0
 
         mesh, dom_bnd, alpha, mesh_info = crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer, alpha_inner, defects, layers)
         
@@ -581,7 +589,8 @@ def ground_truth(mesh, variables_dictionary, ord):
         l += f * v * dx(bonus_intorder=10)
         l += g * v * ds(dom_bnd,bonus_intorder=10)
         l.Assemble()
-
+        
+        
         gfu_fem = GridFunction(V)
         ainv = a.mat.Inverse(V.FreeDofs(), inverse = "sparsecholesky")
         gfu_fem.vec.data = ainv * l.vec
@@ -595,7 +604,7 @@ def ground_truth(mesh, variables_dictionary, ord):
         'grad_fem':  grad_fem
     }
     
-    return solution_dictionary #gfu_fem, grad_fem
+    return solution_dictionary 
 
 
 ##################################################################
@@ -614,7 +623,7 @@ def compute_acms_solution(mesh, V, acms, edge_basis):
         setupstart = time.time()
         
         num = acms.acmsdofs #len(basis)
-        # print("finished setup", time.time() - setupstart)        
+        print("finished setup", time.time() - setupstart)        
         invstart = time.time()
         asmall = acms.asmall
         # print("calc asmall = ", time.time() - invstart)
@@ -711,7 +720,7 @@ def acms_main(mesh, variables_dictionary, solution_dictionary):
                         edges_time = time.time() 
                         edge_basis = acms.calc_edge_basis()
                         # print("Edge basis functions computation in --- %s seconds ---" % (time.time() - edges_time))
-                        # print("time to compute harmonic extensions = ", time.time() - start)
+                        print("time to compute harmonic extensions = ", time.time() - start)
                         # print(edge_basis)
                         
                         if edge_basis:
@@ -721,7 +730,7 @@ def acms_main(mesh, variables_dictionary, solution_dictionary):
                             assemble_start = time.time()
                             for m in acms.doms:
                                 acms.Assemble_localA(m)
-                            # print("assemble = ", time.time() - assemble_start)
+                            print("assemble = ", time.time() - assemble_start)
         
                         gfu, num = compute_acms_solution(mesh, V, acms, edge_basis)
                         print("ACMS computation in = ", time.time() - start)
@@ -848,6 +857,97 @@ def append_NI_FEM_errors(mesh, gfu_fem, u_ex, Du_ex, Iu, l2_error_NodInt, h1_err
 
 
 
+##################################################################
+##################################################################
+##################################################################
+##################################################################
+#TO BE DELETED
+
+
+# def main(Ncell, incl, h, omega, Edge_modes, order_v):
+    
+#     problem = 5
+#     Bubble_modes = [0]
+#     SetNumThreads(12)
+#     with TaskManager():
+
+#         # Variables setting
+#         mesh, variables_dictionary = problem_definition(problem, Ncell, incl, h, omega, Bubble_modes, Edge_modes, order_v)
+
+#         #FEM solution with same order of approximation
+#         solution_dictionary = ground_truth(mesh, variables_dictionary, 10)
+
+#         # Solve ACMS system and compute errors
+#         variables_dictionary, solution_dictionary, errors_dictionary = acms_main(mesh, variables_dictionary, solution_dictionary)
+
+#     return mesh, variables_dictionary, solution_dictionary #, , errors_dictionary
+        
+
+
+
+# def aux_funciton(incl, maxH, omega, order_v, Edge_modes, mesh, dom_bnd, alpha, mesh_info):
+
+#     problem = 5
+#     Bubble_modes = [0]
+
+#     kappa = omega    #**2 * alpha 
+#     k_ext = omega    #**2 # * alpha=1
+#     k = k_ext * CF((1,0)) #CF = CoefficientFunction
+#     beta = - k_ext / omega
+#     f = 0 
+#     g = 1j * (k_ext - k * specialcf.normal(2)) * exp(-1j * (k[0] * x + k[1] * y)) # Incoming plane wave 
+#     # Draw(g, mesh, "g")
+#     u_ex = 0
+#     sol_ex = 0
+#     Du_ex = 0
+#     gamma = 1
+#     dim = (len(order_v), len(Edge_modes), len(Bubble_modes))
+
+#     variables_dictionary = {
+#             'problem'      : problem,
+#             'incl'         : incl,
+#             'alpha'        : alpha, 
+#             'omega'        : omega,
+#             'kappa'        : kappa, 
+#             'beta'         : beta, 
+#             'gamma'        : gamma, 
+#             'f'            : f, 
+#             'g'            : g,
+#             'sol_ex'       : sol_ex,
+#             'u_ex'         : u_ex,
+#             'Du_ex'        : Du_ex,
+#             'Bubble_modes' : Bubble_modes, 
+#             'Edge_modes'   : Edge_modes, 
+#             'order_v'      : order_v,
+#             'dim'          : dim,
+#             'vertices'     : mesh.nv,
+#             'meshsize'     : maxH,
+#             'dom_bnd'      : dom_bnd,
+#             'mesh_info'    : mesh_info
+#         }
+
+#     #FEM solution with same order of approximation
+#     solution_dictionary = ground_truth(mesh, variables_dictionary, 10)
+
+#     # Solve ACMS system and compute errors
+#     variables_dictionary, solution_dictionary, errors_dictionary = acms_main(mesh, variables_dictionary, solution_dictionary)
+        
+#     return mesh, solution_dictionary #, variables_dictionary, errors_dictionary
+
+
+
+##################################################################
+##################################################################
+##################################################################
+###################################################################
+##################################################################
+##################################################################
+##################################################################
+##################################################################
+##################################################################
+##################################################################
+##################################################################
+##################################################################
 
 
 
