@@ -706,7 +706,7 @@ def acms_main(mesh, variables_dictionary, solution_dictionary):
 
             Iu = GridFunction(V) #Nodal interpolant            
                         
-            if V.ndof < 10000000:
+            if V.ndof < 100000000:
                 for EM in Edge_modes:
                     print("Edge modes =", EM)
                     for BM in Bubble_modes:
