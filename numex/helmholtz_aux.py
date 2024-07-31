@@ -204,13 +204,13 @@ def crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer, alpha_inner, de
         innerdom.faces.name=crystaltype[int(defects[i,j])][1]+str(i*Ny+j)
 
         if (j == 0) :
-            outerdom.faces.edges.Min(Y).name = "dom_bnd_H"
+            outerdom.faces.edges.Min(Y).name = "dom_bnd_bottom_H"
         if (j == (Ny-1)) :
-            outerdom.faces.edges.Max(Y).name = "dom_bnd_H"
+            outerdom.faces.edges.Max(Y).name = "dom_bnd_top_H"
         if (i == 0):
-            outerdom.faces.edges.Min(X).name = "dom_bnd_V"
+            outerdom.faces.edges.Min(X).name = "dom_bnd_left_V"
         if (i == (Nx-1)) :
-            outerdom.faces.edges.Max(X).name = "dom_bnd_V"
+            outerdom.faces.edges.Max(X).name = "dom_bnd_right_V"
         
         if layers > 0:
             if (j == layers) and (i >= layers) and (i <= Nx-1-layers):
@@ -268,7 +268,8 @@ def crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer, alpha_inner, de
     
     
     dom_bnd = ""
-    bi = 0
+    bi_V = 0
+    bi_H = 0
     for i in range(nbnd): #
         if not "dom_bnd" in mesh.ngmesh.GetBCName(i): # != "dom_bnd":
             if not "inner_edge" in mesh.ngmesh.GetBCName(i): # != "dom_bnd":
@@ -283,13 +284,16 @@ def crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer, alpha_inner, de
                     mesh.ngmesh.SetBCName(i,name + str(i))
         else:
             if "V" in mesh.ngmesh.GetBCName(i):
-                mesh.ngmesh.SetBCName(i,"dom_bnd_V" + str(bi))
-                dom_bnd += "dom_bnd_V" + str(bi) + "|"
+                name = mesh.ngmesh.GetBCName(i)
+                mesh.ngmesh.SetBCName(i,name + str(bi_V))
+                dom_bnd += name + str(bi_V) + "|"
+                bi_V += 1
             else:
-                mesh.ngmesh.SetBCName(i,"dom_bnd_H" + str(bi))
-                dom_bnd += "dom_bnd_H" + str(bi) + "|"
-            
-            bi+=1
+                name = mesh.ngmesh.GetBCName(i)
+                mesh.ngmesh.SetBCName(i,name + str(bi_H))
+                dom_bnd += name + str(bi_H) + "|"
+                bi_H += 1
+            # bi+=1
     dom_bnd = dom_bnd[:-1]
     
     for i in range(nvert): #Removing vertices on circles
@@ -486,7 +490,7 @@ def problem_definition(problem, Ncell, incl, maxH, omega, Bubble_modes, Edge_mod
         alpha_inner = 1 #0 #AIR        
         # alpha_outer = 1  #AIR
         # alpha_inner = 1./12.1 #0 #SILICON        
-        layers = 0 
+        layers = 0
         
         ix = [i for i in range(layers)] + [Nx - 1 - i for i in range(layers)]
         iy = [i for i in range(layers)] + [Ny - 1 - i for i in range(layers)]
@@ -612,7 +616,7 @@ def ground_truth(mesh, variables_dictionary, ord):
 ##################################################################
 ##################################################################
 
-def compute_acms_solution(mesh, V, acms, edge_basis):    
+def compute_acms_solution(mesh, V, acms, edge_basis, setglobal = True):    
     
     gfu = GridFunction(V)
     
@@ -635,11 +639,12 @@ def compute_acms_solution(mesh, V, acms, edge_basis):
         gfu.vec[:] = 0.0
         # print("norm of usmall = ", Norm(usmall))
 
-        acms.SetGlobalFunction(gfu, usmall)
+        if setglobal:
+            acms.SetGlobalFunction(gfu, usmall)
         Draw(gfu, mesh, "uacms")
      
         print("finished_acms")
-    return gfu, num
+    return gfu, num, usmall
 
 ##################################################################
 ##################################################################
@@ -732,7 +737,7 @@ def acms_main(mesh, variables_dictionary, solution_dictionary):
                                 acms.Assemble_localA(m)
                             print("assemble = ", time.time() - assemble_start)
         
-                        gfu, num = compute_acms_solution(mesh, V, acms, edge_basis)
+                        gfu, num, _ = compute_acms_solution(mesh, V, acms, edge_basis)
                         print("ACMS computation in = ", time.time() - start)
                         dofs.append(num)
                         l2_error, l2_error_ex, h1_error, h1_error_ex = append_acms_errors(mesh, gfu, gfu_fem, u_ex, grad_fem, Du_ex, l2_error, l2_error_ex, h1_error, h1_error_ex)
