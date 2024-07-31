@@ -1,7 +1,7 @@
 # LIBRARIES
 from helmholtz_aux import *
 
-do_draw = False 
+do_draw = True
 if do_draw:
     import netgen.gui
 from ngsolve.eigenvalues import PINVIT
@@ -35,9 +35,9 @@ Ncell = 14
 incl = 2
 
 # a = 2 * (0.5-0.126) + 2
-ss = 1.2
-ee = 3
-omega_v = list(np.arange(ss,ee,0.005)) #list([i/10 for i in range(10,50)]
+ss = 0.8
+ee = 2
+omega_v = [1.12] #list(np.arange(ss,ee,0.005)) #list([i/10 for i in range(10,50)]
 
 Href = 0
 maxH = 0.2
@@ -63,21 +63,23 @@ Ly = Lx        #0.685 #"a
 Nx = Ncell // incl # number of cells in x direction
 Ny = Nx       # number of cells in y direction
 alpha_outer = 1/12.1 #SILICON
-alpha_inner = 10 #0 #AIR        
+alpha_inner = 1 #0 #AIR        
 # alpha_outer = 1  #AIR
 # alpha_inner = 1./12.1 #0 #SILICON        
 layers = 0
 
-ix = [3] #[i for i in range(layers)] + [Nx - 1 - i for i in range(layers)]
-iy = [3] #[i for i in range(layers)] + [Ny - 1 - i for i in range(layers)]
+wg = 3
+
+ix = [i for i in range(layers)] + [Nx - 1 - i for i in range(layers)]
+iy = [wg] #[i for i in range(layers)] + [Ny - 1 - i for i in range(layers)]
 
 defects = np.ones((Nx,Ny))
 for i in ix:
-    for j in range(3+1): 
+    for j in range(Ny): 
         defects[i,j] = 0.0
 
 for j in iy:
-    for i in range(3+1): 
+    for i in range(Nx): 
         defects[i,j] = 0.0 
 
 mesh, dom_bnd, alpha, mesh_info = crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer, alpha_inner, defects, layers)
@@ -96,7 +98,10 @@ with TaskManager():
         beta = - k_ext / omega
         f = 0 
         sigma = 1
-        peak = exp(-(y-Ny+1)**2*sigma)
+        off = Ncell/2 - 0.5 * incl
+        peak = exp(-(y-off)**2*sigma)
+        # print("off = ", off)
+        # Draw(y-off, mesh, "yy")
         g = 1j * (k_ext - k * specialcf.normal(2)) * exp(-1j * (k[0] * x + k[1] * y)) *peak # Incoming plane wave 
         # Draw(g, mesh, "g")
         u_ex = 0
@@ -108,7 +113,7 @@ with TaskManager():
         if True:
             start = time.time()
             
-            V = H1(mesh, order = 3, complex = True) 
+            V = H1(mesh, order = 2, complex = True) 
             
             u, v = V.TnT()
 
@@ -159,23 +164,20 @@ with TaskManager():
         intval_left = 0
         intval_right = 0
         rr = gfu_fem.real**2  + gfu_fem.imag**2
-        for i, edgename in enumerate(mesh.GetBoundaries()):
-            if "dom_bnd_left_V" in edgename:
-                # print(edgename)
-                # print(i)
-                intval_left+= Integrate(rr, mesh, definedon = mesh.Boundaries(edgename))
-            # if "dom_bnd_right_V" in edgename:
-            if "dom_bnd_bottom_H" in edgename:
-                # print(edgename)
-                # print(i)
-                intval_right+= Integrate(rr, mesh, definedon = mesh.Boundaries(edgename))
+        # for i, edgename in enumerate(mesh.GetBoundaries()):
+        #     if "dom_bnd_left_V" in edgename:
+        #         intval_left+= Integrate(rr, mesh, definedon = mesh.Boundaries(edgename))
+        #     # if "dom_bnd_right_V" in edgename:
+        #     if "dom_bnd_bottom_H" in edgename:
+        #         intval_right+= Integrate(rr, mesh, definedon = mesh.Boundaries(edgename))
 
-        # intval_left+= Integrate(rr, mesh, definedon = mesh.Boundaries("dom_bnd_left_V3"))
-        # intval_right+= Integrate(rr, mesh, definedon = mesh.Boundaries("dom_bnd_right_V10"))
-
+        intval_left+= Integrate(rr, mesh, definedon = mesh.Boundaries("dom_bnd_left_V3"))
+        intval_right+= Integrate(rr, mesh, definedon = mesh.Boundaries("dom_bnd_right_V10"))
+        
+        # print(mesh.GetBoundaries())
         # test = GridFunction(H1(mesh, order = 1, dirichlet=".*"))
-        # test.Set(1, definedon = mesh.Boundaries("dom_bnd_right_V10"))
-        # Draw(test)
+        # test.Set(1, definedon = mesh.Boundaries("dom_bnd_bottom_H6"))
+        # Draw(test, mesh, "test")
         # input()
         # print("integral = ", intval)
         ints_left.append(sqrt(intval_left))
