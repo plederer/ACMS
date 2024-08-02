@@ -3,10 +3,13 @@
 from ngsolve import *
 from netgen.geom2d import *
 
+import pickle
 
 import numpy 
 import scipy.linalg
 import scipy.sparse as sp
+
+import os.path
 
 from netgen.occ import *
 # from ngsolve.webgui import Draw
@@ -140,210 +143,253 @@ def unit_disc(maxH):
     return mesh, dom_bnd, alpha, mesh_info
 
 
-
-
-def crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer, alpha_inner, defects = np.ones((0,0)), layers = 0):
+def crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer, alpha_inner, defects = np.ones((0,0)), layers = 0, load_mesh = False, save_mesh = True):
+    pickle_name =   "maxH:" +     str(maxH) + "_" + \
+                    "Nx:" +       str(Nx) + "_" + \
+                    "Ny:" +       str(Ny) + "_" + \
+                    "incl:" +     str(incl) + "_" + \
+                    "r:" +        str(r) + "_" + \
+                    "Lx:" +       str(Lx) + "_" + \
+                    "Ly:" +       str(Ly) + "_" + \
+                    "ai:" +       str(alpha_outer) + "_" + \
+                    "ao:" +       str(alpha_inner) + "_" + \
+                    "layers:" +   str(layers) + "_" + \
+                    ".dat"
+    dirname = os.path.dirname(__file__)
     
-    if len(defects) == 0:
-        defects = np.ones((Nx,Ny))
-
-    #Crystal type: 0 = full crystal # 1 = air defect in crystal  # 2 = air
-    crystaltype = [["outer","outer"], 
-                   ["outer","inner"],
-                   ["inner", "inner"]]
-
-    domain = [MoveTo(Lx*i,Ly*j).RectangleC(Lx,Ly).Face() for i in range(Nx) for j in range(Ny)]
+    load_file = os.path.join(dirname, "meshes/" + pickle_name)
     
-    if incl ==1: #Circular inclusion
-        inclusion = [MoveTo(0,0).Circle(Lx*i,Ly*j, r).Face() for i in range(Nx) for j in range(Ny)]
-                
-                
-    # elif incl == 2:
-    #     inclusion = []
-    #     for i in range(Nx):
-    #         for j in range(Ny):
-    #             Mx = Lx*i
-    #             My = Ly * j
-    #             c1 = MoveTo(0,0).Circle(Mx - Lx/4,My - Ly/4, r).Face()
-    #             c2 = MoveTo(0,0).Circle(Mx + Lx/4,My - Ly/4, r).Face()
-    #             c3 = MoveTo(0,0).Circle(Mx + Lx/4,My + Ly/4, r).Face()
-    #             c4 = MoveTo(0,0).Circle(Mx - Lx/4,My + Ly/4, r).Face()
-    #             inclusion.append(Glue([c1,c2,c3,c4]))
-                
-    elif incl >= 2: #Circular inclusions (incl on one side)
-        inclusion = []
-        for i in range(Nx):
-            for j in range(Ny):   
-                Mx = Lx*i
-                My = Ly*j
-                exponent = 2
-                circular_incl = [MoveTo(0,0).Circle(Mx + (-1)**ee * Lx/incl * (kk + 1/2), My + (-1)**ff * Ly/incl * (ll + 1/2), r).Face()  for ee in range(exponent)  for ff in range(exponent) for kk in range(incl//2) for ll in range(incl//2)]
-                inclusion.append(Glue([circ for circ in circular_incl]))
+    gm = 0
+    if load_mesh == True:
+        try:
+            picklefile = open(load_file, "rb")
+            data = pickle.load(picklefile)
+            geo = data["geo"]
+            mesh = Mesh("mesh_" + pickle_name + ".vol.gz")
+            mesh.ngmesh.SetGeometry(geo)
+            dom_bnd = data["dom_bnd"]
+            alpha = data["alpha"]
+            mesh_info = data["mesh_info"]
+            picklefile.close()
+            print(60 * "#")
+            print("Loaded mesh!!!")
+            print(60 * "#")
+        except:
+            gm = 1
+    else:
+        gm = 1
 
-    else: #Square inclusion (incl = 0)
-        inclusion = [MoveTo(Lx*i,Ly*j).RectangleC(r, r).Face() for i in range(Nx) for j in range(Ny)]
-      
-    # outer = [domain[i*Ny+j]-inclusion[i*Ny+j] for i in range(Nx) for j in range(Ny)]
-    # inner = [domain[i*Ny+j]*inclusion[i*Ny+j] for i in range(Nx) for j in range(Ny)]
-    outer = []
-    inner = []
+    if gm == 1:
+        print(60 * "#")
+        print("Generating mesh!!!")
+        print(60 * "#")
+        if len(defects) == 0:
+            defects = np.ones((Nx,Ny))
 
-    def GetCell(i,j):
-        outerdom = domain[i*Ny+j]
-        # outerdom.faces.name = "outer"+str(i*Ny+j)
-        outerdom.faces.name = crystaltype[int(defects[i,j])][0]+str(i*Ny+j)
-        outerdom = outerdom - inclusion[i*Ny+j]
-        outerdom.faces.edges.Min(Y).name = "E_H"
-        outerdom.faces.edges.Max(Y).name = "E_H"
-        outerdom.faces.edges.Min(X).name = "E_V"
-        outerdom.faces.edges.Max(X).name = "E_V"
+        #Crystal type: 0 = full crystal # 1 = air defect in crystal  # 2 = air
+        crystaltype = [["outer","outer"], 
+                    ["outer","inner"],
+                    ["inner", "inner"]]
 
-        innerdom = domain[i*Ny+j]*inclusion[i*Ny+j]
-        innerdom.faces.edges.name="inner_edge"+str(i*Ny+j)
-        innerdom.faces.vertices.name="inner_vertex"+str(i*Ny+j)
-        innerdom.faces.name=crystaltype[int(defects[i,j])][1]+str(i*Ny+j)
+        domain = [MoveTo(Lx*i,Ly*j).RectangleC(Lx,Ly).Face() for i in range(Nx) for j in range(Ny)]
+        
+        if incl ==1: #Circular inclusion
+            inclusion = [MoveTo(0,0).Circle(Lx*i,Ly*j, r).Face() for i in range(Nx) for j in range(Ny)]
+                    
+                    
+        # elif incl == 2:
+        #     inclusion = []
+        #     for i in range(Nx):
+        #         for j in range(Ny):
+        #             Mx = Lx*i
+        #             My = Ly * j
+        #             c1 = MoveTo(0,0).Circle(Mx - Lx/4,My - Ly/4, r).Face()
+        #             c2 = MoveTo(0,0).Circle(Mx + Lx/4,My - Ly/4, r).Face()
+        #             c3 = MoveTo(0,0).Circle(Mx + Lx/4,My + Ly/4, r).Face()
+        #             c4 = MoveTo(0,0).Circle(Mx - Lx/4,My + Ly/4, r).Face()
+        #             inclusion.append(Glue([c1,c2,c3,c4]))
+                    
+        elif incl >= 2: #Circular inclusions (incl on one side)
+            inclusion = []
+            for i in range(Nx):
+                for j in range(Ny):   
+                    Mx = Lx*i
+                    My = Ly*j
+                    exponent = 2
+                    circular_incl = [MoveTo(0,0).Circle(Mx + (-1)**ee * Lx/incl * (kk + 1/2), My + (-1)**ff * Ly/incl * (ll + 1/2), r).Face()  for ee in range(exponent)  for ff in range(exponent) for kk in range(incl//2) for ll in range(incl//2)]
+                    inclusion.append(Glue([circ for circ in circular_incl]))
 
-        if (j == 0) :
-            outerdom.faces.edges.Min(Y).name = "dom_bnd_bottom_H"
-        if (j == (Ny-1)) :
-            outerdom.faces.edges.Max(Y).name = "dom_bnd_top_H"
-        if (i == 0):
-            outerdom.faces.edges.Min(X).name = "dom_bnd_left_V"
-        if (i == (Nx-1)) :
-            outerdom.faces.edges.Max(X).name = "dom_bnd_right_V"
+        else: #Square inclusion (incl = 0)
+            inclusion = [MoveTo(Lx*i,Ly*j).RectangleC(r, r).Face() for i in range(Nx) for j in range(Ny)]
+        
+        # outer = [domain[i*Ny+j]-inclusion[i*Ny+j] for i in range(Nx) for j in range(Ny)]
+        # inner = [domain[i*Ny+j]*inclusion[i*Ny+j] for i in range(Nx) for j in range(Ny)]
+        outer = []
+        inner = []
+
+        def GetCell(i,j):
+            outerdom = domain[i*Ny+j]
+            # outerdom.faces.name = "outer"+str(i*Ny+j)
+            outerdom.faces.name = crystaltype[int(defects[i,j])][0]+str(i*Ny+j)
+            outerdom = outerdom - inclusion[i*Ny+j]
+            outerdom.faces.edges.Min(Y).name = "E_H"
+            outerdom.faces.edges.Max(Y).name = "E_H"
+            outerdom.faces.edges.Min(X).name = "E_V"
+            outerdom.faces.edges.Max(X).name = "E_V"
+
+            innerdom = domain[i*Ny+j]*inclusion[i*Ny+j]
+            innerdom.faces.edges.name="inner_edge"+str(i*Ny+j)
+            innerdom.faces.vertices.name="inner_vertex"+str(i*Ny+j)
+            innerdom.faces.name=crystaltype[int(defects[i,j])][1]+str(i*Ny+j)
+
+            if (j == 0) :
+                outerdom.faces.edges.Min(Y).name = "dom_bnd_bottom_H"
+            if (j == (Ny-1)) :
+                outerdom.faces.edges.Max(Y).name = "dom_bnd_top_H"
+            if (i == 0):
+                outerdom.faces.edges.Min(X).name = "dom_bnd_left_V"
+            if (i == (Nx-1)) :
+                outerdom.faces.edges.Max(X).name = "dom_bnd_right_V"
+            
+            if layers > 0:
+                if (j == layers) and (i >= layers) and (i <= Nx-1-layers):
+                    outerdom.faces.edges.Min(Y).name = "crystal_bnd_bottom_H"
+                if (j == (Ny-1-layers)) and (i >= layers) and (i <= Nx-1-layers) :
+                    outerdom.faces.edges.Max(Y).name = "crystal_bnd_top_H"
+                if (i == layers) and (j >= layers) and (j <= Ny-1-layers):
+                    outerdom.faces.edges.Min(X).name = "crystal_bnd_left_V"
+                if (i == (Nx-1-layers)) and (j >= layers) and (j <= Ny-1-layers) :
+                    outerdom.faces.edges.Max(X).name = "crystal_bnd_right_V"
+
+            return innerdom, outerdom
+        
+        
+        for i in range(layers, Nx-layers):
+            for j in range(layers, Ny-layers):
+                innerdom, outerdom = GetCell(i,j)
+                outer.append(outerdom)
+                inner.append(innerdom)
         
         if layers > 0:
-            if (j == layers) and (i >= layers) and (i <= Nx-1-layers):
-                outerdom.faces.edges.Min(Y).name = "crystal_bnd_bottom_H"
-            if (j == (Ny-1-layers)) and (i >= layers) and (i <= Nx-1-layers) :
-                outerdom.faces.edges.Max(Y).name = "crystal_bnd_top_H"
-            if (i == layers) and (j >= layers) and (j <= Ny-1-layers):
-                outerdom.faces.edges.Min(X).name = "crystal_bnd_left_V"
-            if (i == (Nx-1-layers)) and (j >= layers) and (j <= Ny-1-layers) :
-                outerdom.faces.edges.Max(X).name = "crystal_bnd_right_V"
 
-        return innerdom, outerdom
-    
-    
-    for i in range(layers, Nx-layers):
-        for j in range(layers, Ny-layers):
-            innerdom, outerdom = GetCell(i,j)
-            outer.append(outerdom)
-            inner.append(innerdom)
-    
-    if layers > 0:
-
-        for i in [ii for ii in range(0, layers)] + [ii for ii in range(Nx-layers,Nx)]:
-            for j in range(0,Ny):
-                innerdom, outerdom = GetCell(i,j)
-                outer.append(outerdom)
-                inner.append(innerdom)
+            for i in [ii for ii in range(0, layers)] + [ii for ii in range(Nx-layers,Nx)]:
+                for j in range(0,Ny):
+                    innerdom, outerdom = GetCell(i,j)
+                    outer.append(outerdom)
+                    inner.append(innerdom)
+            
+            for j in [jj for jj in range(0, layers)] + [jj for jj in range(Ny-layers,Ny)]:
+                for i in range(layers,Nx-layers):
+                    innerdom, outerdom = GetCell(i,j)
+                    outer.append(outerdom)
+                    inner.append(innerdom)
+            
         
-        for j in [jj for jj in range(0, layers)] + [jj for jj in range(Ny-layers,Ny)]:
-            for i in range(layers,Nx-layers):
-                innerdom, outerdom = GetCell(i,j)
-                outer.append(outerdom)
-                inner.append(innerdom)
-        
-    
-    outershapes = [out_dom for out_dom in outer]
-    innershapes = [in_dom for in_dom in inner]
+        outershapes = [out_dom for out_dom in outer]
+        innershapes = [in_dom for in_dom in inner]
 
-    crystalshape = Glue(outershapes + innershapes)
-    mesh = Mesh(OCCGeometry(crystalshape, dim=2).GenerateMesh(maxh = maxH))
-    mesh.Curve(10)
-    Draw(mesh)
-    # input()
-    
-    nmat = len(mesh.GetMaterials())
-    nbnd = len(mesh.GetBoundaries())
-    nvert = len(mesh.GetBBoundaries())
-    
-    # print(mesh.GetBoundaries())
-    # V = H1(mesh, dirichlet = ".*")
-    # gfu = GridFunction(V)
-    # gfu.Set(1, definedon = mesh.Boundaries("dom_bnd_H"))
-    # Draw(gfu)
-    # input()
-    
-    
-    dom_bnd = ""
-    bi_V = 0
-    bi_H = 0
-    for i in range(nbnd): #
-        if not "dom_bnd" in mesh.ngmesh.GetBCName(i): # != "dom_bnd":
-            if not "inner_edge" in mesh.ngmesh.GetBCName(i): # != "dom_bnd":
-                if not "crystal_bnd" in mesh.ngmesh.GetBCName(i):
-                    if "V" in mesh.ngmesh.GetBCName(i):
-                        mesh.ngmesh.SetBCName(i,"E_V" + str(i))
+        crystalshape = Glue(outershapes + innershapes)
+        
+        geo = OCCGeometry(crystalshape, dim=2)
+        mesh = Mesh(geo.GenerateMesh(maxh = maxH))
+        mesh.Curve(10)
+        Draw(mesh)
+        # input()
+        
+        nmat = len(mesh.GetMaterials())
+        nbnd = len(mesh.GetBoundaries())
+        nvert = len(mesh.GetBBoundaries())
+        
+        # print(mesh.GetBoundaries())
+        # V = H1(mesh, dirichlet = ".*")
+        # gfu = GridFunction(V)
+        # gfu.Set(1, definedon = mesh.Boundaries("dom_bnd_H"))
+        # Draw(gfu)
+        # input()
+        
+        
+        dom_bnd = ""
+        bi_V = 0
+        bi_H = 0
+        for i in range(nbnd): #
+            if not "dom_bnd" in mesh.ngmesh.GetBCName(i): # != "dom_bnd":
+                if not "inner_edge" in mesh.ngmesh.GetBCName(i): # != "dom_bnd":
+                    if not "crystal_bnd" in mesh.ngmesh.GetBCName(i):
+                        if "V" in mesh.ngmesh.GetBCName(i):
+                            mesh.ngmesh.SetBCName(i,"E_V" + str(i))
+                        else:
+                            mesh.ngmesh.SetBCName(i,"E_H" + str(i))
                     else:
-                        mesh.ngmesh.SetBCName(i,"E_H" + str(i))
+                        name = mesh.ngmesh.GetBCName(i)
+                        # print(name)
+                        mesh.ngmesh.SetBCName(i,name + str(i))
+            else:
+                if "V" in mesh.ngmesh.GetBCName(i):
+                    name = mesh.ngmesh.GetBCName(i)
+                    mesh.ngmesh.SetBCName(i,name + str(bi_V))
+                    dom_bnd += name + str(bi_V) + "|"
+                    bi_V += 1
                 else:
                     name = mesh.ngmesh.GetBCName(i)
-                    # print(name)
-                    mesh.ngmesh.SetBCName(i,name + str(i))
-        else:
-            if "V" in mesh.ngmesh.GetBCName(i):
-                name = mesh.ngmesh.GetBCName(i)
-                mesh.ngmesh.SetBCName(i,name + str(bi_V))
-                dom_bnd += name + str(bi_V) + "|"
-                bi_V += 1
+                    mesh.ngmesh.SetBCName(i,name + str(bi_H))
+                    dom_bnd += name + str(bi_H) + "|"
+                    bi_H += 1
+                # bi+=1
+        dom_bnd = dom_bnd[:-1]
+        
+        for i in range(nvert): #Removing vertices on circles
+            if not "inner_vertex" in mesh.ngmesh.GetCD2Name(i):
+                mesh.ngmesh.SetCD2Name(i+1,"V" + str(i))
+
+        Draw(mesh)
+            
+        # ########################
+        # definition of diffusion coefficient: alpha_outer = 1/12.1 #SILICON  # alpha_inner = 1 #AIR
+        coeffs = {}
+
+        for d in range(len(mesh.GetMaterials())):
+            dom_name = mesh.ngmesh.GetMaterial(d+1) 
+            if "outer" in dom_name:
+                coeffs[dom_name] = alpha_outer
             else:
-                name = mesh.ngmesh.GetBCName(i)
-                mesh.ngmesh.SetBCName(i,name + str(bi_H))
-                dom_bnd += name + str(bi_H) + "|"
-                bi_H += 1
-            # bi+=1
-    dom_bnd = dom_bnd[:-1]
-    
-    for i in range(nvert): #Removing vertices on circles
-        if not "inner_vertex" in mesh.ngmesh.GetCD2Name(i):
-            mesh.ngmesh.SetCD2Name(i+1,"V" + str(i))
+                coeffs[dom_name] = alpha_inner
 
-    Draw(mesh)
-    
-    
-    
-    
-    
-    
-
-    # ########################
-    # definition of diffusion coefficient: alpha_outer = 1/12.1 #SILICON  # alpha_inner = 1 #AIR
-    coeffs = {}
-
-    for d in range(len(mesh.GetMaterials())):
-        dom_name = mesh.ngmesh.GetMaterial(d+1) 
-        if "outer" in dom_name:
-            coeffs[dom_name] = alpha_outer
-        else:
-            coeffs[dom_name] = alpha_inner
-
-    alpha_cf = mesh.MaterialCF(coeffs, default=0)
-    
-    alpha = GridFunction(L2(mesh, order = 0))
-    alpha.Set(alpha_cf)
-    
-    
-    # ########################
-    # rename inner domains give them the same name as the outer one has  inner name just used 
-    for d in range(nmat):
-        if "inner" in mesh.ngmesh.GetMaterial(d+1): # the +1 comes from the asking the negten mesh instead of the ngsolve mesh!
-            offset = int(nmat/(1+incl**2))
-            ii = int((d-offset)/incl**2) 
-            mesh.ngmesh.SetMaterial(d+1, mesh.ngmesh.GetMaterial(ii+1))
-    
-    mesh_info = GetMeshinfo(mesh)
-    mesh_info["dom_bnd"] = dom_bnd
-    
-    
-    # print(mesh.GetMaterials())
-    # V = H1(mesh, dirichlet = ".*")
-    # gfu = GridFunction(V)
-    # gfu.Set(1, definedon = mesh.Materials("outer0"))
-    # Draw(gfu)
-    # input()
-    
+        alpha_cf = mesh.MaterialCF(coeffs, default=0)
+        
+        alpha = GridFunction(L2(mesh, order = 0))
+        alpha.Set(alpha_cf)
+        
+        
+        # ########################
+        # rename inner domains give them the same name as the outer one has  inner name just used 
+        for d in range(nmat):
+            if "inner" in mesh.ngmesh.GetMaterial(d+1): # the +1 comes from the asking the negten mesh instead of the ngsolve mesh!
+                offset = int(nmat/(1+incl**2))
+                ii = int((d-offset)/incl**2) 
+                mesh.ngmesh.SetMaterial(d+1, mesh.ngmesh.GetMaterial(ii+1))
+        
+        mesh_info = GetMeshinfo(mesh)
+        mesh_info["dom_bnd"] = dom_bnd
+        
+        
+        # print(mesh.GetMaterials())
+        # V = H1(mesh, dirichlet = ".*")
+        # gfu = GridFunction(V)
+        # gfu.Set(1, definedon = mesh.Materials("outer0"))
+        # Draw(gfu)
+        # input()
+        
+        if save_mesh:
+            picklefile = open(load_file, "wb")
+            data = {}
+            # data["ngmesh"] = mesh.ngmesh
+            data["geo"] = geo
+            data["dom_bnd"] = dom_bnd
+            data["alpha"] = alpha
+            data["mesh_info"] = mesh_info
+            pickle.dump(data, picklefile)
+            picklefile.close()
+            mesh.ngmesh.Save("mesh_" + pickle_name + ".vol.gz")
     
     Draw(alpha, mesh, "alpha")
     
@@ -387,7 +433,7 @@ def crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer, alpha_inner, de
 
 
 
-def problem_definition(problem, Ncell, incl, maxH, omega, Bubble_modes, Edge_modes, order_v):
+def problem_definition(problem, Ncell, incl, maxH, omega, Bubble_modes, Edge_modes, order_v, load_mesh = False):
 
     if problem == 1:  #Problem setting - PLANE WAVE
         # #Generate mesh: unit disco with 8 subdomains
@@ -509,7 +555,7 @@ def problem_definition(problem, Ncell, incl, maxH, omega, Bubble_modes, Edge_mod
         # defects[4,5] = 0.0
         # defects[2,8] = 0.0
 
-        mesh, dom_bnd, alpha, mesh_info = crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer, alpha_inner, defects, layers)
+        mesh, dom_bnd, alpha, mesh_info = crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer, alpha_inner, defects, layers, load_mesh)
         
         # print(Integrate(x, mesh, definedon = mesh.Boundaries("measure_edge_left")))
         # print(Integrate(x, mesh, definedon = mesh.Boundaries("measure_edge_right")))
@@ -627,14 +673,15 @@ def compute_acms_solution(mesh, V, acms, edge_basis, setglobal = True):
         setupstart = time.time()
         
         num = acms.acmsdofs #len(basis)
-        print("finished setup", time.time() - setupstart)        
-        invstart = time.time()
-        asmall = acms.asmall
+        # print("finished setup", time.time() - setupstart)        
+        # invstart = time.time()
+        # asmall = acms.asmall
         # print("calc asmall = ", time.time() - invstart)
         
-        ainvsmall = Matrix(numpy.linalg.inv(asmall))
-        f_small = acms.fsmall
-        usmall = ainvsmall * f_small
+
+        # ainvsmall = Matrix(numpy.linalg.inv(asmall))
+        # f_small = acms.fsmall
+        usmall = acms.Solve() #ainvsmall * f_small
         
         gfu.vec[:] = 0.0
         # print("norm of usmall = ", Norm(usmall))
@@ -732,13 +779,15 @@ def acms_main(mesh, variables_dictionary, solution_dictionary):
                             start = time.time()
                             acms.CalcHarmonicExtensions()
                                                         
-                            assemble_start = time.time()
-                            for m in acms.doms:
-                                acms.Assemble_localA(m)
-                            print("assemble = ", time.time() - assemble_start)
+                            # assemble_start = time.time()
+                            # for m in acms.doms:
+                            #     acms.Assemble_localA(m)
+                            acms.Assemble()
+                            # print("assemble = ", time.time() - assemble_start)
         
                         gfu, num, _ = compute_acms_solution(mesh, V, acms, edge_basis)
-                        print("ACMS computation in = ", time.time() - start)
+                        # print("ACMS computation in = ", time.time() - start)
+                        acms.PrintTiminigs()
                         dofs.append(num)
                         l2_error, l2_error_ex, h1_error, h1_error_ex = append_acms_errors(mesh, gfu, gfu_fem, u_ex, grad_fem, Du_ex, l2_error, l2_error_ex, h1_error, h1_error_ex)
 

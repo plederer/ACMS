@@ -54,7 +54,7 @@ with TaskManager():
         for h in maxH/(2**np.arange(0, Href + 1 , 1)):
             print(h)
             # Variables setting
-            mesh, variables_dictionary = problem_definition(problem, Ncell, incl, h, omega, Bubble_modes, Edge_modes, order_v)
+            mesh, variables_dictionary = problem_definition(problem, Ncell, incl, h, omega, Bubble_modes, Edge_modes, order_v, load_mesh = True)
             
             #FEM solution with same order of approximation
             solution_dictionary = ground_truth(mesh, variables_dictionary, 10)

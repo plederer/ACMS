@@ -41,7 +41,6 @@ class ACMS:
         self.f = f 
         self.g = g 
         
-
         self.edge_extensions = {}
         self.vol_extensions = {}
 
@@ -58,23 +57,28 @@ class ACMS:
         self.omega = omega
         self.verts = mesh_info["verts"]
         self.edges = mesh_info["edges"]
-        self.doms = list( dict.fromkeys(mesh.GetMaterials()) )
         
+        self.doms = list( dict.fromkeys(mesh.GetMaterials()) )
         self.FreeVertices = BitArray(len(mesh.GetBBoundaries()))
+        self.FreeEdges = BitArray(len(mesh.GetBoundaries()))
+
+        self.timings = {}
+
+        ss = time.time()
         for v in range(len(mesh.GetBBoundaries())):
             if not "inner_vertex" in mesh.ngmesh.GetCD2Name(v):
                 self.FreeVertices[v] = 1
             else:
                 self.FreeVertices[v] = 0
-
-
-        self.FreeEdges = BitArray(len(mesh.GetBoundaries()))
+        
         for e in range(len(mesh.GetBoundaries())):
             if not "inner_edge" in mesh.ngmesh.GetBCName(e):
                 self.FreeEdges[e] = 1
             else:
                 self.FreeEdges[e] = 0
         
+        self.timings["total_initialize_class"] = time.time() - ss
+
         self.nverts = len(self.verts)
         self.nedges = len(self.edges)
         self.ncells = len(self.doms)
@@ -89,6 +93,8 @@ class ACMS:
         self.asmall[:,:] = 0 + 0*1J
         self.fsmall = Vector(self.acmsdofs, complex = True)
         self.fsmall[:] = 0 + 0*1J
+        
+        self.ainvsmall = Matrix(self.acmsdofs, self.acmsdofs, complex = True)
 
         self.localbasis = {}
 
@@ -116,10 +122,12 @@ class ACMS:
         #Setting bilinear form: - int (Grad u Grad v) d\Omega_j
         aharm += self.alpha * grad(uharm)*grad(vharm)*dx(definedon = self.mesh.Materials(dom_name), bonus_intorder = self.bi) 
         aharm += -self.gamma * self.kappa**2 * uharm*vharm*dx(definedon = self.mesh.Materials(dom_name), bonus_intorder = self.bi)
-        aharm.Assemble()
 
-        aharm_inv = aharm.mat.Inverse(fd, inverse = "sparsecholesky")
-        # print("Harmonic extensions domain = ", time.time() - start)
+        
+        with TaskManager():
+            aharm.Assemble()
+            aharm_inv = aharm.mat.Inverse(fd, inverse = "sparsecholesky")
+        
     
         return Vharm, aharm.mat, aharm_inv
 
@@ -174,17 +182,40 @@ class ACMS:
         # remove double entries
         mats = tuple( dict.fromkeys(self.mesh.GetMaterials()) )
         
+
+        ss = time.time()
         for dom_name in mats:
             # Vharm, aharm, aharm_inv, E, aharm_edge, aharm_edge_inv = self.GetHarmonicExtensionDomain(dom_name, kappa = kappa)
             self.vol_extensions[dom_name] = list(self.GetHarmonicExtensionDomain(dom_name))
-        
+        self.timings["total_calc_harmonic_extensions"] = time.time() - ss
        
     
     ###############################################################
     ###############################################################
 
+    def Solve(self):
+
+        ss = time.time()
+        self.ainvsmall = Matrix(np.linalg.inv(self.asmall))
+        self.timings["total_calc_inverse"] = time.time() - ss
+
+        ss = time.time()
+        usmall = self.ainvsmall * self.fsmall
+        self.timings["total_solve"] = time.time() - ss
+        return usmall
+
+    def Assemble(self):
+        
+        # self.timings["assemble_vertices_total"] = 0
+        # self.timings["assemble_edges_total"] = 0
+        # self.timings["assemble_bubbles_total"] = 0
+
+        ss = time.time()
+        for m in self.doms:
+            self.Assemble_localA_and_f(m)
+        self.timings["total_assemble"] = time.time() - ss
     
-    def Assemble_localA(self, acms_cell):
+    def Assemble_localA_and_f(self, acms_cell):
         nbnd = self.mesh.Materials(acms_cell).Neighbours(BND)
         nbbnd = self.mesh.Materials(acms_cell).Neighbours(BBND)
 
@@ -206,6 +237,7 @@ class ACMS:
         lii = 0
         
         vii = 0
+        # ss = time.time()
         for i, b in enumerate(vertices):
             if b == 1:
                 # derive acms dof numbering 
@@ -279,7 +311,9 @@ class ACMS:
                 localbasis[lii][:] = gfu.vec
                 lii +=1
                 gfu.vec[:] = 0
-        
+        # self.timings["assemble_vertices_total"] += ss-time.time()
+
+        # ss = time.time()
         local_dom_bnd = ""
         for i, b in enumerate(edges):
             if b == 1:
@@ -301,14 +335,17 @@ class ACMS:
                     edgetype = "D"
                 elif "C" in bndname:
                     edgetype = "C"
-                    
-                edgetype += "_" + str(sum(ddofs))
+
+                # edgetype += "_" + str(sum(ddofs))
+
+                nels = len([e for e in self.mesh.Boundaries(bndname).Elements()])   
+                edgetype += "_" + str(nels)
 
                 for l in range(self.edge_modes):
                     ii = 0
                     for d, bb in enumerate(ddofs):
                         if bb == 1:
-                            gfu.vec[d] = self.edgeversions[edgetype][1][l][ii]#.real
+                            gfu.vec[d] = self.edgeversions[edgetype][0][l][ii]#.real
                             # gfu.vec[d] = self.edgeversions[edgetype][1][l,ii]#.real
                             ii+=1
                     # input()
@@ -317,7 +354,9 @@ class ACMS:
                     localbasis[lii][:] = gfu.vec
                     lii+=1
                     gfu.vec[:] = 0
+        # self.timings["assemble_edges_total"] += ss-time.time()
 
+        # ss = time.time()
         if self.bubble_modes > 0:
             voli = int(np.nonzero(self.mesh.Materials(acms_cell).Mask())[0][0])
             # print(voli)
@@ -368,6 +407,8 @@ class ACMS:
                 localbasis[lii][:] = gfu.vec
                 lii+=1
         
+        # self.timings["assemble_bubbles_total"] += 
+
         self.localbasis[acms_cell] = (localbasis, dofs)
         uharm, vharm = Vharm.TnT() 
         local_a = BilinearForm(Vharm, check_unused=False)
@@ -385,6 +426,7 @@ class ACMS:
 
         localmat = InnerProduct(localbasis, (local_a.mat * localbasis).Evaluate(), conjugate = False)
 
+        
         local_f = LinearForm(Vharm)
         local_f += self.f * vharm * dx(definedon = self.mesh.Materials(acms_cell), bonus_intorder=10)
         local_f += self.g * vharm * ds(local_dom_bnd)
@@ -430,7 +472,9 @@ class ACMS:
                         gfu.vec.data = (localbasis * localcoeffs).Evaluate()
                         Draw(gfu, self.mesh, "cell")
                         
-                        integral+= Integrate(gfu, self.mesh, definedon = self.mesh.Boundaries(edgename))
+                        # rr = sqrt(gfu.real**2 + gfu.imag**2)
+                        rr = gfu.Norm()
+                        integral+= Integrate(rr, self.mesh, definedon = self.mesh.Boundaries(edgename))
                         # print(integral)
         
         return integral
@@ -445,6 +489,7 @@ class ACMS:
 
         
     def SetGlobalFunction(self, gfu, coeffs):
+        ss = time.time()
         for acms_cell in self.doms:
             Vharm, aharm_mat, aharm_inv = self.vol_extensions[acms_cell]
 
@@ -488,6 +533,7 @@ class ACMS:
                 if b == True:
                     gfu.vec.FV()[i] += localvec[ii]
                     ii+=1
+        self.timings["set_global_functions"] = time.time() - ss
     
 
    
@@ -520,6 +566,12 @@ class ACMS:
         if (basis == None):
             basis = self.basis_e
         
+        self.timings["calc_edgebasis_eigenvalues"] = 0
+        self.timings["calc_edgebasis_assemble_and_inv"] = 0
+        self.timings["calc_edgebasis_remaining"] = 0
+
+        ss = time.time()
+        vertex_dofs = self.V.GetDofs(self.mesh.BBoundaries(".*")) # Global vertices (coarse mesh)
         if self.edge_modes > 0:
             for edge_name in self.edges:
                 edgetype = ""
@@ -535,17 +587,27 @@ class ACMS:
                 else:
                     print("edge_name = ", edge_name)
                     raise Exception("wrong edge type")
+
+                
+                # ndofs = sum(list(fd))
+
+                ssss = time.time()
                 
 
-                vertex_dofs = self.V.GetDofs(self.mesh.BBoundaries(".*")) # Global vertices (coarse mesh)
-                fd = self.V.GetDofs(self.mesh.Boundaries(edge_name[1])) & (~vertex_dofs) 
+                nels = len([e for e in self.mesh.Boundaries(edge_name[1]).Elements()])
+                # print(ndofs)
+                # ndofs = sum(H1(self.mesh, order = self.order, definedon = self.mesh.Boundaries(edge_name[1])).FreeDofs()) - 2
+                # print(tt - 2)
                 
-                ndofs = sum(fd)
-                
-                edgetype += "_" + str(ndofs)
+                self.timings["calc_edgebasis_remaining"] += time.time() - ssss
+                # print(vertex_dofs)
+                # print(fd)
+                # quit()
+                edgetype += "_" + str(nels)
 
-                if edgetype not in self.edgeversions:                              
-
+                if edgetype not in self.edgeversions:    
+                    fd = self.V.GetDofs(self.mesh.Boundaries(edge_name[1])) & (~vertex_dofs)                           
+                    # print("AAA")
                     base_space = H1(self.mesh, order = self.order)#, dirichlet = self.dirichlet) # Creating Sobolev space
                     Vloc = Compress(base_space, fd) #Restricting Sobolev space on edge (with Dirichlet bc)
                     uloc, vloc = Vloc.TnT() # Trial and test functions
@@ -556,25 +618,30 @@ class ACMS:
                     # This allows us to take the normal derivative of a function that is in H1 and computing the integral only on edges
                     # Otherwise NGSolve does not allow to take the trace of a function in H^{1/2}(e) - uloc is defined on edge
                     aloc += (grad(uloc)*t) * (grad(vloc)*t) * ds(skeleton=True, definedon = self.mesh.Boundaries(edge_name[1]), bonus_intorder = self.bi)
-                    aloc.Assemble()
+
+                    
                     
                     #Setting bilinear form:  int u v de        
                     mloc = BilinearForm(Vloc, symmetric = True)
                     mloc += uloc.Trace() * vloc.Trace() * ds(skeleton = True, definedon = self.mesh.Boundaries(edge_name[1]), bonus_intorder = self.bi)
+
+                    sss= time.time()
+                    aloc.Assemble()
                     mloc.Assemble()
-                    
+                    minv = aloc.mat.Inverse(Vloc.FreeDofs(), inverse = "sparsecholesky") #IdentityMatrix(Vloc.ndof)        
+                    self.timings["calc_edgebasis_assemble_and_inv"] += time.time() - sss
                     
                     # Solving eigenvalue problem: AA x = ev MM x
                     # AA = sp.csr_matrix(aloc.mat.CSR())
                     # MM = sp.csr_matrix(mloc.mat.CSR())
                     # print("edge type = ", edgetype)
-                    
-                    minv = aloc.mat.Inverse(Vloc.FreeDofs()) #IdentityMatrix(Vloc.ndof)
-
+            
+            
+                    sss = time.time()
                     try:
                         lams, uvecs = PINVIT(aloc.mat, mloc.mat, pre = minv, num = self.edge_modes, printrates = False, maxit = 20)
-                        self.edgeversions[edgetype] = [ndofs, uvecs]
-                    
+                        self.edgeversions[edgetype] = [uvecs]
+                        self.timings["calc_edgebasis_eigenvalues"] += time.time() - sss
                         # ev, evec =sp.linalg.eigs(A = AA, M = MM, k = self.edge_modes, which='SM', tol = 1e-8)
                         # print("TRY")
                         # idx = ev.argsort()[::]   
@@ -586,10 +653,10 @@ class ACMS:
                         # self.edgeversions[edgetype] = [ndofs, evec]
                     except:
                         self.edge_modes = 0
-                        
                     # print("self.edge_modes = ", self.edge_modes)
                     # print("self.bubble_modes = ", self.bubble_modes)
         
+        self.timings["total_calc_edgebasis"] = time.time() - ss
         return (self.edge_modes != 0) #or (self.bubble_modes != 0)
     
                 
@@ -746,6 +813,17 @@ class ACMS:
                     basis[iib] = self.gfuc.vec
                     iib += 1
 
+    def PrintTiminigs(self):
+        print( 60 * "#")
+        total = 0
+        for key in self.timings.keys():
+            # print("time for " + key + ": " + str(self.timings[key]))
+            print(f"{'time for ' + key + ': ':<45}" +  str(self.timings[key]))
+            if "total" in key:
+                total += self.timings[key]
+        print( 60 * "#")
+        print("Total time: ", total)
+        print( 60 * "#")
             
             
 ###############################################################
