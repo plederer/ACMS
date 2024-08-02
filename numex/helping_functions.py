@@ -107,27 +107,37 @@ class ACMS:
     # Returns the Sobolev space H^1_0(\Omega_j), the stiffness matrix and its inverse
     def GetHarmonicExtensionDomain(self, dom_name):
         # start = time.time()
-        fd_all = self.V.GetDofs(self.mesh.Materials(dom_name)) # Dofs of specific domain
-        base_space = H1(self.mesh, order = self.order, complex = True) #, dirichlet = self.dirichlet) #Replicate H^1_0 on subdomain
-        # print(self.dirichlet)
-        Vharm = Compress(base_space, fd_all)
+        
+        # fd_all = self.V.GetDofs(self.mesh.Materials(dom_name)) # Dofs of specific domain
+        # base_space = H1(self.mesh, order = self.order, complex = True) #, dirichlet = self.dirichlet) #Replicate H^1_0 on subdomain
+        # # print(self.dirichlet)
+        # Vharm = Compress(base_space, fd_all)
+        
+        sss = time.time()
+        base_space = H1(self.mesh, order = self.order, complex = True, definedon = self.mesh.Materials(dom_name))
 
+        Vharm = Compress(base_space)
+        
+        
         fd = Vharm.FreeDofs()
         edges = self.mesh.Materials(dom_name).Neighbours(BND).Split()
         for bnds in edges[0:4]:
             fd &= ~Vharm.GetDofs(bnds)
+        self.timings["calc_harmonic_ext_remaining"] += time.time() - sss
 
         uharm, vharm = Vharm.TnT() # Trial and test functions
-        aharm = BilinearForm(Vharm)
+        aharm = BilinearForm(Vharm, symmetric = True)
         #Setting bilinear form: - int (Grad u Grad v) d\Omega_j
         aharm += self.alpha * grad(uharm)*grad(vharm)*dx(definedon = self.mesh.Materials(dom_name), bonus_intorder = self.bi) 
         aharm += -self.gamma * self.kappa**2 * uharm*vharm*dx(definedon = self.mesh.Materials(dom_name), bonus_intorder = self.bi)
-
         
+        
+        
+        sss = time.time()
         with TaskManager():
             aharm.Assemble()
             aharm_inv = aharm.mat.Inverse(fd, inverse = "sparsecholesky")
-        
+        self.timings["calc_harmonic_ext_assemble_and_inv"] += time.time() - sss
     
         return Vharm, aharm.mat, aharm_inv
 
@@ -182,12 +192,13 @@ class ACMS:
         # remove double entries
         mats = tuple( dict.fromkeys(self.mesh.GetMaterials()) )
         
-
+        self.timings["calc_harmonic_ext_assemble_and_inv"] = 0
+        self.timings["calc_harmonic_ext_remaining"] = 0
         ss = time.time()
         for dom_name in mats:
             # Vharm, aharm, aharm_inv, E, aharm_edge, aharm_edge_inv = self.GetHarmonicExtensionDomain(dom_name, kappa = kappa)
             self.vol_extensions[dom_name] = list(self.GetHarmonicExtensionDomain(dom_name))
-        self.timings["total_calc_harmonic_extensions"] = time.time() - ss
+        self.timings["total_calc_harmonic_ext"] = time.time() - ss
        
     
     ###############################################################
@@ -411,7 +422,7 @@ class ACMS:
 
         self.localbasis[acms_cell] = (localbasis, dofs)
         uharm, vharm = Vharm.TnT() 
-        local_a = BilinearForm(Vharm, check_unused=False)
+        local_a = BilinearForm(Vharm, symmetric = True, check_unused=False)
         
         beta = self.beta # ATTENTION: This should be given in input
         
