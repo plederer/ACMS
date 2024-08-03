@@ -118,7 +118,6 @@ class ACMS:
 
         Vharm = Compress(base_space)
         
-        
         fd = Vharm.FreeDofs()
         edges = self.mesh.Materials(dom_name).Neighbours(BND).Split()
         for bnds in edges[0:4]:
@@ -139,6 +138,10 @@ class ACMS:
             aharm_inv = aharm.mat.Inverse(fd, inverse = "sparsecholesky")
         self.timings["calc_harmonic_ext_assemble_and_inv"] += time.time() - sss
     
+        aharm_aharm_inv = Matrix(Vharm.ndof,Vharm.ndof)
+        # aharminv_aharm = aharm_inv @ aharm.mat
+        # aharminv_aharm = ProductMatrix(aharm_inv, aharm.mat)
+        # aharminv_aharm = np.matmul(aharm_inv.ToDense(), aharm.mat.ToDense())
         return Vharm, aharm.mat, aharm_inv
 
 
@@ -190,12 +193,12 @@ class ACMS:
             edge_names = self.mesh.GetBoundaries()
         
         # remove double entries
-        mats = tuple( dict.fromkeys(self.mesh.GetMaterials()) )
+        # mats = tuple( dict.fromkeys(self.mesh.GetMaterials()) )
         
         self.timings["calc_harmonic_ext_assemble_and_inv"] = 0
         self.timings["calc_harmonic_ext_remaining"] = 0
         ss = time.time()
-        for dom_name in mats:
+        for dom_name in self.doms:
             # Vharm, aharm, aharm_inv, E, aharm_edge, aharm_edge_inv = self.GetHarmonicExtensionDomain(dom_name, kappa = kappa)
             self.vol_extensions[dom_name] = list(self.GetHarmonicExtensionDomain(dom_name))
         self.timings["total_calc_harmonic_ext"] = time.time() - ss
@@ -217,9 +220,15 @@ class ACMS:
 
     def Assemble(self):
         
-        # self.timings["assemble_vertices_total"] = 0
-        # self.timings["assemble_edges_total"] = 0
-        # self.timings["assemble_bubbles_total"] = 0
+        self.timings["assemble_vertices"] = 0
+        # self.timings["assemble_vertices_0"] = 0
+        # self.timings["assemble_vertices_1"] = 0
+        # self.timings["assemble_vertices_2"] = 0
+        self.timings["assemble_edges"] = 0
+        self.timings["assemble_bubbles"] = 0
+        self.timings["assemble_basis"] = 0
+        self.timings["assemble_extensions"] = 0
+
 
         ss = time.time()
         for m in self.doms:
@@ -242,19 +251,22 @@ class ACMS:
         gfu = GridFunction(Vharm)
 
         localbasis = MultiVector(gfu.vec, sum(vertices) + sum(edges) * self.edge_modes + self.bubble_modes)
-                
+        localbasis_edges = MultiVector(gfu.vec, self.edge_modes)
 
         dofs = []
         lii = 0
         
         vii = 0
-        # ss = time.time()
+        ttt = time.time()
+        sss = time.time()
         for i, b in enumerate(vertices):
             if b == 1:
+                
                 # derive acms dof numbering 
                 for j in range(self.nverts):
                     if self.verts[j][0] == i:
                         dofs.append(j)
+                        break
                 # add corresponding vertex basis function
                 #vertex name
                 vname = self.mesh.GetBBoundaries()[i]
@@ -263,15 +275,17 @@ class ACMS:
                 
                 if True:
                     # if i < len(gfu.vec):
+                    
                     gfu.vec[vii] = 1 #set active vertex dof to 1
                     vii += 1
                     # orient = 0
+                    
                     for bnds in vnbnd.Split():
                         els = [e for e in bnds.Elements()]
                         nels = len(els)
                         # orient = sum(Integrate(specialcf.tangential(2), self.mesh, definedon=bnds, order = 0))
                         # print(orient)
-                        vals = [i/(nels) for i in range(0,nels+1) ]
+                        vals = [i/(nels) for i in range(1,nels) ]
                     
                         if els[0].vertices[0].nr == i: # or els[0].vertices[1].nr == 1:
                             vals.reverse()
@@ -280,14 +294,25 @@ class ACMS:
 
                         # offset = 5 # 4 vertices + 1 vertex in the middle that was created for the circle domain
                         bdofs = Vharm.GetDofs(bnds)
-                        iii = 1
-                        for ii, bb in enumerate(bdofs):
-                            # check if active dof in the interior
-                            # we are no vertex dof 
-                            # we have just set the inner dofs on that boundary
-                            if bb == 1 and ii >= offset and iii < nels:
-                                gfu.vec[ii] = vals[iii]
-                                iii += 1
+                        
+                        # iii = 1
+                        # for ii, bb in enumerate(bdofs):
+                        #     # check if active dof in the interior
+                        #     # we are no vertex dof 
+                        #     # we have just set the inner dofs on that boundary
+                        #     if bb == 1 and ii >= offset and iii < nels:
+                        #         gfu.vec[ii] = vals[iii]
+                        #         iii += 1
+                        
+                        ii = offset
+                        while bdofs[ii] == 0:
+                            ii +=1
+                        
+                        dd = nels-1 #just linear dofs
+                        for iii in range(0,dd):
+                            gfu.vec[ii] = vals[iii]
+                            ii+=1
+                    
                 else:            
                     Vxcoord = self.mesh.vertices[i].point[0]
                     Vycoord = self.mesh.vertices[i].point[1]
@@ -314,29 +339,43 @@ class ACMS:
                             edofs = Vharm.GetDofNrs(e)
                             for vi, v in enumerate(e.vertices):
                                 gfu.vec[edofs[vi]] = 1-vlen/slength
-                                    
-                gfu.vec.data += -(aharm_inv @ aharm_mat) * gfu.vec  
+                            
+                # sss = time.time()
+                # aharminv_aharm = ProductMatrix(aharm_inv, aharm.mat)
+                # aharminv_aharm = Matrix(Vharm.ndof, complex = True)
+                # aharminv_aharm = (aharm_inv @ aharm_mat).ToDense()
+                with TaskManager():
+                    gfu.vec.data += -(aharm_inv @ aharm_mat) * gfu.vec  
+                
                 # gfu.vec.data += -(aharm_mat) * gfu.vec  
                 # gfu.vec[:] = 1
                 # Draw(gfu, self.mesh, "test")
                 localbasis[lii][:] = gfu.vec
                 lii +=1
                 gfu.vec[:] = 0
-        # self.timings["assemble_vertices_total"] += ss-time.time()
+        self.timings["assemble_vertices"] += time.time()-sss    
 
-        # ss = time.time()
+        sss = time.time()
         local_dom_bnd = ""
+        ee = 0
+        eemax = sum(edges)
         for i, b in enumerate(edges):
+            if ee == eemax:
+                break
             if b == 1:
+                ee+=1
                 for j in range(self.nedges):
                     if self.edges[j][0] == i:
                         for l in range(self.edge_modes):
                             dofs.append(self.nverts + j*self.edge_modes + l)
-
+                        break
+                       
                 bndname = self.mesh.GetBoundaries()[i]
                 if bndname in self.dom_bnd:
                     local_dom_bnd += bndname + "|"
+
                 ddofs = Vharm.GetDofs(self.mesh.Boundaries(bndname)) & (~local_vertex_dofs)
+                
                 edgetype = ""
                 if "V" in bndname:
                     edgetype = "V"
@@ -347,11 +386,28 @@ class ACMS:
                 elif "C" in bndname:
                     edgetype = "C"
 
-                # edgetype += "_" + str(sum(ddofs))
-
                 nels = len([e for e in self.mesh.Boundaries(bndname).Elements()])   
                 edgetype += "_" + str(nels)
 
+                dd = nels + (self.order -1) + nels -1
+                
+                sss = time.time()
+                
+                # for l in range(self.edge_modes):
+                #     ii = 0
+                #     for d, bb in enumerate(ddofs):
+                #         if bb == 1:
+                #             gfu.vec[d] = self.edgeversions[edgetype][0][l][ii]#.real
+                #             # gfu.vec[d] = self.edgeversions[edgetype][1][l,ii]#.real
+                #             ii+=1
+                #         if ii == dd-1:
+                #             break
+                    
+                #     gfu.vec.data += -(aharm_inv @ aharm_mat) * gfu.vec
+                #     localbasis[lii][:] = gfu.vec
+                #     lii+=1
+                #     gfu.vec[:] = 0
+                gfu.vec[:] = 0
                 for l in range(self.edge_modes):
                     ii = 0
                     for d, bb in enumerate(ddofs):
@@ -359,15 +415,22 @@ class ACMS:
                             gfu.vec[d] = self.edgeversions[edgetype][0][l][ii]#.real
                             # gfu.vec[d] = self.edgeversions[edgetype][1][l,ii]#.real
                             ii+=1
-                    # input()
-                        
-                    gfu.vec.data += -(aharm_inv @ aharm_mat) * gfu.vec
-                    localbasis[lii][:] = gfu.vec
-                    lii+=1
+                        if ii == dd-1:
+                            break
+                    
+                    # gfu.vec.data += -(aharm_inv @ aharm_mat) * gfu.vec
+                    localbasis_edges[l][:] = gfu.vec
+                    # lii+=1
                     gfu.vec[:] = 0
-        # self.timings["assemble_edges_total"] += ss-time.time()
+                with TaskManager():
+                    localbasis_edges[:] += -(aharm_inv @ aharm_mat) * localbasis_edges
+                localbasis[lii:lii+self.edge_modes] = localbasis_edges
 
-        # ss = time.time()
+                lii += self.edge_modes
+                self.timings["assemble_edges"] += time.time()-sss
+        
+
+        sss = time.time()
         if self.bubble_modes > 0:
             voli = int(np.nonzero(self.mesh.Materials(acms_cell).Mask())[0][0])
             # print(voli)
@@ -418,33 +481,43 @@ class ACMS:
                 localbasis[lii][:] = gfu.vec
                 lii+=1
         
-        # self.timings["assemble_bubbles_total"] += 
+        self.timings["assemble_bubbles"] += time.time() - sss
+        self.timings["assemble_basis"] += time.time() - ttt
 
         self.localbasis[acms_cell] = (localbasis, dofs)
         uharm, vharm = Vharm.TnT() 
-        local_a = BilinearForm(Vharm, symmetric = True, check_unused=False)
-        
-        beta = self.beta # ATTENTION: This should be given in input
-        
 
-        local_dom_bnd = local_dom_bnd[:-1]
+        ttt = time.time()
         if local_dom_bnd != "":
+            
+            local_a = BilinearForm(Vharm, symmetric = True, check_unused=False)
+            
+            beta = self.beta # ATTENTION: This should be given in input
+            
+
+            local_dom_bnd = local_dom_bnd[:-1]
+            
             local_a += -1J * self.omega * beta * uharm * vharm * ds(local_dom_bnd, bonus_intorder = self.bi)
-        local_a.Assemble()
-
-        local_a.mat.AsVector().data += aharm_mat.AsVector()
-        
-
-        localmat = InnerProduct(localbasis, (local_a.mat * localbasis).Evaluate(), conjugate = False)
+            
+            with TaskManager():
+                local_a.Assemble()
+                local_a.mat.AsVector().data += aharm_mat.AsVector()
+                localmat = InnerProduct(localbasis, (local_a.mat * localbasis).Evaluate(), conjugate = False)
+        else:
+            with TaskManager():
+                localmat = InnerProduct(localbasis, (aharm_mat * localbasis).Evaluate(), conjugate = False)
+        self.timings["assemble_extensions"] += time.time() - ttt
 
         
         local_f = LinearForm(Vharm)
-        local_f += self.f * vharm * dx(definedon = self.mesh.Materials(acms_cell), bonus_intorder=10)
+        local_f += self.f * vharm * dx(definedon = self.mesh.Materials(acms_cell))
         local_f += self.g * vharm * ds(local_dom_bnd)
-        local_f.Assemble()
+        with TaskManager():
+            local_f.Assemble()
         
-
+        ttt = time.time()
         localvec = InnerProduct(localbasis, local_f.vec, conjugate = False)
+        self.timings["assemble_extensions"] += time.time() - ttt
         for i in range(len(dofs)):
             for j in range(len(dofs)): 
                 self.asmall[dofs[i],dofs[j]] += localmat[i,j]
@@ -824,15 +897,18 @@ class ACMS:
                     basis[iib] = self.gfuc.vec
                     iib += 1
 
-    def PrintTiminigs(self):
+    def PrintTiminigs(self, all = False):
         print( 60 * "#")
         total = 0
+        if all == True:
+            for key in self.timings.keys():
+                # print("time for " + key + ": " + str(self.timings[key]))
+                print(f"{'time for ' + key + ': ':<45}" +  str(self.timings[key]))
+            print( 60 * "#")
         for key in self.timings.keys():
-            # print("time for " + key + ": " + str(self.timings[key]))
-            print(f"{'time for ' + key + ': ':<45}" +  str(self.timings[key]))
             if "total" in key:
+                print(f"{'time for ' + key + ': ':<35}" +  str(self.timings[key]))
                 total += self.timings[key]
-        print( 60 * "#")
         print("Total time: ", total)
         print( 60 * "#")
             

@@ -167,8 +167,9 @@ def crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer, alpha_inner, de
             geo = data["geo"]
             mesh = Mesh("mesh_" + pickle_name + ".vol.gz")
             mesh.ngmesh.SetGeometry(geo)
+            mesh.Curve(10)
             dom_bnd = data["dom_bnd"]
-            alpha = data["alpha"]
+            # alpha = data["alpha"]
             mesh_info = data["mesh_info"]
             picklefile.close()
             print(60 * "#")
@@ -342,24 +343,7 @@ def crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer, alpha_inner, de
                 mesh.ngmesh.SetCD2Name(i+1,"V" + str(i))
 
         Draw(mesh)
-            
-        # ########################
-        # definition of diffusion coefficient: alpha_outer = 1/12.1 #SILICON  # alpha_inner = 1 #AIR
-        coeffs = {}
-
-        for d in range(len(mesh.GetMaterials())):
-            dom_name = mesh.ngmesh.GetMaterial(d+1) 
-            if "outer" in dom_name:
-                coeffs[dom_name] = alpha_outer
-            else:
-                coeffs[dom_name] = alpha_inner
-
-        alpha_cf = mesh.MaterialCF(coeffs, default=0)
-        
-        alpha = GridFunction(L2(mesh, order = 0))
-        alpha.Set(alpha_cf)
-        
-        
+                   
         # ########################
         # rename inner domains give them the same name as the outer one has  inner name just used 
         for d in range(nmat):
@@ -385,15 +369,29 @@ def crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer, alpha_inner, de
             # data["ngmesh"] = mesh.ngmesh
             data["geo"] = geo
             data["dom_bnd"] = dom_bnd
-            data["alpha"] = alpha
             data["mesh_info"] = mesh_info
             pickle.dump(data, picklefile)
             picklefile.close()
             mesh.ngmesh.Save("mesh_" + pickle_name + ".vol.gz")
     
+    # ########################
+    # definition of diffusion coefficient: alpha_outer = 1/12.1 #SILICON  # alpha_inner = 1 #AIR
+    coeffs = {}
+
+    for d in range(len(mesh.GetMaterials())):
+        dom_name = mesh.ngmesh.GetMaterial(d+1) 
+        if "outer" in dom_name:
+            coeffs[dom_name] = alpha_outer
+        else:
+            coeffs[dom_name] = alpha_inner
+
+    alpha_cf = mesh.MaterialCF(coeffs, default=0)
+    
+    alpha = GridFunction(L2(mesh, order = 0))
+    alpha.Set(alpha_cf)
+    
     Draw(alpha, mesh, "alpha")
-    
-    
+
     return mesh, dom_bnd, alpha, mesh_info
 
 
@@ -690,7 +688,7 @@ def compute_acms_solution(mesh, V, acms, edge_basis, setglobal = True):
             acms.SetGlobalFunction(gfu, usmall)
         Draw(gfu, mesh, "uacms")
      
-        print("finished_acms")
+        # print("finished_acms")
     return gfu, num, usmall
 
 ##################################################################
