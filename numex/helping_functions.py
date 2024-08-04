@@ -112,11 +112,15 @@ class ACMS:
         # base_space = H1(self.mesh, order = self.order, complex = True) #, dirichlet = self.dirichlet) #Replicate H^1_0 on subdomain
         # # print(self.dirichlet)
         # Vharm = Compress(base_space, fd_all)
-        
         sss = time.time()
-        base_space = H1(self.mesh, order = self.order, complex = True, definedon = self.mesh.Materials(dom_name))
+        is_c = True #bool(sum((self.mesh.Materials(dom_name).Neighbours(BND) * self.mesh.Boundaries(self.dom_bnd)).Mask()))
+        
+        base_space = H1(self.mesh, order = self.order, complex = is_c, definedon = self.mesh.Materials(dom_name))
 
         Vharm = Compress(base_space)
+
+        # base_space_C = H1(self.mesh, order = self.order, complex = False, definedon = self.mesh.Materials(dom_name))
+        # Vharm_C = Compress(base_space_C)
         
         fd = Vharm.FreeDofs()
         edges = self.mesh.Materials(dom_name).Neighbours(BND).Split()
@@ -209,12 +213,19 @@ class ACMS:
 
     def Solve(self):
 
-        ss = time.time()
-        self.ainvsmall = Matrix(np.linalg.inv(self.asmall))
-        self.timings["total_calc_inverse"] = time.time() - ss
+        # ss = time.time()
+
+        # usmall = sp.linalg.solve(self.asmall, self.fsmall, assume_a='sym')
+        # asparse = sp.csr_matrix(self.asmall)
+        # # self.ainvsmall = sp.linalg.inv(asparse)
+        # self.ainvsmall = sp.linalg.inv(asparse)
+        # # self.ainvsmall = Matrix(np.linalg.inv(self.asmall))
+        # self.timings["total_calc_inverse"] = time.time() - ss
 
         ss = time.time()
-        usmall = self.ainvsmall * self.fsmall
+        usmall = Vector(scipy.linalg.solve(self.asmall, self.fsmall, assume_a='sym'))
+        # self.ainvsmall = Matrix(np.linalg.inv(self.asmall))
+        # usmall = Vector(self.ainvsmall * self.fsmall)
         self.timings["total_solve"] = time.time() - ss
         return usmall
 
