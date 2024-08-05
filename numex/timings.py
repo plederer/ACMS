@@ -190,8 +190,8 @@ for EE in Edge_modes:
                         "order:" +   str(order) + "_" + \
                         "Ie:" +      str(EE) + "_" + \
                         ".dat"
-        picklefile = open(save_file, "wb")
         save_file = os.path.join(dirname, "timings/" + pickle_name)
+        picklefile = open(save_file, "wb")
         data = [ex_data, timings]
         pickle.dump(data, picklefile)
         picklefile.close()
