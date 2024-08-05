@@ -157,6 +157,9 @@ def crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer, alpha_inner, de
                     ".dat"
     dirname = os.path.dirname(__file__)
     
+    if not os.path.exists("meshes"):
+        os.mkdir("meshes")
+
     load_file = os.path.join(dirname, "meshes/" + pickle_name)
     
     gm = 0

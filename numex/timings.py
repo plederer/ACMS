@@ -41,7 +41,7 @@ omega_v = [1.12] #list(np.arange(ss,ee,0.005)) #list([i/10 for i in range(10,50)
 
 Href = 0
 maxH = 0.2
-order_v = [3]
+order_v = [4]
 Bubble_modes = [0]
 Edge_modes = [2,4,8,16]
 ACMS_flag = 0
@@ -54,7 +54,6 @@ table_content_h1_aux = ""
 table_header = ""
 table_separation = ""
 table_end = ""
-
 
 
 r  = 0.126     # radius of inclusion
@@ -92,13 +91,18 @@ ints_right = []
 ints_left = []
 # SetNumThreads(12)
 
+if not os.path.exists("timings"):
+    os.mkdir("timings")
+
+dirname = os.path.dirname(__file__)
+
 # TaskManager().__enter__
 # for omega in omega_v:
 omega = omega_v[0]
+order = order_v[0]
 for EE in Edge_modes:
     print("Edgemodes = ", EE)
-    # print("omega = ", omega)
-    
+           
     kappa = omega    #**2 * alpha 
     k_ext = omega    #**2 # * alpha=1
     k = k_ext * CF((1,0)) #CF = CoefficientFunction
@@ -153,7 +157,7 @@ for EE in Edge_modes:
 
         # input()
     if True:
-        acms = ACMS(order = order_v[0], mesh = mesh, bm = 0, em = EE, bi = mesh.GetCurveOrder(), mesh_info = mesh_info, alpha = alpha, omega = omega, kappa = kappa, f = f, g = g, beta = beta, gamma = gamma)
+        acms = ACMS(order = order, mesh = mesh, bm = 0, em = EE, bi = mesh.GetCurveOrder(), mesh_info = mesh_info, alpha = alpha, omega = omega, kappa = kappa, f = f, g = g, beta = beta, gamma = gamma)
         
         
         # input()
@@ -171,45 +175,23 @@ for EE in Edge_modes:
             # print("assemble = ", time.time() - assemble_start)
 
             gfu, num, usmall = compute_acms_solution(mesh, V, acms, edge_basis, setglobal=False)
-            print(Norm(usmall))
-        acms.PrintTiminigs()
-        
-        # Draw(gfu, mesh, "uacms")
-        # input()
-        # Draw(x, mesh, "x")
-    # if do_draw:
-    #     input()
-    # # intval_left = acms.IntegrateACMS("dom_bnd_left_V", usmall)
-    # # intval_right = acms.IntegrateACMS("dom_bnd_right_V", usmall)
-    # intval_left = 0
-    # intval_right = 0
-    # rr = gfu_fem.real**2  + gfu_fem.imag**2
-    # # for i, edgename in enumerate(mesh.GetBoundaries()):
-    # #     if "dom_bnd_left_V" in edgename:
-    # #         intval_left+= Integrate(rr, mesh, definedon = mesh.Boundaries(edgename))
-    # #     # if "dom_bnd_right_V" in edgename:
-    # #     if "dom_bnd_bottom_H" in edgename:
-    # #         intval_right+= Integrate(rr, mesh, definedon = mesh.Boundaries(edgename))
+            
+            acms.PrintTiminigs()
 
-    # intval_left+= Integrate(rr, mesh, definedon = mesh.Boundaries("dom_bnd_left_V3"))
-    # intval_right+= Integrate(rr, mesh, definedon = mesh.Boundaries("dom_bnd_right_V10"))
-    
-    # # print(mesh.GetBoundaries())
-    # # test = GridFunction(H1(mesh, order = 1, dirichlet=".*"))
-    # # test.Set(1, definedon = mesh.Boundaries("dom_bnd_bottom_H6"))
-    # # Draw(test, mesh, "test")
-    # # input()
-    # # print("integral = ", intval)
-    # ints_left.append(sqrt(intval_left))
-    # ints_right.append(sqrt(intval_right))
-# TaskManager().__exit__
-# print("ints_right = ", ints_right)
-# print("ints_left = ", ints_left)
+        ex_data = {"maxH": maxH, "incl": incl, "Ncell": Ncell,"order": order, "Ie": EE, "ne" : acms.ndofemax, "acmsndof" : acms.acmsdofs}
+        timings = acms.timings
 
-# import matplotlib.pyplot as plt
-
-# plt.plot(omega_v, ints_left, label = "left")
-# plt.plot(omega_v, ints_right, label = "right")
-# plt.legend()
-# plt.show()        
-        
+        pickle_name =   "maxH:" +     str(maxH) + "_" + \
+                        "Nx:" +       str(Nx) + "_" + \
+                        "Ny:" +       str(Ny) + "_" + \
+                        "incl:" +     str(incl) + "_" + \
+                        "Ncell:" +    str(Ncell) + "_" + \
+                        "layers:" +   str(layers) + "_" + \
+                        "order:" +   str(order) + "_" + \
+                        "Ie:" +      str(EE) + "_" + \
+                        ".dat"
+        picklefile = open(save_file, "wb")
+        save_file = os.path.join(dirname, "timings/" + pickle_name)
+        data = [ex_data, timings]
+        pickle.dump(data, picklefile)
+        picklefile.close()

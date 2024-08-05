@@ -84,6 +84,8 @@ class ACMS:
         self.ncells = len(self.doms)
 
         self.acmsdofs = self.nverts + self.nedges * self.edge_modes + self.ncells  * self.bubble_modes
+        self.ndofemax = 0
+        
 
         self.basis_v = MultiVector(self.gfuc.vec, self.nverts)
         self.basis_e = MultiVector(self.gfuc.vec, self.nedges * self.edge_modes)
@@ -97,6 +99,8 @@ class ACMS:
         self.ainvsmall = Matrix(self.acmsdofs, self.acmsdofs, complex = True)
 
         self.localbasis = {}
+
+        
 
         self.bi = bi 
 
@@ -705,6 +709,10 @@ class ACMS:
                     # print("AAA")
                     base_space = H1(self.mesh, order = self.order)#, dirichlet = self.dirichlet) # Creating Sobolev space
                     Vloc = Compress(base_space, fd) #Restricting Sobolev space on edge (with Dirichlet bc)
+
+                    if Vloc.ndof >= self.ndofemax:
+                        self.ndofemax = Vloc.ndof
+
                     uloc, vloc = Vloc.TnT() # Trial and test functions
                     t = specialcf.tangential(2)
                     
