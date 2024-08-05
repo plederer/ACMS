@@ -28,7 +28,7 @@ def GetVertexNeighbours(vname, mesh):
 # EXTENSIONS
 
 class ACMS:
-    def __init__(self, order, mesh, bm = 0, em = 0, mesh_info = None, bi = 0, alpha = 1, kappa = 1, omega = 1, f = 1, g = 1, beta = 1, gamma = 1):
+    def __init__(self, order, mesh, bm = 0, em = 0, mesh_info = None, bi = 0, alpha = 1, kappa = 1, omega = 1, f = 1, g = 1, beta = 1, gamma = 1, save_localbasis=False, save_extensions = False):
         self.order = order # Polynomial degree of approximation
         self.dirichlet = mesh_info["dir_edges"]
         self.dom_bnd = mesh_info["dom_bnd"] 
@@ -63,6 +63,16 @@ class ACMS:
         self.FreeEdges = BitArray(len(mesh.GetBoundaries()))
 
         self.timings = {}
+        self.timings["calc_harmonic_ext_assemble_and_inv"] = 0
+        self.timings["calc_harmonic_ext_remaining"] = 0
+        self.timings["total_calc_harmonic_ext"] = 0
+        self.timings["assemble_vertices"] = 0
+        self.timings["assemble_edges"] = 0
+        self.timings["assemble_bubbles"] = 0
+        self.timings["assemble_basis"] = 0
+        self.timings["assemble_extensions"] = 0
+        self.timings["total_assemble"] = 0
+
 
         ss = time.time()
         for v in range(len(mesh.GetBBoundaries())):
@@ -99,6 +109,8 @@ class ACMS:
         self.ainvsmall = Matrix(self.acmsdofs, self.acmsdofs, complex = True)
 
         self.localbasis = {}
+        self.save_localbasis = save_localbasis
+        self.save_extensions = save_extensions
 
         
 
@@ -117,6 +129,7 @@ class ACMS:
         # # print(self.dirichlet)
         # Vharm = Compress(base_space, fd_all)
         sss = time.time()
+        ss_extension = time.time()
         is_c = True #bool(sum((self.mesh.Materials(dom_name).Neighbours(BND) * self.mesh.Boundaries(self.dom_bnd)).Mask()))
         
         base_space = H1(self.mesh, order = self.order, complex = is_c, definedon = self.mesh.Materials(dom_name))
@@ -145,8 +158,9 @@ class ACMS:
             aharm.Assemble()
             aharm_inv = aharm.mat.Inverse(fd, inverse = "sparsecholesky")
         self.timings["calc_harmonic_ext_assemble_and_inv"] += time.time() - sss
+        self.timings["total_calc_harmonic_ext"] += time.time() - ss_extension
     
-        aharm_aharm_inv = Matrix(Vharm.ndof,Vharm.ndof)
+        # aharm_aharm_inv = Matrix(Vharm.ndof,Vharm.ndof)
         # aharminv_aharm = aharm_inv @ aharm.mat
         # aharminv_aharm = ProductMatrix(aharm_inv, aharm.mat)
         # aharminv_aharm = np.matmul(aharm_inv.ToDense(), aharm.mat.ToDense())
@@ -203,13 +217,11 @@ class ACMS:
         # remove double entries
         # mats = tuple( dict.fromkeys(self.mesh.GetMaterials()) )
         
-        self.timings["calc_harmonic_ext_assemble_and_inv"] = 0
-        self.timings["calc_harmonic_ext_remaining"] = 0
-        ss = time.time()
+        # ss = time.time()
         for dom_name in self.doms:
             # Vharm, aharm, aharm_inv, E, aharm_edge, aharm_edge_inv = self.GetHarmonicExtensionDomain(dom_name, kappa = kappa)
             self.vol_extensions[dom_name] = list(self.GetHarmonicExtensionDomain(dom_name))
-        self.timings["total_calc_harmonic_ext"] = time.time() - ss
+        # self.timings["total_calc_harmonic_ext"] = time.time() - ss
        
     
     ###############################################################
@@ -234,23 +246,14 @@ class ACMS:
         return usmall
 
     def Assemble(self):
-        
-        self.timings["assemble_vertices"] = 0
-        # self.timings["assemble_vertices_0"] = 0
-        # self.timings["assemble_vertices_1"] = 0
-        # self.timings["assemble_vertices_2"] = 0
-        self.timings["assemble_edges"] = 0
-        self.timings["assemble_bubbles"] = 0
-        self.timings["assemble_basis"] = 0
-        self.timings["assemble_extensions"] = 0
-
-
-        ss = time.time()
         for m in self.doms:
             self.Assemble_localA_and_f(m)
-        self.timings["total_assemble"] = time.time() - ss
     
     def Assemble_localA_and_f(self, acms_cell):
+        Vharm, aharm_mat, aharm_inv = self.GetHarmonicExtensionDomain(acms_cell)
+        if self.save_extensions:
+            self.vol_extensions[dom_name] = [Vharm, aharm_mat, aharm_inv]
+        ss_assemble = time.time()
         nbnd = self.mesh.Materials(acms_cell).Neighbours(BND)
         nbbnd = self.mesh.Materials(acms_cell).Neighbours(BBND)
 
@@ -259,7 +262,9 @@ class ACMS:
         vertices = nbbnd.Mask() & self.FreeVertices
         edges = nbnd.Mask() & self.FreeEdges
         
-        Vharm, aharm_mat, aharm_inv = self.vol_extensions[acms_cell]
+
+        # Vharm, aharm_mat, aharm_inv = self.vol_extensions[acms_cell]
+        
         
         local_vertex_dofs = Vharm.GetDofs(nbbnd)
         
@@ -498,11 +503,15 @@ class ACMS:
         
         self.timings["assemble_bubbles"] += time.time() - sss
         self.timings["assemble_basis"] += time.time() - ttt
-
-        self.localbasis[acms_cell] = (localbasis, dofs)
+        
+        if self.save_localbasis:
+            self.localbasis[acms_cell] = (localbasis, dofs)
+            
         uharm, vharm = Vharm.TnT() 
 
+        
         ttt = time.time()
+        sss = time.time()
         if local_dom_bnd != "":
             
             local_a = BilinearForm(Vharm, symmetric = True, check_unused=False)
@@ -538,6 +547,7 @@ class ACMS:
                 self.asmall[dofs[i],dofs[j]] += localmat[i,j]
             
             self.fsmall[dofs[i]] += localvec[i]
+        self.timings["total_assemble"] += time.time() - ss_assemble
                 
 ###############################################################
 ###############################################################
