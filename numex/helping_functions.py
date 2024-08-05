@@ -28,7 +28,7 @@ def GetVertexNeighbours(vname, mesh):
 # EXTENSIONS
 
 class ACMS:
-    def __init__(self, order, mesh, bm = 0, em = 0, mesh_info = None, bi = 0, alpha = 1, kappa = 1, omega = 1, f = 1, g = 1, beta = 1, gamma = 1, save_localbasis=False, save_extensions = False):
+    def __init__(self, order, mesh, bm = 0, em = 0, mesh_info = None, bi = 0, alpha = 1, kappa = 1, omega = 1, f = 1, g = 1, beta = 1, gamma = 1, save_localbasis=True, save_extensions = True):
         self.order = order # Polynomial degree of approximation
         self.dirichlet = mesh_info["dir_edges"]
         self.dom_bnd = mesh_info["dom_bnd"] 
@@ -506,7 +506,7 @@ class ACMS:
         
         if self.save_localbasis:
             self.localbasis[acms_cell] = (localbasis, dofs)
-            
+
         uharm, vharm = Vharm.TnT() 
 
         
