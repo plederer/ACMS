@@ -97,9 +97,9 @@ class ACMS:
         self.ndofemax = 0
         
 
-        self.basis_v = MultiVector(self.gfuc.vec, self.nverts)
-        self.basis_e = MultiVector(self.gfuc.vec, self.nedges * self.edge_modes)
-        self.basis_b = MultiVector(self.gfuc.vec, self.ncells * self.bubble_modes)
+        #self.basis_v = MultiVector(self.gfuc.vec, self.nverts)
+        #self.basis_e = MultiVector(self.gfuc.vec,0) # self.nedges * self.edge_modes)
+        #self.basis_b = MultiVector(self.gfuc.vec, self.ncells * self.bubble_modes)
         
         self.asmall = Matrix(self.acmsdofs, self.acmsdofs, complex = True)
         self.asmall[:,:] = 0 + 0*1J
@@ -251,8 +251,8 @@ class ACMS:
     
     def Assemble_localA_and_f(self, acms_cell):
         Vharm, aharm_mat, aharm_inv = self.GetHarmonicExtensionDomain(acms_cell)
-        if self.save_extensions:
-            self.vol_extensions[dom_name] = [Vharm, aharm_mat, aharm_inv]
+        #if self.save_extensions:
+        #    self.vol_extensions[dom_name] = [Vharm, aharm_mat, aharm_inv]
         ss_assemble = time.time()
         nbnd = self.mesh.Materials(acms_cell).Neighbours(BND)
         nbbnd = self.mesh.Materials(acms_cell).Neighbours(BBND)
@@ -504,8 +504,8 @@ class ACMS:
         self.timings["assemble_bubbles"] += time.time() - sss
         self.timings["assemble_basis"] += time.time() - ttt
         
-        if self.save_localbasis:
-            self.localbasis[acms_cell] = (localbasis, dofs)
+        #if self.save_localbasis:
+        #    self.localbasis[acms_cell] = (localbasis, dofs)
 
         uharm, vharm = Vharm.TnT() 
 
@@ -672,8 +672,8 @@ class ACMS:
     ###############################################################
        
     def calc_edge_basis(self, basis = None):
-        if (basis == None):
-            basis = self.basis_e
+        #if (basis == None):
+        #    basis = self.basis_e
         
         self.timings["calc_edgebasis_eigenvalues"] = 0
         self.timings["calc_edgebasis_assemble_and_inv"] = 0
