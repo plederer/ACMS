@@ -22,6 +22,7 @@ if not os.path.exists("timings_Ie"):
 
 dirname = os.path.dirname(__file__)
 
+save_timings = True
 for EE in Edge_modes:
     print("Edgemodes = ", EE)
      
@@ -38,4 +39,19 @@ for EE in Edge_modes:
         # Draw(gfu)
         # input()
 
-# TaskManager().__exit__
+        if save_timings:
+            ex_data = {"maxH": maxH, "Ncell": Ncell, "order": order, "Ie": EE, "ne" : acms.ndofemax, "acmsndof" : acms.acmsdofs}
+            timings = acms.timings
+
+            pickle_name =   "maxH:" +     str(maxH) + "_" + \
+                            "Ncell:" +    str(Ncell) + "_" + \
+                            "order:" +   str(order) + "_" + \
+                            "Ie:" +      str(EE) + "_" + \
+                            ".dat"
+            save_file = os.path.join(dirname, "timings_Ie/" + pickle_name)
+            picklefile = open(save_file, "wb")
+            data = [ex_data, timings]
+            pickle.dump(data, picklefile)
+            picklefile.close()
+
+    
