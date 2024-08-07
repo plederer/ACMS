@@ -766,6 +766,7 @@ class ACMS:
                         # self.edgeversions[edgetype] = [ndofs, evec]
                     except:
                         self.edge_modes = 0
+                        break
                     # print("self.edge_modes = ", self.edge_modes)
                     # print("self.bubble_modes = ", self.bubble_modes)
         
