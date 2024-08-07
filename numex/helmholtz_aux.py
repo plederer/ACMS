@@ -165,19 +165,20 @@ def crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer = 1, alpha_inner
     gm = 0
     if load_mesh == True:
         try:
-            picklefile = open(load_file, "rb")
-            data = pickle.load(picklefile)
-            geo = data["geo"]
-            mesh = Mesh("mesh_" + pickle_name + ".vol.gz")
-            mesh.ngmesh.SetGeometry(geo)
-            mesh.Curve(10)
-            dom_bnd = data["dom_bnd"]
-            # alpha = data["alpha"]
-            # mesh_info = data["mesh_info"]
-            picklefile.close()
-            print(60 * "#")
-            print("Loaded mesh!!!")
-            print(60 * "#")
+            with TaskManager():
+                picklefile = open(load_file, "rb")
+                data = pickle.load(picklefile)
+                geo = data["geo"]
+                mesh = Mesh("mesh_" + pickle_name + ".vol.gz")
+                mesh.ngmesh.SetGeometry(geo)
+                mesh.Curve(10)
+                dom_bnd = data["dom_bnd"]
+                # alpha = data["alpha"]
+                # mesh_info = data["mesh_info"]
+                picklefile.close()
+                print(60 * "#")
+                print("Loaded mesh!!!")
+                print(60 * "#")
         except:
             gm = 1
     else:
@@ -303,9 +304,10 @@ def crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer = 1, alpha_inner
         
         crystalshape = Glue(outershapes + innershapes)
         
-        geo = OCCGeometry(crystalshape, dim=2)
-        mesh = Mesh(geo.GenerateMesh(maxh = maxH))
-        mesh.Curve(10)
+        with TaskManager():
+            geo = OCCGeometry(crystalshape, dim=2)
+            mesh = Mesh(geo.GenerateMesh(maxh = maxH))
+            mesh.Curve(10)
         # Draw(mesh)
         # input()
         
@@ -349,17 +351,18 @@ def crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer = 1, alpha_inner
         # Draw(mesh)
 
         if save_mesh:
-            picklefile = open(load_file, "wb")
-            data = {}
-            # data["ngmesh"] = mesh.ngmesh
-            # data[""]
-            data["geo"] = geo
-            data["dom_bnd"] = dom_bnd
-            # data["mesh_info"] = mesh_info
-            # data["alpha"] = alpha
-            pickle.dump(data, picklefile)
-            picklefile.close()
-            mesh.ngmesh.Save("mesh_" + pickle_name + ".vol.gz")
+            with TaskManager():
+                picklefile = open(load_file, "wb")
+                data = {}
+                # data["ngmesh"] = mesh.ngmesh
+                # data[""]
+                data["geo"] = geo
+                data["dom_bnd"] = dom_bnd
+                # data["mesh_info"] = mesh_info
+                # data["alpha"] = alpha
+                pickle.dump(data, picklefile)
+                picklefile.close()
+                mesh.ngmesh.Save("mesh_" + pickle_name + ".vol.gz")
     
 
     coeffs = {}
