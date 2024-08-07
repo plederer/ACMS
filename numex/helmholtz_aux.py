@@ -143,7 +143,7 @@ def unit_disc(maxH):
     return mesh, dom_bnd, alpha, mesh_info
 
 
-def crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer, alpha_inner, defects = np.ones((0,0)), layers = 0, load_mesh = False, save_mesh = True):
+def crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer = 1, alpha_inner = 1, defects = np.ones((0,0)), layers = 0, load_mesh = False, save_mesh = True):
     pickle_name =   "maxH:" +     str(maxH) + "_" + \
                     "Nx:" +       str(Nx) + "_" + \
                     "Ny:" +       str(Ny) + "_" + \
@@ -173,7 +173,7 @@ def crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer, alpha_inner, de
             mesh.Curve(10)
             dom_bnd = data["dom_bnd"]
             # alpha = data["alpha"]
-            mesh_info = data["mesh_info"]
+            # mesh_info = data["mesh_info"]
             picklefile.close()
             print(60 * "#")
             print("Loaded mesh!!!")
@@ -187,8 +187,8 @@ def crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer, alpha_inner, de
         print(60 * "#")
         print("Generating mesh!!!")
         print(60 * "#")
-        if len(defects) == 0:
-            defects = np.ones((Nx,Ny))
+        # if len(defects) == 0:
+        #     defects = np.ones((Nx,Ny))
 
         #Crystal type: 0 = full crystal # 1 = air defect in crystal  # 2 = air
         crystaltype = [["outer","outer"], 
@@ -197,7 +197,7 @@ def crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer, alpha_inner, de
 
         domain = [MoveTo(Lx*i,Ly*j).RectangleC(Lx,Ly).Face() for i in range(Nx) for j in range(Ny)]
         
-        if incl ==1: #Circular inclusion
+        if incl == 1: #Circular inclusion
             inclusion = [MoveTo(0,0).Circle(Lx*i,Ly*j, r).Face() for i in range(Nx) for j in range(Ny)]
                     
                     
@@ -223,9 +223,10 @@ def crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer, alpha_inner, de
                     circular_incl = [MoveTo(0,0).Circle(Mx + (-1)**ee * Lx/incl * (kk + 1/2), My + (-1)**ff * Ly/incl * (ll + 1/2), r).Face()  for ee in range(exponent)  for ff in range(exponent) for kk in range(incl//2) for ll in range(incl//2)]
                     inclusion.append(Glue([circ for circ in circular_incl]))
 
-        else: #Square inclusion (incl = 0)
+        elif incl == 0: #Square inclusion (incl = 0)
             inclusion = [MoveTo(Lx*i,Ly*j).RectangleC(r, r).Face() for i in range(Nx) for j in range(Ny)]
-        
+        else:
+            inclusion = []
         # outer = [domain[i*Ny+j]-inclusion[i*Ny+j] for i in range(Nx) for j in range(Ny)]
         # inner = [domain[i*Ny+j]*inclusion[i*Ny+j] for i in range(Nx) for j in range(Ny)]
         outer = []
@@ -234,17 +235,23 @@ def crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer, alpha_inner, de
         def GetCell(i,j):
             outerdom = domain[i*Ny+j]
             # outerdom.faces.name = "outer"+str(i*Ny+j)
-            outerdom.faces.name = crystaltype[int(defects[i,j])][0]+str(i*Ny+j)
-            outerdom = outerdom - inclusion[i*Ny+j]
+            if incl != -1:
+                outerdom.faces.name = crystaltype[int(defects[i,j])][0]+str(i*Ny+j)
+                outerdom = outerdom - inclusion[i*Ny+j]
+            else:
+                outerdom.faces.name = "outer" +str(i*Ny+j)
             outerdom.faces.edges.Min(Y).name = "E_H"
             outerdom.faces.edges.Max(Y).name = "E_H"
             outerdom.faces.edges.Min(X).name = "E_V"
             outerdom.faces.edges.Max(X).name = "E_V"
-
-            innerdom = domain[i*Ny+j]*inclusion[i*Ny+j]
-            innerdom.faces.edges.name="inner_edge"+str(i*Ny+j)
-            innerdom.faces.vertices.name="inner_vertex"+str(i*Ny+j)
-            innerdom.faces.name=crystaltype[int(defects[i,j])][1]+str(i*Ny+j)
+            
+            if incl != -1:
+                innerdom = domain[i*Ny+j]*inclusion[i*Ny+j]
+                innerdom.faces.edges.name="inner_edge"+str(i*Ny+j)
+                innerdom.faces.vertices.name="inner_vertex"+str(i*Ny+j)
+                innerdom.faces.name=crystaltype[int(defects[i,j])][1]+str(i*Ny+j)
+            else:
+                innerdom = []
 
             if (j == 0) :
                 outerdom.faces.edges.Min(Y).name = "dom_bnd_bottom_H"
@@ -272,7 +279,8 @@ def crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer, alpha_inner, de
             for j in range(layers, Ny-layers):
                 innerdom, outerdom = GetCell(i,j)
                 outer.append(outerdom)
-                inner.append(innerdom)
+                if incl != -1:
+                    inner.append(innerdom)
         
         if layers > 0:
 
@@ -292,25 +300,18 @@ def crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer, alpha_inner, de
         outershapes = [out_dom for out_dom in outer]
         innershapes = [in_dom for in_dom in inner]
 
+        
         crystalshape = Glue(outershapes + innershapes)
         
         geo = OCCGeometry(crystalshape, dim=2)
         mesh = Mesh(geo.GenerateMesh(maxh = maxH))
         mesh.Curve(10)
-        Draw(mesh)
+        # Draw(mesh)
         # input()
         
         nmat = len(mesh.GetMaterials())
         nbnd = len(mesh.GetBoundaries())
         nvert = len(mesh.GetBBoundaries())
-        
-        # print(mesh.GetBoundaries())
-        # V = H1(mesh, dirichlet = ".*")
-        # gfu = GridFunction(V)
-        # gfu.Set(1, definedon = mesh.Boundaries("dom_bnd_H"))
-        # Draw(gfu)
-        # input()
-        
         
         dom_bnd = ""
         bi_V = 0
@@ -345,42 +346,24 @@ def crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer, alpha_inner, de
             if not "inner_vertex" in mesh.ngmesh.GetCD2Name(i):
                 mesh.ngmesh.SetCD2Name(i+1,"V" + str(i))
 
-        Draw(mesh)
-                   
-        # ########################
-        # rename inner domains give them the same name as the outer one has  inner name just used 
-        for d in range(nmat):
-            if "inner" in mesh.ngmesh.GetMaterial(d+1): # the +1 comes from the asking the negten mesh instead of the ngsolve mesh!
-                offset = int(nmat/(1+incl**2))
-                ii = int((d-offset)/incl**2) 
-                mesh.ngmesh.SetMaterial(d+1, mesh.ngmesh.GetMaterial(ii+1))
-        
-        mesh_info = GetMeshinfo(mesh)
-        mesh_info["dom_bnd"] = dom_bnd
-        
-        
-        # print(mesh.GetMaterials())
-        # V = H1(mesh, dirichlet = ".*")
-        # gfu = GridFunction(V)
-        # gfu.Set(1, definedon = mesh.Materials("outer0"))
-        # Draw(gfu)
-        # input()
-        
+        # Draw(mesh)
+
         if save_mesh:
             picklefile = open(load_file, "wb")
             data = {}
             # data["ngmesh"] = mesh.ngmesh
+            # data[""]
             data["geo"] = geo
             data["dom_bnd"] = dom_bnd
-            data["mesh_info"] = mesh_info
+            # data["mesh_info"] = mesh_info
+            # data["alpha"] = alpha
             pickle.dump(data, picklefile)
             picklefile.close()
             mesh.ngmesh.Save("mesh_" + pickle_name + ".vol.gz")
     
-    # ########################
-    # definition of diffusion coefficient: alpha_outer = 1/12.1 #SILICON  # alpha_inner = 1 #AIR
-    coeffs = {}
 
+    coeffs = {}
+    nmat = len(mesh.GetMaterials())
     for d in range(len(mesh.GetMaterials())):
         dom_name = mesh.ngmesh.GetMaterial(d+1) 
         if "outer" in dom_name:
@@ -392,6 +375,20 @@ def crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer, alpha_inner, de
     
     alpha = GridFunction(L2(mesh, order = 0))
     alpha.Set(alpha_cf)
+                
+    # ########################
+    # rename inner domains give them the same name as the outer one has inner name just used 
+    for d in range(nmat):
+        if "inner" in mesh.ngmesh.GetMaterial(d+1): # the +1 comes from the asking the negten mesh instead of the ngsolve mesh!
+            offset = int(nmat/(1+incl**2))
+            ii = int((d-offset)/incl**2) 
+            mesh.ngmesh.SetMaterial(d+1, mesh.ngmesh.GetMaterial(ii+1))
+    
+    mesh_info = GetMeshinfo(mesh)
+    mesh_info["dom_bnd"] = dom_bnd
+        
+    # ########################
+    # definition of diffusion coefficient: alpha_outer = 1/12.1 #SILICON  # alpha_inner = 1 #AIR
     
     Draw(alpha, mesh, "alpha")
 
@@ -544,14 +541,14 @@ def problem_definition(problem, Ncell, incl, maxH, omega, Bubble_modes, Edge_mod
         
         defects = np.ones((Nx,Ny))
         for i in ix:
-        # for i in [3]: 
             for j in range(Ny): 
                 defects[i,j] = 0.0
         
         for j in iy:
-        # for j in [5]:
             for i in range(Nx): 
                 defects[i,j] = 0.0
+
+                
                 
         # defects[4,5] = 0.0
         # defects[2,8] = 0.0

@@ -251,8 +251,8 @@ class ACMS:
     
     def Assemble_localA_and_f(self, acms_cell):
         Vharm, aharm_mat, aharm_inv = self.GetHarmonicExtensionDomain(acms_cell)
-        #if self.save_extensions:
-        #    self.vol_extensions[dom_name] = [Vharm, aharm_mat, aharm_inv]
+        if self.save_extensions:
+           self.vol_extensions[acms_cell] = [Vharm, aharm_mat, aharm_inv]
         ss_assemble = time.time()
         nbnd = self.mesh.Materials(acms_cell).Neighbours(BND)
         nbbnd = self.mesh.Materials(acms_cell).Neighbours(BBND)
@@ -504,8 +504,8 @@ class ACMS:
         self.timings["assemble_bubbles"] += time.time() - sss
         self.timings["assemble_basis"] += time.time() - ttt
         
-        #if self.save_localbasis:
-        #    self.localbasis[acms_cell] = (localbasis, dofs)
+        if self.save_localbasis:
+           self.localbasis[acms_cell] = (localbasis, dofs)
 
         uharm, vharm = Vharm.TnT() 
 
@@ -745,25 +745,26 @@ class ACMS:
                     self.timings["calc_edgebasis_assemble_and_inv"] += time.time() - sss
                     
                     # Solving eigenvalue problem: AA x = ev MM x
-                    # AA = sp.csr_matrix(aloc.mat.CSR())
-                    # MM = sp.csr_matrix(mloc.mat.CSR())
+                    
                     # print("edge type = ", edgetype)
             
             
                     sss = time.time()
                     try:
-                        lams, uvecs = PINVIT(aloc.mat, mloc.mat, pre = minv, num = self.edge_modes, printrates = False, maxit = 20)
+                        # print(self.edge_modes)
+                        # print(sum(fd))
+                        if False:
+                            lams, uvecs = PINVIT(aloc.mat, mloc.mat, pre = minv, num = self.edge_modes, printrates = False, maxit = 20)
+                        else:
+                            AA = sp.csr_matrix(aloc.mat.CSR())
+                            MM = sp.csr_matrix(mloc.mat.CSR())
+                            lams, uvecs =sp.linalg.eigs(A = AA, M = MM, k = self.edge_modes, which='SM', tol = 1e-8)
+                            idx = lams.argsort()[::]   
+                            lams = lams[idx]
+                            uvecs = uvecs[:,idx]
+                            uvecs = uvecs.transpose()
                         self.edgeversions[edgetype] = [uvecs]
                         self.timings["calc_edgebasis_eigenvalues"] += time.time() - sss
-                        # ev, evec =sp.linalg.eigs(A = AA, M = MM, k = self.edge_modes, which='SM', tol = 1e-8)
-                        # print("TRY")
-                        # idx = ev.argsort()[::]   
-                        # ev = ev[idx]
-                        # print("ev = ",ev)
-                        # print("ndofs=", ndofs)
-                        # evec = evec[:,idx]
-                        # evec = evec.transpose()
-                        # self.edgeversions[edgetype] = [ndofs, evec]
                     except:
                         self.edge_modes = 0
                         break
