@@ -66,12 +66,14 @@ class ACMS:
         self.timings["calc_harmonic_ext_assemble_and_inv"] = 0
         self.timings["calc_harmonic_ext_remaining"] = 0
         self.timings["total_calc_harmonic_ext"] = 0
+        self.timings["apply_harmonic_ext"] = 0
         self.timings["assemble_vertices"] = 0
         self.timings["assemble_edges"] = 0
         self.timings["assemble_bubbles"] = 0
         self.timings["assemble_basis"] = 0
         self.timings["assemble_extensions"] = 0
         self.timings["total_assemble"] = 0
+        
 
 
         ss = time.time()
@@ -232,16 +234,18 @@ class ACMS:
         # ss = time.time()
 
         # usmall = sp.linalg.solve(self.asmall, self.fsmall, assume_a='sym')
-        # asparse = sp.csr_matrix(self.asmall)
-        # # self.ainvsmall = sp.linalg.inv(asparse)
+       
         # self.ainvsmall = sp.linalg.inv(asparse)
         # # self.ainvsmall = Matrix(np.linalg.inv(self.asmall))
         # self.timings["total_calc_inverse"] = time.time() - ss
 
         ss = time.time()
-        usmall = Vector(scipy.linalg.solve(self.asmall, self.fsmall, assume_a='sym'))
-        # self.ainvsmall = Matrix(np.linalg.inv(self.asmall))
-        # usmall = Vector(self.ainvsmall * self.fsmall)
+        if True:
+            usmall = Vector(scipy.linalg.solve(self.asmall, self.fsmall, assume_a='sym'))
+        else:
+            asparse = sp.csc_matrix(self.asmall)
+            self.ainvsmall = sp.linalg.inv(asparse)
+            usmall = Vector(self.ainvsmall * self.fsmall)
         self.timings["total_solve"] = time.time() - ss
         return usmall
 
@@ -254,6 +258,7 @@ class ACMS:
         if self.save_extensions:
            self.vol_extensions[acms_cell] = [Vharm, aharm_mat, aharm_inv]
         ss_assemble = time.time()
+
         nbnd = self.mesh.Materials(acms_cell).Neighbours(BND)
         nbbnd = self.mesh.Materials(acms_cell).Neighbours(BBND)
 
@@ -277,6 +282,7 @@ class ACMS:
         lii = 0
         
         vii = 0
+        ss_extension = time.time()
         ttt = time.time()
         sss = time.time()
         for i, b in enumerate(vertices):
@@ -449,7 +455,6 @@ class ACMS:
                 lii += self.edge_modes
                 self.timings["assemble_edges"] += time.time()-sss
         
-
         sss = time.time()
         if self.bubble_modes > 0:
             voli = int(np.nonzero(self.mesh.Materials(acms_cell).Mask())[0][0])
@@ -508,7 +513,6 @@ class ACMS:
            self.localbasis[acms_cell] = (localbasis, dofs)
 
         uharm, vharm = Vharm.TnT() 
-
         
         ttt = time.time()
         sss = time.time()
