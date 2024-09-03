@@ -43,11 +43,25 @@ def GetMeshinfo(mesh):
     
     
     vertex_basis = []
+    vertex_basis_names = []
+    vertex_basis_ps = []
     for v in range(len(mesh.GetBBoundaries())):
         if not "inner_vertex" in mesh.ngmesh.GetCD2Name(v):
-            vertex_basis.append((v, mesh.ngmesh.GetCD2Name(v)))
+            # print(mesh.ngmesh.Get)
+            # print(mesh.ngmesh.Points()[v+1])
+            # vertex_basis.append((v, mesh.ngmesh.GetCD2Name(v)))
+            vertex_basis.append(v)
+            vertex_basis_ps.append(list(mesh.ngmesh.Points()[v+1])[0:-1])
+            vertex_basis_names.append(mesh.ngmesh.GetCD2Name(v))
 
-    return {"dir_edges": dir_edges, "verts": vertex_basis, "edges": edge_basis}
+    vertex_basis_ps = np.array(vertex_basis_ps[:])
+    p1 = np.array(vertex_basis_ps[:,1] , dtype='f')
+    p0 = np.array(vertex_basis_ps[:,0], dtype='f')
+    ind = np.lexsort((p1, p0))
+    vertex_basis = np.array(vertex_basis)[ind]
+    vertex_basis_names = np.array(vertex_basis_names)[ind]
+    vertices = list(zip(vertex_basis, vertex_basis_names))
+    return {"dir_edges": dir_edges, "verts": vertices, "edges": edge_basis}
 
 
 ##################################################################
@@ -372,7 +386,13 @@ def crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer = 1, alpha_inner
         if "outer" in dom_name:
             coeffs[dom_name] = alpha_outer
         else:
-            coeffs[dom_name] = alpha_inner
+            dd = int(dom_name[5:]) 
+            ii = dd// Ny
+            jj = dd - ii * Ny
+            if defects[ii,jj] == 0:
+                coeffs[dom_name] = alpha_outer
+            else:
+                coeffs[dom_name] = alpha_inner
 
     alpha_cf = mesh.MaterialCF(coeffs, default=0)
     
@@ -1003,6 +1023,5 @@ def append_NI_FEM_errors(mesh, gfu_fem, u_ex, Du_ex, Iu, l2_error_NodInt, h1_err
 ##################################################################
 ##################################################################
 ##################################################################
-
 
 
