@@ -229,7 +229,7 @@ class ACMS:
     ###############################################################
     ###############################################################
 
-    def Solve(self):
+    def Solve(self, condense = False):
 
         # ss = time.time()
 
@@ -239,15 +239,84 @@ class ACMS:
         # # self.ainvsmall = Matrix(np.linalg.inv(self.asmall))
         # self.timings["total_calc_inverse"] = time.time() - ss
 
-        ss = time.time()
-        if True:
-            usmall = Vector(scipy.linalg.solve(self.asmall, self.fsmall, assume_a='sym'))
+        if not condense:
+            ss = time.time()
+            if True:
+                usmall = scipy.linalg.solve(self.asmall, self.fsmall, assume_a='sym')
+            else:
+                asparse = sp.csc_matrix(self.asmall)
+                self.ainvsmall = sp.linalg.inv(asparse)
+                usmall = Vector(self.ainvsmall * self.fsmall)
+            self.timings["total_solve"] = time.time() - ss
         else:
-            asparse = sp.csc_matrix(self.asmall)
-            self.ainvsmall = sp.linalg.inv(asparse)
-            usmall = Vector(self.ainvsmall * self.fsmall)
-        self.timings["total_solve"] = time.time() - ss
-        return usmall
+            ss = time.time()
+            
+            nv = self.nverts
+            nd = self.acmsdofs
+
+            # A = sp.coo_matrix(self.asmall.NumPy()
+            
+            A = self.asmall.NumPy()
+            f = self.fsmall.NumPy()
+            usmall = np.zeros(nd, dtype = 'complex128')
+            if False:
+                Aee = A[nv:nd, nv:nd]
+                Avv = A[0:nv, 0:nv]
+                Ave = A[0:nv, nv:nd]
+                Aev = A[nv:nd, 0:nv]
+                
+                fv = f[0:nv]
+                fe = f[nv:nd]
+                
+                uv = usmall[0:nv]
+                ue = usmall[nv:nd]
+            else:
+                Avv = A[nv:nd, nv:nd]
+                Aee = np.diag(np.diag(A[0:nv, 0:nv]))
+                Aee = A[0:nv, 0:nv]
+                Aev = A[0:nv, nv:nd]
+                Ave = A[nv:nd, 0:nv]
+                
+                fe = f[0:nv]
+                fv = f[nv:nd]
+                
+                ue = usmall[0:nv]
+                uv = usmall[nv:nd]
+                
+            self.timings["solve_create_matrices"] = time.time() - ss
+            sss = time.time()
+
+            Aeeinv = np.linalg.inv(Aee)
+            self.timings["solve_local_inverse"] = time.time() - sss
+            sss = time.time()
+
+            S1 = np.matmul(Aeeinv, Aev) #Aee.dot(Aev)
+            S2 = np.matmul(Ave,S1) # np.Ave.dot(S1)
+            # S = sp.csr_matrix(Avv - S2) #np.matmul(Ave, np.matmul(Aeeinv,Aev))
+            S = Avv - S2
+
+            self.timings["solve_create_S"] = time.time() - sss
+            
+            sss = time.time()
+            # Sinv = np.linalg.inv(S)
+            
+            self.timings["solve_solve_S"] = time.time() - sss
+            
+            sss = time.time()
+            Hext = np.matmul(Ave,Aeeinv) #Ave.dot(Aeeinv)
+            HextT = Hext.transpose()
+            self.timings["solve_create_Hext"] = time.time() - sss
+
+            sss = time.time()
+            fv -= Hext.dot(fe)   # np.dot(np.matmul(Ave,Aeeinv),fe)
+            # uv += Sinv.dot(fv)
+            uv += scipy.linalg.solve(S, fv, assume_a='sym')
+            ue += Aeeinv.dot(fe)
+            ue -= HextT.dot(uv) #np.matmul(Aeeinv,Aev).dot(uv)
+            self.timings["total_solve_condensed_system"] = time.time() - sss
+            self.timings["total_solve"] = time.time() - ss
+
+        return Vector(usmall)
 
     def Assemble(self):
         for m in self.doms:
@@ -376,6 +445,7 @@ class ACMS:
                 # gfu.vec.data += -(aharm_mat) * gfu.vec  
                 # gfu.vec[:] = 1
                 # Draw(gfu, self.mesh, "test")
+                # input()
                 localbasis[lii][:] = gfu.vec
                 lii +=1
                 gfu.vec[:] = 0
@@ -592,7 +662,27 @@ class ACMS:
         
         return integral
 
+    # def SetGlobalFunctionBnd(self, bndname, gfu, coeffs):
+    #     for edgename in self.mesh.GetBoundaries():
+    #         if bndname in edgename:
+    #             # print(edgename)
+    #             cells = self.mesh.Boundaries(edgename).Neighbours(VOL).Split()[0].Mask()
 
+    #             for i,b in enumerate(cells):
+    #                 if b == 1:
+    #                     cellname = self.mesh.GetMaterials()[i]
+    #                     # print(cellname)
+    #                     localbasis, dofs = self.localbasis[cellname]
+
+    #                     Vharm, aharm_mat, aharm_inv = self.vol_extensions[cellname]
+    #                     gfu_local = GridFunction(Vharm)
+                        
+    #                     localcoeffs = Vector(len(dofs), complex = True)
+                        
+    #                     for d in range(len(dofs)):
+    #                         localcoeffs[d] = coeffs[dofs[d]]
+                    
+    #                     gfu.vec.data = (localbasis * localcoeffs).Evaluate()
             
 
 
@@ -603,50 +693,72 @@ class ACMS:
         
     def SetGlobalFunction(self, gfu, coeffs):
         ss = time.time()
+        self.timings["set_setup"] = 0.0
+        self.timings["set_calc_localbasis"] = 0.0
+        self.timings["set_average"] = 0.0
+        self.timings["set_local_to_global"] = 0.0
+        
         for acms_cell in self.doms:
             Vharm, aharm_mat, aharm_inv = self.vol_extensions[acms_cell]
-
-            edges = self.mesh.Materials(acms_cell).Neighbours(BND).Mask() & self.FreeEdges
-            edge_names = ""
-            for i, b in enumerate(edges):
-                if b == 1:
-                    bname = self.mesh.GetBoundaries()[i]
-                    if bname not in self.dom_bnd:
-                        edge_names += self.mesh.GetBoundaries()[i] + "|"
-            edge_names = edge_names[:-1]
-
-            vertices = self.mesh.Materials(acms_cell).Neighbours(BBND).Mask() & self.FreeVertices
-            v_names = ""
-            for i, b in enumerate(vertices):
-                if b == 1:
-                    vname = self.mesh.GetBBoundaries()[i]
-                    if sum(self.mesh.BBoundaries(vname).Neighbours(BND).Mask()) >= 4:
-                        v_names += vname + "|"
-                    
-            v_names = v_names[:-1]
+            
+            sss = time.time()
 
             dofs = self.localbasis[acms_cell][1]
             localcoeffs = Vector(len(dofs),complex = True)
 
             for d in range(len(dofs)):
                 localcoeffs[d] = coeffs[dofs[d]]
-        
+            self.timings["set_setup"] += time.time() - sss
+
+            sss = time.time()
             localvec = (self.localbasis[acms_cell][0] * localcoeffs).Evaluate()
+            self.timings["set_calc_localbasis"] += time.time() - sss
+            
+            sss = time.time()
+            gfu_local = GridFunction(Vharm)
+            gfu_local.vec.data = localvec
+            gfu_test = GridFunction(self.Vc)
+            gfu_test.Set(gfu_local, definedon = self.mesh.Materials(acms_cell)) #, dual = True)
+            gfu.vec.data += gfu_test.vec
+            
+            # fd_all = self.Vc.GetDofs(self.mesh.Materials(acms_cell))
+           
+            # ii = 0
+            # for i, b in enumerate(fd_all):
+            #     if b == True:
+            #         gfu.vec.FV()[i] += localvec[ii]
+            #         ii+=1
+            self.timings["set_local_to_global"] += time.time() - sss
+        
+        #####
+        sss = time.time()
+        Vcc = self.Vc
+        gfu_average = gfu.vec.CreateVector() 
+        gfu_average[:]=1
 
-            for i in range(Vharm.ndof):
-                if (Vharm.GetDofs(self.mesh.Boundaries(edge_names))[i] == 1):
-                    if (Vharm.GetDofs(self.mesh.BBoundaries(v_names))[i] == 0):
-                        localvec[i] = localvec[i]* 0.5
-                    else:
-                        localvec[i] = localvec[i] * 0.25
+        bnds = ""
+        for ee in self.edges:
+            bnds += ee[1] + "|"
+        bnds = bnds[:-1]
+        
+        edofs = Vcc.GetDofs(self.mesh.Boundaries(bnds) - self.mesh.Boundaries(self.dom_bnd))
+        
+        for ee in range(Vcc.ndof):
+            if edofs[ee] == 1:
+                gfu_average[ee] = 1/2
+        
 
-            fd_all = self.Vc.GetDofs(self.mesh.Materials(acms_cell))
-            ii = 0
-            for i, b in enumerate(fd_all):
-                if b == True:
-                    gfu.vec.FV()[i] += localvec[ii]
-                    ii+=1
-        self.timings["set_global_functions"] = time.time() - ss
+        for vi, vs in enumerate(self.mesh.GetBBoundaries()):
+            neig = len(self.mesh.BBoundaries(vs).Neighbours(VOL).Split())
+            if not "inner_vertex" in vs and neig > 2:
+                gfu_average[vi] = 1/neig        
+
+        for i in range(Vcc.ndof):
+            gfu.vec[i] *= gfu_average[i]
+        self.timings["set_average"] += time.time() - sss
+        ######
+
+        self.timings["total_set_global_functions"] = time.time() - ss
     
 
    

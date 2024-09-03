@@ -251,7 +251,8 @@ def crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer = 1, alpha_inner
             outerdom = domain[i*Ny+j]
             # outerdom.faces.name = "outer"+str(i*Ny+j)
             if incl != -1:
-                outerdom.faces.name = crystaltype[int(defects[i,j])][0]+str(i*Ny+j)
+                # outerdom.faces.name = crystaltype[int(defects[i,j])][0]+str(i*Ny+j)
+                outerdom.faces.name = "outer"+str(i*Ny+j)
                 outerdom = outerdom - inclusion[i*Ny+j]
             else:
                 outerdom.faces.name = "outer" +str(i*Ny+j)
@@ -264,7 +265,8 @@ def crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer = 1, alpha_inner
                 innerdom = domain[i*Ny+j]*inclusion[i*Ny+j]
                 innerdom.faces.edges.name="inner_edge"+str(i*Ny+j)
                 innerdom.faces.vertices.name="inner_vertex"+str(i*Ny+j)
-                innerdom.faces.name=crystaltype[int(defects[i,j])][1]+str(i*Ny+j)
+                # innerdom.faces.name=crystaltype[int(defects[i,j])][1]+str(i*Ny+j)
+                innerdom.faces.name="inner"+str(i*Ny+j)
             else:
                 innerdom = []
 
