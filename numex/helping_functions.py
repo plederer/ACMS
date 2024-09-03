@@ -691,14 +691,17 @@ class ACMS:
 ###############################################################
 
         
-    def SetGlobalFunction(self, gfu, coeffs):
+    def SetGlobalFunction(self, gfu, coeffs, doms = None):
         ss = time.time()
         self.timings["set_setup"] = 0.0
         self.timings["set_calc_localbasis"] = 0.0
         self.timings["set_average"] = 0.0
         self.timings["set_local_to_global"] = 0.0
         
-        for acms_cell in self.doms:
+        if doms == None:
+            doms = self.doms
+        
+        for acms_cell in doms:
             Vharm, aharm_mat, aharm_inv = self.vol_extensions[acms_cell]
             
             sss = time.time()
