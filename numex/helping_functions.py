@@ -28,7 +28,7 @@ def GetVertexNeighbours(vname, mesh):
 # EXTENSIONS
 
 class ACMS:
-    def __init__(self, order, mesh, bm = 0, em = 0, mesh_info = None, bi = 0, alpha = 1, kappa = 1, omega = 1, f = 1, g = 1, beta = 1, gamma = 1, save_localbasis=True, save_extensions = True):
+    def __init__(self, order, mesh, bm = 0, em = 0, mesh_info = None, bi = 0, alpha = 1, kappa = 1, omega = 1, f = 1, g = 1, beta = 1, gamma = 1, save_localbasis=None, save_extensions = None):
         self.order = order # Polynomial degree of approximation
         self.dirichlet = mesh_info["dir_edges"]
         self.dom_bnd = mesh_info["dom_bnd"] 
@@ -57,6 +57,7 @@ class ACMS:
         self.omega = omega
         self.verts = mesh_info["verts"]
         self.edges = mesh_info["edges"]
+        
         
         self.doms = list( dict.fromkeys(mesh.GetMaterials()) )
         self.FreeVertices = BitArray(len(mesh.GetBBoundaries()))
@@ -111,8 +112,15 @@ class ACMS:
         self.ainvsmall = Matrix(self.acmsdofs, self.acmsdofs, complex = True)
 
         self.localbasis = {}
-        self.save_localbasis = save_localbasis
-        self.save_extensions = save_extensions
+        if save_localbasis == None:
+            self.save_localbasis = self.doms
+        else:
+            self.save_localbasis = save_localbasis
+            
+        if save_extensions == None:
+            self.save_extensions = self.doms
+        else:
+            self.save_extensions = save_extensions
 
         
 
@@ -324,7 +332,7 @@ class ACMS:
     
     def Assemble_localA_and_f(self, acms_cell):
         Vharm, aharm_mat, aharm_inv = self.GetHarmonicExtensionDomain(acms_cell)
-        if self.save_extensions:
+        if acms_cell in self.save_extensions:
            self.vol_extensions[acms_cell] = [Vharm, aharm_mat, aharm_inv]
         ss_assemble = time.time()
 
@@ -485,7 +493,7 @@ class ACMS:
                 nels = len([e for e in self.mesh.Boundaries(bndname).Elements()])   
                 edgetype += "_" + str(nels)
 
-                dd = nels + (self.order -1) + nels -1
+                dd = nels * (self.order -1) + nels -1
                 
                 sss = time.time()
                 
@@ -579,7 +587,7 @@ class ACMS:
         self.timings["assemble_bubbles"] += time.time() - sss
         self.timings["assemble_basis"] += time.time() - ttt
         
-        if self.save_localbasis:
+        if acms_cell in self.save_localbasis:
            self.localbasis[acms_cell] = (localbasis, dofs)
 
         uharm, vharm = Vharm.TnT() 
@@ -661,32 +669,7 @@ class ACMS:
                         # print(integral)
         
         return integral
-
-    # def SetGlobalFunctionBnd(self, bndname, gfu, coeffs):
-    #     for edgename in self.mesh.GetBoundaries():
-    #         if bndname in edgename:
-    #             # print(edgename)
-    #             cells = self.mesh.Boundaries(edgename).Neighbours(VOL).Split()[0].Mask()
-
-    #             for i,b in enumerate(cells):
-    #                 if b == 1:
-    #                     cellname = self.mesh.GetMaterials()[i]
-    #                     # print(cellname)
-    #                     localbasis, dofs = self.localbasis[cellname]
-
-    #                     Vharm, aharm_mat, aharm_inv = self.vol_extensions[cellname]
-    #                     gfu_local = GridFunction(Vharm)
-                        
-    #                     localcoeffs = Vector(len(dofs), complex = True)
-                        
-    #                     for d in range(len(dofs)):
-    #                         localcoeffs[d] = coeffs[dofs[d]]
-                    
-    #                     gfu.vec.data = (localbasis * localcoeffs).Evaluate()
-            
-
-
-
+    
 ###############################################################
 ###############################################################
 
@@ -860,7 +843,7 @@ class ACMS:
                     sss= time.time()
                     aloc.Assemble()
                     mloc.Assemble()
-                    minv = aloc.mat.Inverse(Vloc.FreeDofs(), inverse = "sparsecholesky") #IdentityMatrix(Vloc.ndof)        
+                    # minv = aloc.mat.Inverse(Vloc.FreeDofs(), inverse = "sparsecholesky") #IdentityMatrix(Vloc.ndof)        
                     self.timings["calc_edgebasis_assemble_and_inv"] += time.time() - sss
                     
                     # Solving eigenvalue problem: AA x = ev MM x
