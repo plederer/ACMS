@@ -6,7 +6,7 @@ from math import *
 
 def unit_disc(maxH):
     
-    r = 2 # Circle radius
+    r = 1 # Circle radius
     l = sqrt(2) * r # Edge of square
     
 
@@ -97,7 +97,7 @@ def ExportTikz(mesh,tikzfile, **kwargs):
     f.close()
 
 if __name__ == "__main__":
-    mesh = unit_disc(0.2)
+    mesh = unit_disc(0.1)
     # Draw(mesh)
     # input()
     

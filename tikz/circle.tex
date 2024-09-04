@@ -14,24 +14,25 @@
 
 \begin{tikzpicture}[>=latex]
     
+    \def\r{0.03}
+    \def\R{1}
+    \def\l{0.1mm}
 
-    \def\r{0.07}
-    \def\R{2}
-    \fill[gray, fill opacity=0.05, draw = black] (0,0) circle (\R);
+    \fill[gray, fill opacity=0.05, draw = black, line width = \l] (0,0) circle (\R);
     \input{circle_mesh.tex}
-    \draw[black]  (\R, 0)  to  (0,\R) ;
-    \draw[black] (-\R, 0) to   (0,\R);
-    \draw[black] (-\R, 0) to  (0,-\R);
-    \draw[black]  (0,-\R) to    (0,\R);
+    \draw[black, line width = \l]  (\R, 0)  to  (0,\R) ;
+    \draw[black, line width = \l] (-\R, 0) to   (0,\R);
+    \draw[black, line width = \l] (-\R, 0) to  (0,-\R);
+    \draw[black, line width = \l]  (0,-\R) to    (0,\R);
 
-    \draw[black] (-\R,0) to (\R,0);
-    \draw[black] (0,-\R) to (\R,0);
+    \draw[black, line width = \l] (-\R,0) to (\R,0);
+    \draw[black, line width = \l] (0,-\R) to (\R,0);
  
-    \fill[black] (0,0) circle     (\r);
-    \fill[black] (0,\R) circle    (\r);
-    \fill[black] (\R,0) circle    (\r);
-    \fill[black] (-\R,0) circle   (\r);
-    \fill[black] (0,-\R) circle  (\r);
+    \fill[black, line width = \l] (0,0) circle     (\r);
+    \fill[black, line width = \l] (0,\R) circle    (\r);
+    \fill[black, line width = \l] (\R,0) circle    (\r);
+    \fill[black, line width = \l] (-\R,0) circle   (\r);
+    \fill[black, line width = \l] (0,-\R) circle  (\r);
 
     
 \end{tikzpicture}
