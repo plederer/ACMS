@@ -31,17 +31,17 @@ from ngsolve.eigenvalues import PINVIT
 
 # FOR TESTING
 problem = 5
-Ncell = 18
+Ncell = 10
 incl = 2
 
 # a = 2 * (0.5-0.126) + 2
-ss = 1 #0.8
-ee = 10
-omega_v = list(np.arange(ss,ee,0.1)) #list([i/10 for i in range(10,50)]
+ss = 0.8
+ee = 1.5
+omega_v = list(np.arange(ss,ee,0.01)) #list([i/10 for i in range(10,50)]
 
 Href = 0
 maxH = 0.2
-order_v = [5]
+order_v = [3]
 Bubble_modes = [0]
 Edge_modes = [4]
 ACMS_flag = 0
@@ -68,10 +68,9 @@ alpha_inner = 1 #0 #AIR
 # alpha_inner = 1./12.1 #0 #SILICON        
 layers = 0
 
-wg = 3
 
 ix = [i for i in range(layers)] + [Nx - 1 - i for i in range(layers)]
-iy = [3] #[i for i in range(layers)] + [Ny - 1 - i for i in range(layers)]
+iy = [Ncell//(2*incl)] # #[i for i in range(layers)] + [Ny - 1 - i for i in range(layers)]
 
 defects = np.ones((Nx,Ny))
 for i in ix:
