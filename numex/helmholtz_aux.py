@@ -380,7 +380,6 @@ def crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer = 1, alpha_inner
                 picklefile.close()
                 mesh.ngmesh.Save("mesh_" + pickle_name + ".vol.gz")
     
-
     coeffs = {}
     nmat = len(mesh.GetMaterials())
     for d in range(len(mesh.GetMaterials())):
@@ -473,6 +472,8 @@ def problem_definition(problem, Ncell, incl, maxH, omega, Bubble_modes, Edge_mod
     
 
     elif problem == 2:  #Problem setting - INTERIOR SOURCE
+        print("THIS IS NOT WORKING CURRENTLY!")
+        quit()
         # #Generate mesh: unit disco with 8 subdomains
         mesh, dom_bnd, alpha, mesh_info = unit_disc(maxH) 
         class Point: 
@@ -492,6 +493,8 @@ def problem_definition(problem, Ncell, incl, maxH, omega, Bubble_modes, Edge_mod
         gamma = 1
 
     elif problem == 3:  #Problem setting - BOUNDARY SOURCE
+        print("THIS IS NOT WORKING CURRENTLY!")
+        quit()
         # #Generate mesh: unit disco with 8 subdomains
         mesh, dom_bnd, alpha, mesh_info = unit_disc(maxH) 
         class Point: 
@@ -512,6 +515,9 @@ def problem_definition(problem, Ncell, incl, maxH, omega, Bubble_modes, Edge_mod
 
 
     elif problem == 4:  #Problem setting - PERIODIC CRYSTAL - Squared Inclusions
+        print("THIS IS NOT WORKING CURRENTLY!")
+        print("ToDo: incl = 0 corresponds to squares, but the geometry needs to be updated properly")
+        quit()
         r  = 0.05  # radius of inclusion
 
         Nx = 9 # number of cells in x
@@ -524,7 +530,9 @@ def problem_definition(problem, Ncell, incl, maxH, omega, Bubble_modes, Edge_mod
         alpha_outer = 1
         alpha_inner = 12
         
-        mesh, dom_bnd, alpha, mesh_info = crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer, alpha_inner)
+        defects = np.ones((Nx,Ny))
+        layers = 0
+        mesh, dom_bnd, alpha, mesh_info = crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer, alpha_inner, defects, layers, load_mesh)
         
         class Point: 
             def __init__(self):
@@ -692,6 +700,7 @@ def compute_acms_solution(mesh, V, acms, edge_basis, setglobal = True):
     if (edge_basis == False):
         gfu = 0
         num = 0
+        usmall = Vector(acms.acmsdofs)
     else:         
         setupstart = time.time()
         
@@ -809,6 +818,8 @@ def acms_main(mesh, variables_dictionary, solution_dictionary):
                             # print("assemble = ", time.time() - assemble_start)
         
                         gfu, num, _ = compute_acms_solution(mesh, V, acms, edge_basis)
+                        # Draw(gfu)
+                        # input()
                         # print("ACMS computation in = ", time.time() - start)
                         acms.PrintTiminigs()
                         dofs.append(num)

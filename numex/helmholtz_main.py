@@ -1,6 +1,6 @@
 # LIBRARIES
 from helmholtz_aux import *
-# import netgen.gui
+import netgen.gui
 # from ngsolve.eigenvalues import PINVIT
 
 problem = float(input("Choose the problem. \n 1 = PW. \n 2 = LIS. \n 3 = LBS. \n 4 = Crystal Sq. \n 5 = Crystal \n Problem =  "))
@@ -30,12 +30,12 @@ else:
 # problem = 5
 # Ncell = 4
 # incl = 1
-# # omega = 1
+# omega_v = [1]
 # Href = 0
 # maxH = 0.2
-# order_v = [1]
+# order_v = [3]
 # Bubble_modes = [0]
-# Edge_modes = [1]
+# Edge_modes = [2]
 # ACMS_flag = 0
 
 Bubble_modes = [0]
