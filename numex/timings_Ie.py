@@ -8,7 +8,7 @@ Ncell = 16
 
 maxH = 0.01
 order = 6
-Edge_modes = [2,4,8,16,32,64,128,256]
+Edge_modes = [2] #,4,8,16,32,64,128,256]
 
 Bubble_modes = [0]
 
@@ -32,11 +32,11 @@ if not os.path.exists("timings_Ie"):
 
 dirname = os.path.dirname(__file__)
 
-save_timings = True
+save_timings = False
 for EE in Edge_modes:
     print("Edgemodes = ", EE)
      
-    acms = ACMS(order = order, mesh = mesh, bm = 0, em = EE, bi = 0, mesh_info = mesh_info, alpha = 1, omega = 1, kappa = 1, f = 0, g = 1, beta = 1, gamma = 1, save_localbasis=False, save_extensions = False)
+    acms = ACMS(order = order, mesh = mesh, bm = 0, em = EE, bi = 0, mesh_info = mesh_info, alpha = 1, omega = 1, kappa = 1, f = 0, g = 1, beta = 1, gamma = 1, save_localbasis=[], save_extensions = [])
                 
     edge_basis = acms.calc_edge_basis()
     
@@ -46,15 +46,12 @@ for EE in Edge_modes:
 
         print(Norm(usmall))
         acms.PrintTiminigs()
-        # Draw(gfu)
-        # input()
-        
+                
         # import matplotlib.pyplot as plt
         # plt.spy(acms.asmall)
         # plt.savefig('spyplot_J36_Ie16.png', dpi=400)
         # # plt.show()
         # quit()
-
         if save_timings:
             ex_data = {"maxH": maxH, "Ncell": Ncell, "order": order, "Ie": EE, "ne" : acms.ndofemax, "acmsndof" : acms.acmsdofs}
             timings = acms.timings
@@ -70,5 +67,5 @@ for EE in Edge_modes:
             data = [ex_data, timings]
             pickle.dump(data, picklefile)
             picklefile.close()
-
-    
+    else:
+        print("edge_basis computation did ot work")
