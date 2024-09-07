@@ -184,6 +184,7 @@ if True:
     
     file_name = "transition_" +  "maxH:" +     str(maxH) + "_" + \
                                 "Ncell:" +    str(Ncell) + "_" + \
+                                "Incl:" +    str(Incl) + "_" + \
                                 "Nx:" +    str(Nx) + "_" + \
                                 "Ny:" +    str(Ny) + "_" + \
                                 "order:" +   str(order) + "_" + \
