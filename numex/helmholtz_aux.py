@@ -410,6 +410,9 @@ def crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer = 1, alpha_inner
     
     mesh_info = GetMeshinfo(mesh)
     mesh_info["dom_bnd"] = dom_bnd
+    mesh_info["Nx"] = Nx
+    mesh_info["Ny"] = Ny
+    mesh_info["Ncell"] = Ny
         
     # ########################
     # definition of diffusion coefficient: alpha_outer = 1/12.1 #SILICON  # alpha_inner = 1 #AIR

@@ -57,6 +57,16 @@ class ACMS:
         self.omega = omega
         self.verts = mesh_info["verts"]
         self.edges = mesh_info["edges"]
+
+        self.Nx = 0
+        if "Nx" in mesh_info:
+            self.Nx = mesh_info["Nx"]
+        self.Ny = 0
+        if "Ny" in mesh_info:
+            self.Ny = mesh_info["Ny"]
+        self.Nx = 0
+        if "Ncell" in mesh_info:
+            self.Ncell = mesh_info["Ncell"]    
         
         
         self.doms = list( dict.fromkeys(mesh.GetMaterials()) )
@@ -397,10 +407,7 @@ class ACMS:
         return vert_list, ind
         
     def GetDofs(self, nr):
-        Ncells = len(self.doms)
-        Nx = int(sqrt(Ncells))
-        Ny = int(Nx)
-
+        Ny = self.Ny
         em = self.edge_modes
 
         dofs = []
@@ -482,41 +489,40 @@ class ACMS:
         # print(dofs)
         return dofs, vi, ei
         
-    def GetVDofs(self, nr):
-        Ncells = len(self.doms)
-        Nx = int(sqrt(Ncells))
-        Ny = int(Nx)
+    # def GetVDofs(self, nr):
+    #     Ncells = len(self.doms)
+    #     Nx = int(sqrt(Ncells))
+    #     Ny = int(Nx)
         
-        dd = nr + nr//Ny
-        dofs = [dd, dd+1, dd + (Ny+1), dd + (Ny+1)+1]
-        # print(dofs)
-        return dofs
+    #     dd = nr + nr//Ny
+    #     dofs = [dd, dd+1, dd + (Ny+1), dd + (Ny+1)+1]
+    #     # print(dofs)
+    #     return dofs
     
-    def GetEDofs(self, nr):
-        dofs = []
+    # def GetEDofs(self, nr):
+    #     dofs = []
 
-        Ncells = len(self.doms)
-        Nx = int(sqrt(Ncells))
-        Ny = int(Nx)
+    #     Ncells = len(self.doms)
+    #     Nx = int(sqrt(Ncells))
+    #     Ny = int(Nx)
 
-        dd = nr + (nr//Ny) * (Ny + 1)
-        dd1 = nr%Ny + (1 + nr//Ny) * Ny + nr//Ny * (Ny + 1)
-        dd2 = nr%Ny + (1 + nr//Ny) * Ny + nr//Ny * (Ny + 1) + 1
-        dd3 = nr%Ny + (nr//Ny +1) * (Ny + 1) + (1 + nr//Ny) * Ny
+    #     dd = nr + (nr//Ny) * (Ny + 1)
+    #     dd1 = nr%Ny + (1 + nr//Ny) * Ny + nr//Ny * (Ny + 1)
+    #     dd2 = nr%Ny + (1 + nr//Ny) * Ny + nr//Ny * (Ny + 1) + 1
+    #     dd3 = nr%Ny + (nr//Ny +1) * (Ny + 1) + (1 + nr//Ny) * Ny
 
         
-        for l in range(self.edge_modes):
-            dofs.append(dd*self.edge_modes + l + self.nverts)
-        for l in range(self.edge_modes):
-            dofs.append(dd1*self.edge_modes + l + self.nverts)
-        for l in range(self.edge_modes):
-            dofs.append(dd2*self.edge_modes + l + self.nverts)
-        for l in range(self.edge_modes):
-            dofs.append(dd3*self.edge_modes + l + self.nverts)
+    #     for l in range(self.edge_modes):
+    #         dofs.append(dd*self.edge_modes + l + self.nverts)
+    #     for l in range(self.edge_modes):
+    #         dofs.append(dd1*self.edge_modes + l + self.nverts)
+    #     for l in range(self.edge_modes):
+    #         dofs.append(dd2*self.edge_modes + l + self.nverts)
+    #     for l in range(self.edge_modes):
+    #         dofs.append(dd3*self.edge_modes + l + self.nverts)
         
-        return dofs
+    #     return dofs
     
-
 
     def Assemble(self):
         for m in range(len(self.doms)):
@@ -1069,7 +1075,7 @@ class ACMS:
                     try:
                         # print(self.edge_modes)
                         # print(sum(fd))
-                        if False:
+                        if True:
                             minv = aloc.mat.Inverse(Vloc.FreeDofs(), inverse = "sparsecholesky") #IdentityMatrix(Vloc.ndof)        
                             lams, uvecs = PINVIT(aloc.mat, mloc.mat, pre = minv, num = self.edge_modes, printrates = False, maxit = 20)
                         else:
