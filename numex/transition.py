@@ -3,9 +3,9 @@ from helmholtz_aux import *
 import matplotlib.pyplot as plt
 
 do_draw = False
-save_fig = False
-draw_fig = True 
-calc_fem = True
+save_fig = True
+draw_fig = False
+calc_fem = False
 calc_acms = True
 vtk_do = False
 
@@ -15,8 +15,12 @@ from ngsolve.eigenvalues import PINVIT
 
 
 problem = 5
-Ncell = 10
 incl = 2
+Nx = 10 // incl # number of cells in x direction
+Ny = 10 // incl       # number of cells in y direction
+
+Ncell = Nx * Ny * incl**2 
+
 
 omega = 1.48 # 1.8288
 
@@ -30,14 +34,13 @@ EE = 16
 r  = 0.25 #0.126     # radius of inclusion
 Lx = 1 * incl   #* 0.484 #"c"
 Ly = Lx        #0.685 #"a
-Nx = 2 * Ncell // incl # number of cells in x direction
-Ny = Ncell // incl       # number of cells in y direction
+
 alpha_outer = 1/12.1 #SILICON
 alpha_inner = 1 #0 #AIR             
 layers = 0
 
 ix = [i for i in range(layers)] + [Nx - 1 - i for i in range(layers)]
-iy = [Ncell//(2*incl)] #
+iy = [Ny//(2)] #
 # iy = [i for i in range(layers)] + [Ny - 1 - i for i in range(layers)]
 
 defects = np.ones((Nx,Ny))
@@ -49,7 +52,7 @@ for j in iy:
     for i in range(Nx): 
         defects[i,j] = 0.0 
 
-mesh, dom_bnd, alpha, mesh_info = crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer, alpha_inner, defects, layers, load_mesh = True)
+mesh, dom_bnd, alpha, mesh_info = crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer, alpha_inner, defects, layers, load_mesh = False)
 
 
 
@@ -62,7 +65,7 @@ if True:
     beta = - k_ext / omega
     f = 0 
     sigma = 2
-    off = Ncell/2 - 0.5 * incl
+    off = Ny*incl/2 - 0.5 * incl
     peak = exp(-(y-off)**2*sigma)
     # print("off = ", off)
     # Draw(y-off, mesh, "yy")
@@ -181,6 +184,8 @@ if True:
     
     file_name = "transition_" +  "maxH:" +     str(maxH) + "_" + \
                                 "Ncell:" +    str(Ncell) + "_" + \
+                                "Nx:" +    str(Nx) + "_" + \
+                                "Ny:" +    str(Ny) + "_" + \
                                 "order:" +   str(order) + "_" + \
                                 "Ie:" +      str(EE) + "_" + \
                                 "omega:" +      str(omega) + "_"
