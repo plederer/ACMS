@@ -396,6 +396,92 @@ class ACMS:
         
         return vert_list, ind
         
+    def GetDofs(self, nr):
+        Ncells = len(self.doms)
+        Nx = int(sqrt(Ncells))
+        Ny = int(Nx)
+
+        em = self.edge_modes
+
+        dofs = []
+
+        # position of vertex basis function in local basis
+        vi = []
+        # position of first edge basis function per edge
+        ei = []
+        ii = 0
+        
+        ##################
+        # vertex ordering (0,0), (0,1), (1,0), (1,1)
+        # ordering of edges is: left, bottom, top, right
+        ##################
+
+        # first vertex dofs (0,0)
+        # nr//Ny: counts the additional vertex dof when switching to the next column since there are Ny + 1 vertices
+        # nr * em: edge modes per vertival edge
+        # (nr//Ny) * (Ny + 1) * em: offset for horizonal em when going to next coumn
+        dd = nr + nr//Ny + nr * em + (nr//Ny) * (Ny + 1) * em
+        dofs.append(dd)
+        vi.append(ii)
+        ii+=1
+
+        # first edge (left)
+        for l in range(em):
+            dofs.append(dd+l+1)
+        ei.append(ii)
+        ii+=em
+        
+
+        # vertex dof (0,1)
+        dofs.append(dd + em + 1)
+        vi.append(ii)
+        ii+=1
+
+        # next edge dofs (bottom)
+        # (nr//Ny+1) * (Ny+1): offset vertical vertices 
+        # (nr//Ny + 1) * Ny * em: offset vertical edges
+        # nr//Ny * (Ny + 1) * em: offset horizontal edges
+        # nr%Ny * em: offset in current column of horicontal edges
+        dd = (nr//Ny+1) * (Ny+1) + (nr//Ny + 1) * Ny * em + nr//Ny * (Ny + 1) * em + nr%Ny * em
+        # 2 * 3 + 2 * 2 * 1 + 1 * 3 * 1 = 6 + 4 + 3 
+        # print("(nr//Ny+1) = ", (nr//Ny+1))
+        # print("dd = ", dd)
+        for l in range(em):
+            dofs.append(dd+l)
+        ei.append(ii)
+        ii+=em
+        
+        # next edge dofs (top)
+        for l in range(em):
+            dofs.append(dd + em +l)
+        ei.append(ii)
+        ii+=em
+
+        # vertex dof (1,0)
+        # (nr//Ny+1) * (Ny+1): offset vertical vertices 
+        # (nr//Ny + 1) * Ny * em: offset vertical edges
+        # (nr//Ny+1) * (Ny+1) * em: offset horicontal edges
+        # nr%Ny * (em+1) : offset of dofs of vertical edges + the previous vertex dofs on that vertical line
+        dd = (nr//Ny+1) * (Ny+1) + (nr//Ny + 1) * Ny * em + (nr//Ny+1) * (Ny+1) * em + nr%Ny * (em+1)
+
+        vi.append(ii)
+        ii+=1 
+        dofs.append(dd)
+
+        # last edge (right)
+        for l in range(em):
+            dofs.append(dd+l+1)
+        ei.append(ii)
+        ii+=em
+
+        # vertex dof (1,1)
+        dofs.append(dd + em + 1)
+        vi.append(ii)
+        ii+=1
+
+        # print(dofs)
+        return dofs, vi, ei
+        
     def GetVDofs(self, nr):
         Ncells = len(self.doms)
         Nx = int(sqrt(Ncells))
@@ -427,10 +513,10 @@ class ACMS:
             dofs.append(dd2*self.edge_modes + l + self.nverts)
         for l in range(self.edge_modes):
             dofs.append(dd3*self.edge_modes + l + self.nverts)
-        # dofs = [dd + self.nverts,dd1 + self.nverts,dd2 + self.nverts,dd4 + self.nverts]
         
-
         return dofs
+    
+
 
     def Assemble(self):
         for m in range(len(self.doms)):
@@ -475,9 +561,13 @@ class ACMS:
         # print(self.GetVertices(acms_cell))
 
         # for i, b in enumerate(vertices):
-        dofs += self.GetVDofs(acms_cell_nr)
+        # dofs += self.GetVDofs(acms_cell_nr)
         vert_list, ind  = self.GetVertices(acms_cell)
         
+        dofs, vbi, ebi = self.GetDofs(acms_cell_nr)
+        # print(dofs)
+        # print(vbi)
+        # input(ebi)
         for vname in vert_list:
             
             # if b == 1:
@@ -580,7 +670,7 @@ class ACMS:
                 # gfu.vec[:] = 1
                 # Draw(gfu, self.mesh, "test")
                 # input()
-                localbasis[lii][:] = gfu.vec
+                localbasis[vbi[lii]][:] = gfu.vec
                 lii +=1
                 gfu.vec[:] = 0
         self.timings["assemble_vertices"] += time.time()-sss    
@@ -591,8 +681,9 @@ class ACMS:
         ee = 0
         eemax = sum(edges)
         # for i, b in enumerate(edges):
-        dofs += self.GetEDofs(acms_cell_nr)
+        # dofs += self.GetEDofs(acms_cell_nr)
         # input()
+        lii = 0
         for bndname, i in edge_list:
             # if ee == eemax:
             #     break
@@ -661,11 +752,13 @@ class ACMS:
                     gfu.vec[:] = 0
                 with TaskManager():
                     localbasis_edges[:] += -(aharm_inv @ aharm_mat) * localbasis_edges
-                localbasis[lii:lii+self.edge_modes] = localbasis_edges
 
-                lii += self.edge_modes
+                localbasis[ebi[lii]:ebi[lii]+self.edge_modes] = localbasis_edges
+
+                # lii += self.edge_modes
+                lii +=1
                 self.timings["assemble_edges"] += time.time()-sss
-        
+        # print(dofs)
         sss = time.time()
         if self.bubble_modes > 0:
             voli = int(np.nonzero(self.mesh.Materials(acms_cell).Mask())[0][0])
