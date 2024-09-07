@@ -538,10 +538,6 @@ class ACMS:
         vertices = nbbnd.Mask() & self.FreeVertices
         edges = nbnd.Mask() & self.FreeEdges
         
-
-        # Vharm, aharm_mat, aharm_inv = self.vol_extensions[acms_cell]
-        
-        
         local_vertex_dofs = Vharm.GetDofs(nbbnd)
         
         gfu = GridFunction(Vharm)
@@ -612,14 +608,7 @@ class ACMS:
                         # offset = 5 # 4 vertices + 1 vertex in the middle that was created for the circle domain
                         bdofs = Vharm.GetDofs(bnds)
                         
-                        # iii = 1
-                        # for ii, bb in enumerate(bdofs):
-                        #     # check if active dof in the interior
-                        #     # we are no vertex dof 
-                        #     # we have just set the inner dofs on that boundary
-                        #     if bb == 1 and ii >= offset and iii < nels:
-                        #         gfu.vec[ii] = vals[iii]
-                        #         iii += 1
+                  
                         
                         ii = offset
                         while bdofs[ii] == 0:
@@ -746,9 +735,6 @@ class ACMS:
                     
                     # gfu.vec.data += -(aharm_inv @ aharm_mat) * gfu.vec
                     localbasis_edges[l][:] = gfu.vec
-                    # lii+=1
-                    # Draw(gfu)
-                    # input()
                     gfu.vec[:] = 0
                 with TaskManager():
                     localbasis_edges[:] += -(aharm_inv @ aharm_mat) * localbasis_edges
@@ -1071,7 +1057,7 @@ class ACMS:
                     sss= time.time()
                     aloc.Assemble()
                     mloc.Assemble()
-                    # minv = aloc.mat.Inverse(Vloc.FreeDofs(), inverse = "sparsecholesky") #IdentityMatrix(Vloc.ndof)        
+                    
                     self.timings["calc_edgebasis_assemble_and_inv"] += time.time() - sss
                     
                     # Solving eigenvalue problem: AA x = ev MM x
@@ -1084,6 +1070,7 @@ class ACMS:
                         # print(self.edge_modes)
                         # print(sum(fd))
                         if False:
+                            minv = aloc.mat.Inverse(Vloc.FreeDofs(), inverse = "sparsecholesky") #IdentityMatrix(Vloc.ndof)        
                             lams, uvecs = PINVIT(aloc.mat, mloc.mat, pre = minv, num = self.edge_modes, printrates = False, maxit = 20)
                         else:
                             AA = sp.csr_matrix(aloc.mat.CSR())
