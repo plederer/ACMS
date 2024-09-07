@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 
 do_draw = False
 save_fig = False
-draw_fig = True
+draw_fig = True 
 calc_fem = True
 calc_acms = True
 vtk_do = False
@@ -30,7 +30,7 @@ EE = 16
 r  = 0.25 #0.126     # radius of inclusion
 Lx = 1 * incl   #* 0.484 #"c"
 Ly = Lx        #0.685 #"a
-Nx = Ncell // incl # number of cells in x direction
+Nx = 2 * Ncell // incl # number of cells in x direction
 Ny = Ncell // incl       # number of cells in y direction
 alpha_outer = 1/12.1 #SILICON
 alpha_inner = 1 #0 #AIR             
@@ -142,7 +142,7 @@ if True:
     N_draw = 2
 
     N = 100 * (2*N_draw + 1)
-    center = -0.5 * incl + Ncell/2
+    center = -0.5 * incl + Ny*incl/2
     off = 0.5 * incl
     
     xx = np.linspace(center - off - N_draw, center + off + N_draw, N)
@@ -156,17 +156,18 @@ if True:
     for xi in xx:
         if calc_fem:
             val = gfu_fem(mesh(-off, xi))
-            val_out = gfu_fem(mesh(-off+Ncell, xi))
+            val_out = gfu_fem(mesh(-off+Nx*incl, xi))
 
             wave_in.append(sqrt(val.real**2 + val.imag**2))
             wave_out.append(sqrt(val_out.real**2 + val_out.imag**2))
 
         if calc_acms:
             acms_val = gfu_acms(mesh(-off, xi))
-            acms_val_out = gfu_acms(mesh(-off+Ncell, xi))
+            acms_val_out = gfu_acms(mesh(-off+Nx*incl, xi))
 
             acms_wave_in.append(sqrt(acms_val.real**2 + acms_val.imag**2))
             acms_wave_out.append(sqrt(acms_val_out.real**2 + acms_val_out.imag**2))
+
     if calc_fem:    
         plt.plot(xx,wave_in, label = "left")
         plt.plot(xx,wave_out, label = "out")
@@ -174,6 +175,7 @@ if True:
     if calc_acms:
         plt.plot(xx,acms_wave_in, label = "left_acms")
         plt.plot(xx,acms_wave_out, label = "out_acms")
+        
 
     plt.legend()
     
