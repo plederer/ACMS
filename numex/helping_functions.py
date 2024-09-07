@@ -326,12 +326,118 @@ class ACMS:
             self.timings["total_solve"] = time.time() - ss
 
         return Vector(usmall)
+    
+
+    def GetEdges(self, acms_cell):
+        nbnd = self.mesh.Materials(acms_cell).Neighbours(BND)
+        edge_list = []
+        edge_center_of_mass = []
+
+        edges = nbnd.Mask() & self.FreeEdges
+        ee = 0
+        eemax = sum(edges)
+        for i, b in enumerate(edges):
+            if ee == eemax:
+                break
+            if b == 1:
+                ee+=1
+                bndname = self.mesh.GetBoundaries()[i]
+                verts = self.mesh.Boundaries(bndname).Neighbours(BBND).Split()
+                Vxcoord = 0.0
+                Vycoord = 0.0
+                for vv in verts:
+                    m = vv.Mask()
+                    for ii in range(self.mesh.nv):
+                        if m[ii] == 1: # find vertex number
+                            
+                            Vxcoord += self.mesh.vertices[ii].point[0]
+                            Vycoord += self.mesh.vertices[ii].point[1]
+                            break
+                
+                # np.lexsoort has problems with machine prec zero numbers
+                if abs(Vxcoord) < 1e-12:
+                    Vxcoord = 0.0
+                if abs(Vycoord) < 1e-12:
+                    Vycoord = 0.0 
+                edge_center_of_mass.append([Vxcoord/2, Vycoord/2])
+                edge_list.append([bndname, i])
+                
+
+        edge_center_of_mass = np.array(edge_center_of_mass[:], dtype='f')
+        p1 = np.array(edge_center_of_mass[:,1] , dtype='f')
+        p0 = np.array(edge_center_of_mass[:,0], dtype='f')
+        ind = np.lexsort((p1, p0))
+        edge_list = np.array(edge_list)[ind]
+
+        return edge_list, ind
+    
+    
+    def GetVertices(self, acms_cell):
+        nbbnd = self.mesh.Materials(acms_cell).Neighbours(BBND)
+
+        vertices = nbbnd.Mask() & self.FreeVertices
+
+        vert_list = []
+        loc_coordinates = []
+        for i, b in enumerate(vertices):
+            if b == 1:
+                vname = self.mesh.GetBBoundaries()[i]
+                vert_list.append(vname)
+                Vxcoord = self.mesh.vertices[i].point[0]
+                Vycoord = self.mesh.vertices[i].point[1]
+                loc_coordinates.append([Vxcoord, Vycoord])
+
+        loc_coordinates = np.array(loc_coordinates[:])
+        p1 = np.array(loc_coordinates[:,1] , dtype='f')
+        p0 = np.array(loc_coordinates[:,0], dtype='f')
+        ind = np.lexsort((p1, p0))
+        # loc_coordinates = np.array(loc_coordinates)[ind]
+        vert_list = np.array(vert_list)[ind]
+        
+        return vert_list, ind
+        
+    def GetVDofs(self, nr):
+        Ncells = len(self.doms)
+        Nx = int(sqrt(Ncells))
+        Ny = int(Nx)
+        
+        dd = nr + nr//Ny
+        dofs = [dd, dd+1, dd + (Ny+1), dd + (Ny+1)+1]
+        # print(dofs)
+        return dofs
+    
+    def GetEDofs(self, nr):
+        dofs = []
+
+        Ncells = len(self.doms)
+        Nx = int(sqrt(Ncells))
+        Ny = int(Nx)
+
+        dd = nr + (nr//Ny) * (Ny + 1)
+        dd1 = nr%Ny + (1 + nr//Ny) * Ny + nr//Ny * (Ny + 1)
+        dd2 = nr%Ny + (1 + nr//Ny) * Ny + nr//Ny * (Ny + 1) + 1
+        dd3 = nr%Ny + (nr//Ny +1) * (Ny + 1) + (1 + nr//Ny) * Ny
+
+        
+        for l in range(self.edge_modes):
+            dofs.append(dd*self.edge_modes + l + self.nverts)
+        for l in range(self.edge_modes):
+            dofs.append(dd1*self.edge_modes + l + self.nverts)
+        for l in range(self.edge_modes):
+            dofs.append(dd2*self.edge_modes + l + self.nverts)
+        for l in range(self.edge_modes):
+            dofs.append(dd3*self.edge_modes + l + self.nverts)
+        # dofs = [dd + self.nverts,dd1 + self.nverts,dd2 + self.nverts,dd4 + self.nverts]
+        
+
+        return dofs
 
     def Assemble(self):
-        for m in self.doms:
+        for m in range(len(self.doms)):
             self.Assemble_localA_and_f(m)
     
-    def Assemble_localA_and_f(self, acms_cell):
+    def Assemble_localA_and_f(self, acms_cell_nr):
+        acms_cell = self.doms[acms_cell_nr]
         Vharm, aharm_mat, aharm_inv = self.GetHarmonicExtensionDomain(acms_cell)
         if acms_cell in self.save_extensions:
            self.vol_extensions[acms_cell] = [Vharm, aharm_mat, aharm_inv]
@@ -340,6 +446,7 @@ class ACMS:
         nbnd = self.mesh.Materials(acms_cell).Neighbours(BND)
         nbbnd = self.mesh.Materials(acms_cell).Neighbours(BBND)
 
+        ### due to inner vertices
         offset = sum(nbbnd.Mask())
         
         vertices = nbbnd.Mask() & self.FreeVertices
@@ -363,24 +470,37 @@ class ACMS:
         ss_extension = time.time()
         ttt = time.time()
         sss = time.time()
-        for i, b in enumerate(vertices):
-            if b == 1:
+
+        # print(acms_cell)
+        # print(self.GetVertices(acms_cell))
+
+        # for i, b in enumerate(vertices):
+        dofs += self.GetVDofs(acms_cell_nr)
+        vert_list, ind  = self.GetVertices(acms_cell)
+        
+        for vname in vert_list:
+            
+            # if b == 1:
+            if True:
                 
                 # derive acms dof numbering 
-                for j in range(self.nverts):
-                    if self.verts[j][0] == i:
-                        dofs.append(j)
-                        break
+                # for j in range(self.nverts):
+                #     if self.verts[j][0] == i:
+                #         dofs.append(j)
+                #         break
+
+                
                 # add corresponding vertex basis function
                 #vertex name
-                vname = self.mesh.GetBBoundaries()[i]
+                # vname = self.mesh.GetBBoundaries()[i]
                 
                 vnbnd = nbnd * self.mesh.BBoundaries(vname).Neighbours(BND)
                 
                 if True:
                     # if i < len(gfu.vec):
                     
-                    gfu.vec[vii] = 1 #set active vertex dof to 1
+                    
+                    gfu.vec[ind[vii]] = 1 #set active vertex dof to 1
                     vii += 1
                     # orient = 0
                     
@@ -390,10 +510,13 @@ class ACMS:
                         # orient = sum(Integrate(specialcf.tangential(2), self.mesh, definedon=bnds, order = 0))
                         # print(orient)
                         vals = [i/(nels) for i in range(1,nels) ]
-                    
-                        if els[0].vertices[0].nr == i: # or els[0].vertices[1].nr == 1:
-                            vals.reverse()
+                        
+                        # if els[0].vertices[0].nr == i: # or els[0].vertices[1].nr == 1:
+                            # vals.reverse()
 
+                        #vname = Vxx -> vname[1:] = xx
+                        if els[0].vertices[0].nr == int(vname[1:]): # or 
+                            vals.reverse()
                         # print(Vharm.GetDofs(bnds))
 
                         # offset = 5 # 4 vertices + 1 vertex in the middle that was created for the circle domain
@@ -417,9 +540,10 @@ class ACMS:
                             gfu.vec[ii] = vals[iii]
                             ii+=1
                     
-                else:            
-                    Vxcoord = self.mesh.vertices[i].point[0]
-                    Vycoord = self.mesh.vertices[i].point[1]
+                else:   
+                    # print(vv)         
+                    # Vxcoord = self.mesh.vertices[int(vv)].point[0]
+                    # Vycoord = self.mesh.vertices[int(vv)].point[1]
 
                     for bnds in vnbnd.Split():
                         # slength = Integrate(1, self.mesh, definedon=bnds, order = 0)
@@ -448,6 +572,7 @@ class ACMS:
                 # aharminv_aharm = ProductMatrix(aharm_inv, aharm.mat)
                 # aharminv_aharm = Matrix(Vharm.ndof, complex = True)
                 # aharminv_aharm = (aharm_inv @ aharm_mat).ToDense()
+
                 with TaskManager():
                     gfu.vec.data += -(aharm_inv @ aharm_mat) * gfu.vec  
                 
@@ -462,20 +587,25 @@ class ACMS:
 
         sss = time.time()
         local_dom_bnd = ""
+        edge_list, ind = self.GetEdges(acms_cell)
         ee = 0
         eemax = sum(edges)
-        for i, b in enumerate(edges):
-            if ee == eemax:
-                break
-            if b == 1:
-                ee+=1
-                for j in range(self.nedges):
-                    if self.edges[j][0] == i:
-                        for l in range(self.edge_modes):
-                            dofs.append(self.nverts + j*self.edge_modes + l)
-                        break
+        # for i, b in enumerate(edges):
+        dofs += self.GetEDofs(acms_cell_nr)
+        # input()
+        for bndname, i in edge_list:
+            # if ee == eemax:
+            #     break
+            # if b == 1:
+            #     ee+=1
+            if True:
+                # for j in range(self.nedges):
+                #     if self.edges[j][0] == int(i):
+                #         for l in range(self.edge_modes):
+                #             dofs.append(self.nverts + j*self.edge_modes + l)
+                #         break
                        
-                bndname = self.mesh.GetBoundaries()[i]
+                # bndname = self.mesh.GetBoundaries()[i]
                 if bndname in self.dom_bnd:
                     local_dom_bnd += bndname + "|"
 
@@ -526,6 +656,8 @@ class ACMS:
                     # gfu.vec.data += -(aharm_inv @ aharm_mat) * gfu.vec
                     localbasis_edges[l][:] = gfu.vec
                     # lii+=1
+                    # Draw(gfu)
+                    # input()
                     gfu.vec[:] = 0
                 with TaskManager():
                     localbasis_edges[:] += -(aharm_inv @ aharm_mat) * localbasis_edges
@@ -587,7 +719,9 @@ class ACMS:
         
         self.timings["assemble_bubbles"] += time.time() - sss
         self.timings["assemble_basis"] += time.time() - ttt
-        
+
+        # print(dofs)
+        # input()
         if acms_cell in self.save_localbasis:
            self.localbasis[acms_cell] = (localbasis, dofs)
 
