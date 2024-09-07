@@ -249,12 +249,13 @@ class ACMS:
 
         if not condense:
             ss = time.time()
-            if True:
+            if False:
                 usmall = scipy.linalg.solve(self.asmall, self.fsmall, assume_a='sym')
             else:
                 asparse = sp.csc_matrix(self.asmall)
-                self.ainvsmall = sp.linalg.inv(asparse)
-                usmall = Vector(self.ainvsmall * self.fsmall)
+                # self.ainvsmall = sp.linalg.inv(asparse)
+                sol = sp.linalg.spsolve(asparse, self.fsmall)
+                usmall = Vector(sol)
             self.timings["total_solve"] = time.time() - ss
         else:
             ss = time.time()
