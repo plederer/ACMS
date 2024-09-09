@@ -61,7 +61,6 @@ class ACMS:
         self.Nx = 0
         if "Nx" in mesh_info:
             self.Nx = mesh_info["Nx"]
-            print(self.Nx)
         self.Ny = 0
         if "Ny" in mesh_info:
             self.Ny = mesh_info["Ny"]
