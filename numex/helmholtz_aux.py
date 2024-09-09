@@ -561,7 +561,7 @@ def problem_definition(problem, Ncell, incl, maxH, omega, Bubble_modes, Edge_mod
         
     elif problem == 5:  #Problem setting - PERIODIC CRYSTAL - Circular Inclusions
         
-        r  = 0.126     # radius of inclusion
+        r  = 0.25 #*0.126     # radius of inclusion
         Lx = 1 * incl   #* 0.484 #"c"
         Ly = Lx        #0.685 #"a
         Nx = Ncell // incl # number of cells in x direction
