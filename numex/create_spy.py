@@ -3,12 +3,11 @@ from helmholtz_aux import *
 from ngsolve.eigenvalues import PINVIT
 
 
-Ncell = 16
+Ncell = int(input("Ncell: "))
+maxH = float(input("maxH: "))
+order = int(input("order: "))
+EE = int(input("EdgeModes: ")) #,4,8,16,32,64,128,256]
 
-
-maxH = 0.1
-order = 7
-EE = 32 #,4,8,16,32,64,128,256]
 
 Bubble_modes = [0]
 
@@ -26,6 +25,7 @@ dirname = os.path.dirname(__file__)
 acms = ACMS(order = order, mesh = mesh, bm = 0, em = EE, bi = 0, mesh_info = mesh_info, alpha = 1, omega = 1, kappa = 1, f = 0, g = 1, beta = 1, gamma = 1, save_doms=[])
             
 edge_basis = acms.calc_edge_basis()
+
 
 if edge_basis:
     acms.Assemble()
