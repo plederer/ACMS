@@ -1,6 +1,6 @@
 # LIBRARIES
 from helmholtz_aux import *
-import netgen.gui
+# import netgen.gui
 # from ngsolve.eigenvalues import PINVIT
 
 problem = float(input("Choose the problem. \n 1 = PW. \n 2 = LIS. \n 3 = LBS. \n 4 = Crystal Sq. \n 5 = Crystal \n Problem =  "))
@@ -57,7 +57,7 @@ with TaskManager():
             mesh, variables_dictionary = problem_definition(problem, Ncell, incl, h, omega, Bubble_modes, Edge_modes, order_v, load_mesh = True)
             
             #FEM solution with same order of approximation
-            solution_dictionary = ground_truth(mesh, variables_dictionary, 10)
+            solution_dictionary = ground_truth(mesh, variables_dictionary, 5)
             
             # Solve ACMS system and compute errors
             variables_dictionary, solution_dictionary, errors_dictionary = acms_main(mesh, variables_dictionary, solution_dictionary)
