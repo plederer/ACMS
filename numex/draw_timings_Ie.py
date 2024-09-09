@@ -25,6 +25,8 @@ times_total = []
 
 dirname = os.path.dirname(__file__)
 
+folder = "timings_Ie"
+
 EEs = []
 for EE in Edge_modes:
     pickle_name =   "maxH:" +     str(maxH) + "_" + \
@@ -33,7 +35,7 @@ for EE in Edge_modes:
                     "Ie:" +      str(EE) + "_" + \
                     ".dat"
     try:
-        load_file = os.path.join(dirname, "timings_Ie_ro/" + pickle_name)
+        load_file = os.path.join(dirname, folder + "/" + pickle_name)
         picklefile = open(load_file, "rb")
         data = pickle.load(picklefile)
 

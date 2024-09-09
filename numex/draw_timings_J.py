@@ -22,6 +22,9 @@ times_extension = []
 times_total = []
 times_setup = []
 
+
+folder = "timings_J"
+
 for Ncell in Js:
     Nx = int(sqrt(Ncell))
     Ny = Nx   
@@ -33,7 +36,7 @@ for Ncell in Js:
                     ".dat"
     
     try:
-        load_file = os.path.join(dirname, "timings_J_sp2/" + pickle_name)
+        load_file = os.path.join(dirname, folder + "/" + pickle_name)
         picklefile = open(load_file, "rb")
         data = pickle.load(picklefile)
 

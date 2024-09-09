@@ -26,9 +26,10 @@ mesh, dom_bnd, alpha, mesh_info = crystal_geometry(maxH, Nx, Ny, incl = -1, r = 
 #     input()
 
 
+folder = "timings_Ie"
 
-if not os.path.exists("timings_Ie"):
-    os.mkdir("timings_Ie")
+if not os.path.exists(folder):
+    os.mkdir(folder)
 
 dirname = os.path.dirname(__file__)
 
@@ -62,7 +63,7 @@ for EE in Edge_modes:
                             "Ie:" +      str(EE) + "_" + \
                             ".dat"
             
-            save_file = os.path.join(dirname, "timings_Ie/" + pickle_name)
+            save_file = os.path.join(dirname, folder + "/" + pickle_name)
             picklefile = open(save_file, "wb")
             data = [ex_data, timings]
             pickle.dump(data, picklefile)

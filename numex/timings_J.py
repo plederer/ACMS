@@ -9,8 +9,10 @@ maxH = 0.1
 order = 4
 Edge_modes = 4 #[4,8,16,32,64,128,256]
 
-if not os.path.exists("timings_J"):
-    os.mkdir("timings_J")
+folder = "timings_J"
+
+if not os.path.exists(folder):
+    os.mkdir(folder)
 
 dirname = os.path.dirname(__file__)
 
@@ -41,7 +43,7 @@ for Ncell in Js:
                             "order:" +   str(order) + "_" + \
                             "Ie:" +      str(Edge_modes) + "_" + \
                             ".dat"
-            save_file = os.path.join(dirname, "timings_J/" + pickle_name)
+            save_file = os.path.join(dirname, folder + "/" + pickle_name)
             picklefile = open(save_file, "wb")
             data = [ex_data, timings]
             pickle.dump(data, picklefile)
