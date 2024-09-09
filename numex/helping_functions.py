@@ -61,17 +61,20 @@ class ACMS:
         self.Nx = 0
         if "Nx" in mesh_info:
             self.Nx = mesh_info["Nx"]
+            print(self.Nx)
         self.Ny = 0
         if "Ny" in mesh_info:
             self.Ny = mesh_info["Ny"]
-        self.Nx = 0
+        self.Ncell = 0
         if "Ncell" in mesh_info:
             self.Ncell = mesh_info["Ncell"]    
         
         self.is_square_shape_crystal = False
-        if self.Nx >0:
+        
+        if self.Nx > 0:
             self.is_square_shape_crystal = True
         
+
         self.doms = list( dict.fromkeys(mesh.GetMaterials()) )
         self.FreeVertices = BitArray(len(mesh.GetBBoundaries()))
         self.FreeEdges = BitArray(len(mesh.GetBoundaries()))
