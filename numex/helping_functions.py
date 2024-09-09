@@ -28,7 +28,7 @@ def GetVertexNeighbours(vname, mesh):
 # EXTENSIONS
 
 class ACMS:
-    def __init__(self, order, mesh, bm = 0, em = 0, mesh_info = None, bi = 0, alpha = 1, kappa = 1, omega = 1, f = 1, g = 1, beta = 1, gamma = 1, save_localbasis=None, save_extensions = None):
+    def __init__(self, order, mesh, bm = 0, em = 0, mesh_info = None, bi = 0, alpha = 1, kappa = 1, omega = 1, f = 1, g = 1, beta = 1, gamma = 1, save_doms=None):
         self.order = order # Polynomial degree of approximation
         self.dirichlet = mesh_info["dir_edges"]
         self.dom_bnd = mesh_info["dom_bnd"] 
@@ -68,6 +68,9 @@ class ACMS:
         if "Ncell" in mesh_info:
             self.Ncell = mesh_info["Ncell"]    
         
+        self.is_square_shape_crystal = False
+        if self.Nx >0:
+            self.is_square_shape_crystal = True
         
         self.doms = list( dict.fromkeys(mesh.GetMaterials()) )
         self.FreeVertices = BitArray(len(mesh.GetBBoundaries()))
@@ -122,15 +125,16 @@ class ACMS:
         self.ainvsmall = Matrix(self.acmsdofs, self.acmsdofs, complex = True)
 
         self.localbasis = {}
-        if save_localbasis == None:
-            self.save_localbasis = self.doms
-        else:
-            self.save_localbasis = save_localbasis
+        # if save_localbasis == None:
+        #     self.save_localbasis = self.doms
+        # else:
+        #     self.save_localbasis = save_localbasis
             
-        if save_extensions == None:
-            self.save_extensions = self.doms
+        if save_doms == None:
+            self.save_doms = self.doms
         else:
-            self.save_extensions = save_extensions
+            self.save_doms = save_doms
+            
 
         
 
@@ -363,7 +367,6 @@ class ACMS:
                             Vxcoord += self.mesh.vertices[ii].point[0]
                             Vycoord += self.mesh.vertices[ii].point[1]
                             break
-                
                 # np.lexsoort has problems with machine prec zero numbers
                 if abs(Vxcoord) < 1e-12:
                     Vxcoord = 0.0
@@ -377,7 +380,11 @@ class ACMS:
         p1 = np.array(edge_center_of_mass[:,1] , dtype='f')
         p0 = np.array(edge_center_of_mass[:,0], dtype='f')
         ind = np.lexsort((p1, p0))
-        edge_list = np.array(edge_list)[ind]
+
+        if self.is_square_shape_crystal:
+            edge_list = np.array(edge_list)[ind]
+        else:
+            ind = [i for i in range(len(ind))]
 
         return edge_list, ind
     
@@ -402,7 +409,11 @@ class ACMS:
         p0 = np.array(loc_coordinates[:,0], dtype='f')
         ind = np.lexsort((p1, p0))
         # loc_coordinates = np.array(loc_coordinates)[ind]
-        vert_list = np.array(vert_list)[ind]
+
+        if self.is_square_shape_crystal:
+            vert_list = np.array(vert_list)[ind]
+        else:
+            ind = [i for i in range(len(ind))]
         
         return vert_list, ind
         
@@ -412,116 +423,132 @@ class ACMS:
 
         dofs = []
 
-        # position of vertex basis function in local basis
-        vi = []
-        # position of first edge basis function per edge
-        ei = []
-        ii = 0
+        if self.is_square_shape_crystal:
+            # position of vertex basis function in local basis
+            vi = []
+            # position of first edge basis function per edge
+            ei = []
+            ii = 0
+            
+            ##################
+            # vertex ordering (0,0), (0,1), (1,0), (1,1)
+            # ordering of edges is: left, bottom, top, right
+            ##################
+
+            # first vertex dofs (0,0)
+            # nr//Ny: counts the additional vertex dof when switching to the next column since there are Ny + 1 vertices
+            # nr * em: edge modes per vertival edge
+            # (nr//Ny) * (Ny + 1) * em: offset for horizonal em when going to next coumn
+            dd = nr + nr//Ny + nr * em + (nr//Ny) * (Ny + 1) * em
+            dofs.append(dd)
+            vi.append(ii)
+            ii+=1
+
+            # first edge (left)
+            for l in range(em):
+                dofs.append(dd+l+1)
+            ei.append(ii)
+            ii+=em
+            
+
+            # vertex dof (0,1)
+            dofs.append(dd + em + 1)
+            vi.append(ii)
+            ii+=1
+
+            # next edge dofs (bottom)
+            # (nr//Ny+1) * (Ny+1): offset vertical vertices 
+            # (nr//Ny + 1) * Ny * em: offset vertical edges
+            # nr//Ny * (Ny + 1) * em: offset horizontal edges
+            # nr%Ny * em: offset in current column of horicontal edges
+            dd = (nr//Ny+1) * (Ny+1) + (nr//Ny + 1) * Ny * em + nr//Ny * (Ny + 1) * em + nr%Ny * em
+            for l in range(em):
+                dofs.append(dd+l)
+            ei.append(ii)
+            ii+=em
+            
+            # next edge dofs (top)
+            for l in range(em):
+                dofs.append(dd + em +l)
+            ei.append(ii)
+            ii+=em
+
+            # vertex dof (1,0)
+            # (nr//Ny+1) * (Ny+1): offset vertical vertices 
+            # (nr//Ny + 1) * Ny * em: offset vertical edges
+            # (nr//Ny+1) * (Ny+1) * em: offset horicontal edges
+            # nr%Ny * (em+1) : offset of dofs of vertical edges + the previous vertex dofs on that vertical line
+            dd = (nr//Ny+1) * (Ny+1) + (nr//Ny + 1) * Ny * em + (nr//Ny+1) * (Ny+1) * em + nr%Ny * (em+1)
+
+            vi.append(ii)
+            ii+=1 
+            dofs.append(dd)
+
+            # last edge (right)
+            for l in range(em):
+                dofs.append(dd+l+1)
+            ei.append(ii)
+            ii+=em
+
+            # vertex dof (1,1)
+            dofs.append(dd + em + 1)
+            vi.append(ii)
+            ii+=1
         
-        ##################
-        # vertex ordering (0,0), (0,1), (1,0), (1,1)
-        # ordering of edges is: left, bottom, top, right
-        ##################
+        else:
+            vd, vi = self.GetVDofs(nr) 
+            dofs += vd
+            ed, eii = self.GetEDofs(nr) 
+            dofs += ed
 
-        # first vertex dofs (0,0)
-        # nr//Ny: counts the additional vertex dof when switching to the next column since there are Ny + 1 vertices
-        # nr * em: edge modes per vertival edge
-        # (nr//Ny) * (Ny + 1) * em: offset for horizonal em when going to next coumn
-        dd = nr + nr//Ny + nr * em + (nr//Ny) * (Ny + 1) * em
-        dofs.append(dd)
-        vi.append(ii)
-        ii+=1
-
-        # first edge (left)
-        for l in range(em):
-            dofs.append(dd+l+1)
-        ei.append(ii)
-        ii+=em
-        
-
-        # vertex dof (0,1)
-        dofs.append(dd + em + 1)
-        vi.append(ii)
-        ii+=1
-
-        # next edge dofs (bottom)
-        # (nr//Ny+1) * (Ny+1): offset vertical vertices 
-        # (nr//Ny + 1) * Ny * em: offset vertical edges
-        # nr//Ny * (Ny + 1) * em: offset horizontal edges
-        # nr%Ny * em: offset in current column of horicontal edges
-        dd = (nr//Ny+1) * (Ny+1) + (nr//Ny + 1) * Ny * em + nr//Ny * (Ny + 1) * em + nr%Ny * em
-        # 2 * 3 + 2 * 2 * 1 + 1 * 3 * 1 = 6 + 4 + 3 
-        # print("(nr//Ny+1) = ", (nr//Ny+1))
-        # print("dd = ", dd)
-        for l in range(em):
-            dofs.append(dd+l)
-        ei.append(ii)
-        ii+=em
-        
-        # next edge dofs (top)
-        for l in range(em):
-            dofs.append(dd + em +l)
-        ei.append(ii)
-        ii+=em
-
-        # vertex dof (1,0)
-        # (nr//Ny+1) * (Ny+1): offset vertical vertices 
-        # (nr//Ny + 1) * Ny * em: offset vertical edges
-        # (nr//Ny+1) * (Ny+1) * em: offset horicontal edges
-        # nr%Ny * (em+1) : offset of dofs of vertical edges + the previous vertex dofs on that vertical line
-        dd = (nr//Ny+1) * (Ny+1) + (nr//Ny + 1) * Ny * em + (nr//Ny+1) * (Ny+1) * em + nr%Ny * (em+1)
-
-        vi.append(ii)
-        ii+=1 
-        dofs.append(dd)
-
-        # last edge (right)
-        for l in range(em):
-            dofs.append(dd+l+1)
-        ei.append(ii)
-        ii+=em
-
-        # vertex dof (1,1)
-        dofs.append(dd + em + 1)
-        vi.append(ii)
-        ii+=1
-
-        # print(dofs)
+            # need offset regarding to number of vertices
+            ei = [e + len(vi) for e in eii]
+            
         return dofs, vi, ei
         
-    # def GetVDofs(self, nr):
-    #     Ncells = len(self.doms)
-    #     Nx = int(sqrt(Ncells))
-    #     Ny = int(Nx)
-        
-    #     dd = nr + nr//Ny
-    #     dofs = [dd, dd+1, dd + (Ny+1), dd + (Ny+1)+1]
-    #     # print(dofs)
-    #     return dofs
+    def GetVDofs(self, nr):
+        ## old style dof numbering for vertices
+        acms_cell = self.doms[nr]
+        nbbnd = self.mesh.Materials(acms_cell).Neighbours(BBND)
+        dofs = []
+        vertices = nbbnd.Mask() & self.FreeVertices
+        vi = []
+        ii = 0
+        for i, b in enumerate(vertices):
+            if b == 1:
+                for j in range(self.nverts):
+                        if self.verts[j][0] == i:
+                            dofs.append(j)
+                            vi.append(ii)
+                            ii+=1
+                            break
+                    
+        return dofs, vi
     
-    # def GetEDofs(self, nr):
-    #     dofs = []
+    def GetEDofs(self, nr):
+        ## old style dof numbering for edges
+        acms_cell = self.doms[nr]
+        nbnd = self.mesh.Materials(acms_cell).Neighbours(BND)
 
-    #     Ncells = len(self.doms)
-    #     Nx = int(sqrt(Ncells))
-    #     Ny = int(Nx)
-
-    #     dd = nr + (nr//Ny) * (Ny + 1)
-    #     dd1 = nr%Ny + (1 + nr//Ny) * Ny + nr//Ny * (Ny + 1)
-    #     dd2 = nr%Ny + (1 + nr//Ny) * Ny + nr//Ny * (Ny + 1) + 1
-    #     dd3 = nr%Ny + (nr//Ny +1) * (Ny + 1) + (1 + nr//Ny) * Ny
-
-        
-    #     for l in range(self.edge_modes):
-    #         dofs.append(dd*self.edge_modes + l + self.nverts)
-    #     for l in range(self.edge_modes):
-    #         dofs.append(dd1*self.edge_modes + l + self.nverts)
-    #     for l in range(self.edge_modes):
-    #         dofs.append(dd2*self.edge_modes + l + self.nverts)
-    #     for l in range(self.edge_modes):
-    #         dofs.append(dd3*self.edge_modes + l + self.nverts)
-        
-    #     return dofs
+        edges = nbnd.Mask() & self.FreeEdges
+        ee = 0
+        eemax = sum(edges)
+        dofs = []
+        ii = 0
+        ei = []
+        for i, b in enumerate(edges):
+            if ee == eemax:
+                break
+            if b == 1:
+                for j in range(self.nedges):
+                    if self.edges[j][0] == int(i):
+                        for l in range(self.edge_modes):
+                            dofs.append(self.nverts + j*self.edge_modes + l)
+                        ei.append(ii)
+                        ii += self.edge_modes
+                        break
+                    
+        return dofs, ei
     
 
     def Assemble(self):
@@ -531,7 +558,7 @@ class ACMS:
     def Assemble_localA_and_f(self, acms_cell_nr):
         acms_cell = self.doms[acms_cell_nr]
         Vharm, aharm_mat, aharm_inv = self.GetHarmonicExtensionDomain(acms_cell)
-        if acms_cell in self.save_extensions:
+        if acms_cell in self.save_doms: 
            self.vol_extensions[acms_cell] = [Vharm, aharm_mat, aharm_inv]
         ss_assemble = time.time()
 
@@ -744,6 +771,9 @@ class ACMS:
                     gfu.vec[:] = 0
                 with TaskManager():
                     localbasis_edges[:] += -(aharm_inv @ aharm_mat) * localbasis_edges
+                    
+                # print(lii)
+                # print(ebi[lii])
 
                 localbasis[ebi[lii]:ebi[lii]+self.edge_modes] = localbasis_edges
 
@@ -807,7 +837,7 @@ class ACMS:
 
         # print(dofs)
         # input()
-        if acms_cell in self.save_localbasis:
+        if acms_cell in self.save_doms:
            self.localbasis[acms_cell] = (localbasis, dofs)
 
         uharm, vharm = Vharm.TnT() 

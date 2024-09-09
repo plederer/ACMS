@@ -3,7 +3,7 @@ from helmholtz_aux import *
 from ngsolve.eigenvalues import PINVIT
 
 
-Js = [i**2 for i in range(1,21)] # [1,4,9,16,25,36]
+Js = [i**2 for i in range(1,11)] # [1,4,9,16,25,36]
 
 maxH = 0.1
 order = 4
@@ -19,7 +19,7 @@ for Ncell in Js:
     
     mesh, dom_bnd, alpha, mesh_info = crystal_geometry(maxH, Nx = int(sqrt(Ncell)), Ny = int(sqrt(Ncell)), incl = -1, r = 0.0, Lx = 1, Ly = 1, load_mesh = True)
 
-    acms = ACMS(order = order, mesh = mesh, bm = 0, em = Edge_modes, bi = mesh.GetCurveOrder(), mesh_info = mesh_info, alpha = 1, omega = 1, kappa = 1, f = 0, g = 1, beta = 1, gamma = 1, save_localbasis=False, save_extensions = False)
+    acms = ACMS(order = order, mesh = mesh, bm = 0, em = Edge_modes, bi = mesh.GetCurveOrder(), mesh_info = mesh_info, alpha = 1, omega = 1, kappa = 1, f = 0, g = 1, beta = 1, gamma = 1, save_doms = [])
                 
     edge_basis = acms.calc_edge_basis()
     

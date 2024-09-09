@@ -821,8 +821,6 @@ def acms_main(mesh, variables_dictionary, solution_dictionary):
                             # print("assemble = ", time.time() - assemble_start)
         
                         gfu, num, _ = compute_acms_solution(mesh, V, acms, edge_basis)
-                        # Draw(gfu)
-                        # input()
                         # print("ACMS computation in = ", time.time() - start)
                         acms.PrintTiminigs()
                         dofs.append(num)

@@ -8,7 +8,7 @@ Ncell = 16
 
 maxH = 0.01
 order = 6
-Edge_modes = [2] #,4,8,16,32,64,128,256]
+Edge_modes = [2,4,8,16,32,64,128,256]
 
 Bubble_modes = [0]
 
@@ -32,11 +32,11 @@ if not os.path.exists("timings_Ie"):
 
 dirname = os.path.dirname(__file__)
 
-save_timings = False
+save_timings = True
 for EE in Edge_modes:
     print("Edgemodes = ", EE)
      
-    acms = ACMS(order = order, mesh = mesh, bm = 0, em = EE, bi = 0, mesh_info = mesh_info, alpha = 1, omega = 1, kappa = 1, f = 0, g = 1, beta = 1, gamma = 1, save_localbasis=[], save_extensions = [])
+    acms = ACMS(order = order, mesh = mesh, bm = 0, em = EE, bi = 0, mesh_info = mesh_info, alpha = 1, omega = 1, kappa = 1, f = 0, g = 1, beta = 1, gamma = 1, save_doms = [])
                 
     edge_basis = acms.calc_edge_basis()
     

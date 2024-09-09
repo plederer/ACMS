@@ -3,16 +3,14 @@ from helmholtz_aux import *
 import matplotlib.pyplot as plt
 
 do_draw = False
-save_fig = True
-draw_fig = False
+save_fig = False
+draw_fig = True
 calc_fem = False
 calc_acms = True
 vtk_do = False
 
 if do_draw:
     import netgen.gui
-from ngsolve.eigenvalues import PINVIT
-
 
 problem = 5
 incl = 2
@@ -28,8 +26,6 @@ Href = 0
 maxH = 0.2
 order = 4
 EE = 16
-
-
 
 r  = 0.25 #0.126     # radius of inclusion
 Lx = 1 * incl   #* 0.484 #"c"
@@ -52,7 +48,7 @@ for j in iy:
     for i in range(Nx): 
         defects[i,j] = 0.0 
 
-mesh, dom_bnd, alpha, mesh_info = crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer, alpha_inner, defects, layers, load_mesh = False)
+mesh, dom_bnd, alpha, mesh_info = crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer, alpha_inner, defects, layers, load_mesh = True)
 
 
 
@@ -120,10 +116,11 @@ if True:
             if d == 1:
                 doms.append(mesh.ngmesh.GetMaterial(ii+1))
         
-        # doms = None #[]
+        # draw all domains!
+        # doms = None
         ###############################################################
               
-        acms = ACMS(order = order, mesh = mesh, bm = 0, em = EE, bi = mesh.GetCurveOrder(), mesh_info = mesh_info, alpha = alpha, omega = omega, kappa = kappa, f = f, g = g, beta = beta, gamma = gamma, save_localbasis=doms, save_extensions = doms)
+        acms = ACMS(order = order, mesh = mesh, bm = 0, em = EE, bi = mesh.GetCurveOrder(), mesh_info = mesh_info, alpha = alpha, omega = omega, kappa = kappa, f = f, g = g, beta = beta, gamma = gamma, save_doms = doms)
                         
         edge_basis = acms.calc_edge_basis()
         if edge_basis:
@@ -184,7 +181,7 @@ if True:
     
     file_name = "transition_" +  "maxH:" +     str(maxH) + "_" + \
                                 "Ncell:" +    str(Ncell) + "_" + \
-                                "Incl:" +    str(Incl) + "_" + \
+                                "Incl:" +    str(incl) + "_" + \
                                 "Nx:" +    str(Nx) + "_" + \
                                 "Ny:" +    str(Ny) + "_" + \
                                 "order:" +   str(order) + "_" + \
