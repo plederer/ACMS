@@ -822,7 +822,7 @@ def acms_main(mesh, variables_dictionary, solution_dictionary):
         
                         gfu, num, _ = compute_acms_solution(mesh, V, acms, edge_basis)
                         # print("ACMS computation in = ", time.time() - start)
-                        acms.PrintTiminigs()
+                        # acms.PrintTiminigs()
                         dofs.append(num)
                         l2_error, l2_error_ex, h1_error, h1_error_ex = append_acms_errors(mesh, gfu, gfu_fem, u_ex, grad_fem, Du_ex, l2_error, l2_error_ex, h1_error, h1_error_ex)
 

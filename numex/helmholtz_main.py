@@ -10,8 +10,9 @@ maxH = float(input("maxH: "))
 Href = int(input("Number of mesh refinements refH (0 is no refinements): "))
 order_v = list(map(int, input("Order of approximation. Vector = ").split())) 
 # Bubble_modes = list(map(int, input("Number of bubble modes. Vector = ").split()))
-Edge_modes = list(map(int, input("Number of edge modes. Vector = ").split()))
-
+# Edge_modes = list(map(int, input("Number of edge modes. Vector = ").split()))
+max_edge_modes = int(input("Max number of edge modes = "))
+Edge_modes = np.arange(1, max_edge_modes+1, 1).tolist()
 
 if problem == 5:
     Ncell = int(input("Number of cells in one direction: "))
@@ -26,27 +27,30 @@ else:
     incl = 0
     ACMS_flag = 0
 
-# FOR TESTING
+# # FOR TESTING
 # problem = 5
 # Ncell = 4
 # incl = 1
-# omega_v = [1]
+# omega_v = [1]#np.arange(1,4,1)
 # Href = 0
 # maxH = 0.2
-# order_v = [3]
+# order_v = [1,2]
 # Bubble_modes = [0]
-# Edge_modes = [2]
+# # Edge_modes = [1,2]
+# # Edge_modes = np.arange(1,2+1,1).tolist()
+# print(Edge_modes)
 # ACMS_flag = 0
 
 Bubble_modes = [0]
 
-error_table = 1
+error_table = 0
 table_content_l2_aux = ""
 table_content_h1_aux = ""
 table_header = ""
 table_separation = ""
 table_end = ""
 
+relerr = []
 
 SetNumThreads(12)
 with TaskManager():
@@ -57,21 +61,58 @@ with TaskManager():
             mesh, variables_dictionary = problem_definition(problem, Ncell, incl, h, omega, Bubble_modes, Edge_modes, order_v, load_mesh = True)
             
             #FEM solution with same order of approximation
-            solution_dictionary = ground_truth(mesh, variables_dictionary, 5)
+            solution_dictionary = ground_truth(mesh, variables_dictionary, 10)
             
             # Solve ACMS system and compute errors
             variables_dictionary, solution_dictionary, errors_dictionary = acms_main(mesh, variables_dictionary, solution_dictionary)
-                
             
-            if error_table == 1:
-                file_name = create_error_file(variables_dictionary)
-                Errors = save_error_file(file_name, mesh, variables_dictionary, solution_dictionary, errors_dictionary)
-                file_path = f"./Results/" + file_name + ".npz"
-                table_header, table_content_l2, table_separation, table_content_h1, table_end = process_file(file_path, ACMS_flag)
-                table_content_l2_aux += table_content_l2 + "\\\\\n"
-                table_content_h1_aux += table_content_h1 + "\\\\\n"
+            # if error_table == 1:
+            #     file_name = create_error_file(variables_dictionary)
+            #     Errors = save_error_file(file_name, mesh, variables_dictionary, solution_dictionary, errors_dictionary)
+            #     file_path = f"./Results/" + file_name + ".npz"
+            #     table_header, table_content_l2, table_separation, table_content_h1, table_end = process_file(file_path, ACMS_flag)
+            #     table_content_l2_aux += table_content_l2 + "\\\\\n"
+            #     table_content_h1_aux += table_content_h1 + "\\\\\n"
             
-        print(table_header + table_content_l2_aux + table_separation + table_content_h1_aux + table_end)    
+    
+            gfu_fem = solution_dictionary["gfu_fem"]
+            l2_error = errors_dictionary["l2_error"]
+            dim = variables_dictionary["dim"]
+            
+            l2_norm_ex = Integrate ( InnerProduct(gfu_fem, gfu_fem), mesh, order = 10)
+            l2_norm_ex = sqrt(l2_norm_ex.real)
+            #Relative errors
+            l2_error_rel = np.dot(l2_error, 1/l2_norm_ex)     
+            relerr.append(l2_error_rel)
+            
+relerr_reshaped = np.reshape(relerr, (np.size(omega_v), np.size(Edge_modes)))
+print(relerr_reshaped)
+            
+        # print(table_header + table_content_l2_aux + table_separation + table_content_h1_aux + table_end)    
+
+# folder = "omega_sweep"
+
+# if not os.path.exists(folder):
+#     os.mkdir(folder)
+
+# dirname = os.path.dirname(__file__)
+
+# ex_data = {"maxH": maxH, "Ncell": Ncell, "order": order_v, "Ie": Edge_modes[-1]}
+
+# pickle_name =   "maxH:" +     str(maxH) + "_" + \
+#                 "Ncell:" +    str(Ncell) + "_" + \
+#                 "order:" +   str(order_v) + "_" + \
+#                 "Ie:" +      str(Edge_modes[-1]) + "_" + \
+#                 ".txt"
+
+# save_file = os.path.join(dirname, folder + "/" + pickle_name)
+# picklefile = open(save_file, "wb")
+# data = [ex_data, relerr]
+# pickle.dump(data, picklefile)
+# picklefile.close()
+
+
+
 
 
 # mesh = Mesh(unit_square.GenerateMesh(maxh=0.5))
