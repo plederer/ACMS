@@ -75,20 +75,26 @@ with TaskManager():
             #     table_content_h1_aux += table_content_h1 + "\\\\\n"
             
     
-            gfu_fem = solution_dictionary["gfu_fem"]
-            l2_error = errors_dictionary["l2_error"]
-            dim = variables_dictionary["dim"]
+            # gfu_fem = solution_dictionary["gfu_fem"]
+            # l2_error = errors_dictionary["l2_error"]
+            # l2_norm_ex = Integrate ( InnerProduct(gfu_fem, gfu_fem), mesh, order = 10)
             
-            l2_norm_ex = Integrate ( InnerProduct(gfu_fem, gfu_fem), mesh, order = 10)
+            
+            u_ex = variables_dictionary["u_ex"]
+            l2_error = errors_dictionary["l2_error_ex"]
+            l2_norm_ex = Integrate ( InnerProduct(u_ex, u_ex), mesh, order = 10)
+            
+            dim = variables_dictionary["dim"]
             l2_norm_ex = sqrt(l2_norm_ex.real)
-            #Relative errors
             l2_error_rel = np.dot(l2_error, 1/l2_norm_ex)     
             relerr.append(l2_error_rel)
             
-relerr_reshaped = np.reshape(relerr, (np.size(omega_v), np.size(Edge_modes)))
-print(relerr_reshaped)
+
             
         # print(table_header + table_content_l2_aux + table_separation + table_content_h1_aux + table_end)    
+
+relerr_reshaped = np.reshape(relerr, (np.size(omega_v), np.size(Edge_modes)))
+print(relerr_reshaped)
 
 # folder = "omega_sweep"
 
