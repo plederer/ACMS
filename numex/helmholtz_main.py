@@ -75,14 +75,14 @@ with TaskManager():
             #     table_content_h1_aux += table_content_h1 + "\\\\\n"
             
     
-            # gfu_fem = solution_dictionary["gfu_fem"]
-            # l2_error = errors_dictionary["l2_error"]
-            # l2_norm_ex = Integrate ( InnerProduct(gfu_fem, gfu_fem), mesh, order = 10)
+            gfu_fem = solution_dictionary["gfu_fem"]
+            l2_error = errors_dictionary["l2_error"]
+            l2_norm_ex = Integrate ( InnerProduct(gfu_fem, gfu_fem), mesh, order = 10)
             
             
-            u_ex = variables_dictionary["u_ex"]
-            l2_error = errors_dictionary["l2_error_ex"]
-            l2_norm_ex = Integrate ( InnerProduct(u_ex, u_ex), mesh, order = 10)
+            # u_ex = variables_dictionary["u_ex"]
+            # l2_error = errors_dictionary["l2_error_ex"]
+            # l2_norm_ex = Integrate ( InnerProduct(u_ex, u_ex), mesh, order = 10)
             
             dim = variables_dictionary["dim"]
             l2_norm_ex = sqrt(l2_norm_ex.real)
