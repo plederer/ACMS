@@ -11,8 +11,9 @@ Href = int(input("Number of mesh refinements refH (0 is no refinements): "))
 order_v = list(map(int, input("Order of approximation. Vector = ").split())) 
 # Bubble_modes = list(map(int, input("Number of bubble modes. Vector = ").split()))
 # Edge_modes = list(map(int, input("Number of edge modes. Vector = ").split()))
+min_edge_modes = int(input("Min number of edge modes = "))
 max_edge_modes = int(input("Max number of edge modes = "))
-Edge_modes = np.arange(1, max_edge_modes+1, 1).tolist()
+Edge_modes = np.arange(min_edge_modes, max_edge_modes+1, 1).tolist()
 
 if problem == 5:
     Ncell = int(input("Number of cells in one direction: "))
@@ -62,12 +63,12 @@ with TaskManager():
             
             #FEM solution with same order of approximation
             solution_dictionary = ground_truth(mesh, variables_dictionary, 10)
-            gfu_gt = solution_dictionary["gfu_fem"]
-            solution_dictionary = ground_truth(mesh, variables_dictionary, 6)
-            gfu_fem = solution_dictionary["gfu_fem"]
+            # gfu_gt = solution_dictionary["gfu_fem"]
+            # solution_dictionary = ground_truth(mesh, variables_dictionary, 6)
+            # gfu_fem = solution_dictionary["gfu_fem"]
             
             # Solve ACMS system and compute errors
-            # variables_dictionary, solution_dictionary, errors_dictionary = acms_main(mesh, variables_dictionary, solution_dictionary)
+            variables_dictionary, solution_dictionary, errors_dictionary = acms_main(mesh, variables_dictionary, solution_dictionary)
             
             # if error_table == 1:
             #     file_name = create_error_file(variables_dictionary)
@@ -78,12 +79,9 @@ with TaskManager():
             #     table_content_h1_aux += table_content_h1 + "\\\\\n"
             
     
-    
-    
-    
-            l2_error_fem = compute_l2_error(gfu_gt, gfu_fem, mesh)
-            
-            # l2_error = errors_dictionary["l2_error"]
+            # l2_error_fem = compute_l2_error(gfu_gt, gfu_fem, mesh)
+            gfu_gt = solution_dictionary["gfu_fem"]
+            l2_error = errors_dictionary["l2_error"]
             l2_norm = Integrate ( InnerProduct(gfu_gt, gfu_gt), mesh, order = 10)
             
             
@@ -93,7 +91,7 @@ with TaskManager():
             
             dim = variables_dictionary["dim"]
             l2_norm = sqrt(l2_norm.real)
-            l2_error_rel = np.dot(l2_error_fem, 1/l2_norm)     
+            l2_error_rel = np.dot(l2_error, 1/l2_norm)     
             relerr.append(l2_error_rel)
             
 
