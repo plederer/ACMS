@@ -78,23 +78,24 @@ with TaskManager():
             #     table_content_l2_aux += table_content_l2 + "\\\\\n"
             #     table_content_h1_aux += table_content_h1 + "\\\\\n"
             
-    
+            print(errors_dictionary["l2_error_ex"])
+            print(errors_dictionary["l2_error"])
             # l2_error_fem = compute_l2_error(gfu_gt, gfu_fem, mesh)
-            gfu_gt = solution_dictionary["gfu_fem"]
-            l2_error = errors_dictionary["l2_error"]
-            l2_norm = Integrate ( InnerProduct(gfu_gt, gfu_gt), mesh, order = 10)
-            
-            
-            # u_ex = variables_dictionary["u_ex"]
-            # l2_error = errors_dictionary["l2_error_ex"]
-            # l2_norm_ex = Integrate ( InnerProduct(u_ex, u_ex), mesh, order = 10)
-            
+            if ACMS_flag == 1:
+                u_ex = variables_dictionary["u_ex"]
+                l2_error = errors_dictionary["l2_error_ex"]
+                l2_norm = Integrate ( InnerProduct(u_ex, u_ex), mesh, order = 10)
+                print("exact", l2_norm)
+            else: 
+                gfu_gt = solution_dictionary["gfu_fem"]
+                l2_error = errors_dictionary["l2_error"]
+                l2_norm = Integrate ( InnerProduct(gfu_gt, gfu_gt), mesh, order = 10)
+                print("gt", l2_norm)
+                  
             dim = variables_dictionary["dim"]
             l2_norm = sqrt(l2_norm.real)
             l2_error_rel = np.dot(l2_error, 1/l2_norm)     
             relerr.append(l2_error_rel)
-            
-
             
         # print(table_header + table_content_l2_aux + table_separation + table_content_h1_aux + table_end)    
 
