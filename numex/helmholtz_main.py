@@ -64,7 +64,7 @@ with TaskManager():
             #FEM solution with same order of approximation
             solution_dictionary = ground_truth(mesh, variables_dictionary, 10)
             gfu_gt = solution_dictionary["gfu_fem"]
-            solution_dictionary = ground_truth(mesh, variables_dictionary, 6)
+            solution_dictionary = ground_truth(mesh, variables_dictionary, 5)
             gfu_fem = solution_dictionary["gfu_fem"]
             
             # Solve ACMS system and compute errors
