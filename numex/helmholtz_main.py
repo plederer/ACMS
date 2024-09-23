@@ -63,9 +63,9 @@ with TaskManager():
             
             #FEM solution with same order of approximation
             solution_dictionary = ground_truth(mesh, variables_dictionary, 10)
-            # gfu_gt = solution_dictionary["gfu_fem"]
-            # solution_dictionary = ground_truth(mesh, variables_dictionary, 6)
-            # gfu_fem = solution_dictionary["gfu_fem"]
+            gfu_gt = solution_dictionary["gfu_fem"]
+            solution_dictionary = ground_truth(mesh, variables_dictionary, 6)
+            gfu_fem = solution_dictionary["gfu_fem"]
             
             # Solve ACMS system and compute errors
             variables_dictionary, solution_dictionary, errors_dictionary = acms_main(mesh, variables_dictionary, solution_dictionary)
@@ -78,9 +78,10 @@ with TaskManager():
             #     table_content_l2_aux += table_content_l2 + "\\\\\n"
             #     table_content_h1_aux += table_content_h1 + "\\\\\n"
             
-            print(errors_dictionary["l2_error_ex"])
-            print(errors_dictionary["l2_error"])
-            # l2_error_fem = compute_l2_error(gfu_gt, gfu_fem, mesh)
+            # print(errors_dictionary["l2_error_ex"])
+            # print(errors_dictionary["l2_error"])
+            l2_error_fem = compute_l2_error(gfu_gt, gfu_fem, mesh)
+            
             if ACMS_flag == 1:
                 u_ex = variables_dictionary["u_ex"]
                 l2_error = errors_dictionary["l2_error_ex"]
@@ -94,8 +95,9 @@ with TaskManager():
                   
             dim = variables_dictionary["dim"]
             l2_norm = sqrt(l2_norm.real)
-            l2_error_rel = np.dot(l2_error, 1/l2_norm)     
-            relerr.append(l2_error_rel)
+            l2_error_rel = np.dot(l2_error, 1/l2_norm)   
+            l2_error_FEM_rel = np.dot(l2_error_fem, 1/l2_norm)   
+            relerr.append(l2_error_fem)
             
         # print(table_header + table_content_l2_aux + table_separation + table_content_h1_aux + table_end)    
 
