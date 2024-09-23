@@ -10,10 +10,10 @@ maxH = float(input("maxH: "))
 Href = int(input("Number of mesh refinements refH (0 is no refinements): "))
 order_v = list(map(int, input("Order of approximation. Vector = ").split())) 
 # Bubble_modes = list(map(int, input("Number of bubble modes. Vector = ").split()))
-# Edge_modes = list(map(int, input("Number of edge modes. Vector = ").split()))
-min_edge_modes = int(input("Min number of edge modes = "))
-max_edge_modes = int(input("Max number of edge modes = "))
-Edge_modes = np.arange(min_edge_modes, max_edge_modes+1, 1).tolist()
+Edge_modes = list(map(int, input("Number of edge modes. Vector = ").split()))
+# min_edge_modes = int(input("Min number of edge modes = "))
+# max_edge_modes = int(input("Max number of edge modes = "))
+# Edge_modes = np.arange(min_edge_modes, max_edge_modes+1, 1).tolist()
 
 if problem == 5:
     Ncell = int(input("Number of cells in one direction: "))
@@ -44,7 +44,7 @@ else:
 
 Bubble_modes = [0]
 
-error_table = 0
+error_table = 1
 table_content_l2_aux = ""
 table_content_h1_aux = ""
 table_header = ""
@@ -63,67 +63,48 @@ with TaskManager():
             
             #FEM solution with same order of approximation
             solution_dictionary = ground_truth(mesh, variables_dictionary, 10)
-            gfu_gt = solution_dictionary["gfu_fem"]
-            solution_dictionary = ground_truth(mesh, variables_dictionary, 5)
-            gfu_fem = solution_dictionary["gfu_fem"]
+            # gfu_gt = solution_dictionary["gfu_fem"]
+            # solution_dictionary = ground_truth(mesh, variables_dictionary, 5)
+            # gfu_fem = solution_dictionary["gfu_fem"]
             
             # Solve ACMS system and compute errors
             variables_dictionary, solution_dictionary, errors_dictionary = acms_main(mesh, variables_dictionary, solution_dictionary)
             
-            # if error_table == 1:
-            #     file_name = create_error_file(variables_dictionary)
-            #     Errors = save_error_file(file_name, mesh, variables_dictionary, solution_dictionary, errors_dictionary)
-            #     file_path = f"./Results/" + file_name + ".npz"
-            #     table_header, table_content_l2, table_separation, table_content_h1, table_end = process_file(file_path, ACMS_flag)
-            #     table_content_l2_aux += table_content_l2 + "\\\\\n"
-            #     table_content_h1_aux += table_content_h1 + "\\\\\n"
+            if error_table == 1:
+                file_name = create_error_file(variables_dictionary)
+                Errors = save_error_file(file_name, mesh, variables_dictionary, solution_dictionary, errors_dictionary)
+                file_path = f"./Results/" + file_name + ".npz"
+                table_header, table_content_l2, table_separation, table_content_h1, table_end = process_file(file_path, ACMS_flag)
+                table_content_l2_aux += table_content_l2 + "\\\\\n"
+                table_content_h1_aux += table_content_h1 + "\\\\\n"
             
             # print(errors_dictionary["l2_error_ex"])
             # print(errors_dictionary["l2_error"])
-            l2_error_fem = compute_l2_error(gfu_gt, gfu_fem, mesh)
+            # l2_error_fem = compute_l2_error(gfu_gt, gfu_fem, mesh)
             
-            if ACMS_flag == 1:
-                u_ex = variables_dictionary["u_ex"]
-                l2_error = errors_dictionary["l2_error_ex"]
-                l2_norm = Integrate ( InnerProduct(u_ex, u_ex), mesh, order = 10)
-                print("exact", l2_norm)
-            else: 
-                gfu_gt = solution_dictionary["gfu_fem"]
-                l2_error = errors_dictionary["l2_error"]
-                l2_norm = Integrate ( InnerProduct(gfu_gt, gfu_gt), mesh, order = 10)
-                print("gt", l2_norm)
+            # if ACMS_flag == 1:
+            #     u_ex = variables_dictionary["u_ex"]
+            #     l2_error = errors_dictionary["l2_error_ex"]
+            #     l2_norm = Integrate ( InnerProduct(u_ex, u_ex), mesh, order = 10)
+            #     print("exact", l2_norm)
+            # else: 
+            #     gfu_gt = solution_dictionary["gfu_fem"]
+            #     l2_error = errors_dictionary["l2_error"]
+            #     l2_norm = Integrate ( InnerProduct(gfu_gt, gfu_gt), mesh, order = 10)
+            #     print("gt", l2_norm)
                   
-            dim = variables_dictionary["dim"]
-            l2_norm = sqrt(l2_norm.real)
-            l2_error_rel = np.dot(l2_error, 1/l2_norm)   
-            l2_error_FEM_rel = np.dot(l2_error_fem, 1/l2_norm)   
-            relerr.append(l2_error_fem)
+            # dim = variables_dictionary["dim"]
+            # l2_norm = sqrt(l2_norm.real)
+            # l2_error_rel = np.dot(l2_error, 1/l2_norm)   
+            # l2_error_FEM_rel = np.dot(l2_error, 1/l2_norm)   
+            # relerr.append(l2_error)
+            # print(dim)
             
-        # print(table_header + table_content_l2_aux + table_separation + table_content_h1_aux + table_end)    
+        print(table_header + table_content_l2_aux + table_separation + table_content_h1_aux + table_end)    
 
-relerr_reshaped = np.reshape(relerr, (np.size(omega_v), np.size(Edge_modes)))
-print(relerr_reshaped)
+# relerr_reshaped = np.reshape(relerr, (np.size(omega_v), np.size(Edge_modes)))
+# print(relerr_reshaped)
 
-# folder = "omega_sweep"
-
-# if not os.path.exists(folder):
-#     os.mkdir(folder)
-
-# dirname = os.path.dirname(__file__)
-
-# ex_data = {"maxH": maxH, "Ncell": Ncell, "order": order_v, "Ie": Edge_modes[-1]}
-
-# pickle_name =   "maxH:" +     str(maxH) + "_" + \
-#                 "Ncell:" +    str(Ncell) + "_" + \
-#                 "order:" +   str(order_v) + "_" + \
-#                 "Ie:" +      str(Edge_modes[-1]) + "_" + \
-#                 ".txt"
-
-# save_file = os.path.join(dirname, folder + "/" + pickle_name)
-# picklefile = open(save_file, "wb")
-# data = [ex_data, relerr]
-# pickle.dump(data, picklefile)
-# picklefile.close()
 
 
 
