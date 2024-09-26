@@ -30,16 +30,16 @@ else:
 
 # # FOR TESTING
 # problem = 5
-# Ncell = 4
+# Ncell = 2
 # incl = 1
 # omega_v = [1]#np.arange(1,4,1)
 # Href = 0
 # maxH = 0.2
-# order_v = [1,2]
+# order_v = [1]
 # Bubble_modes = [0]
-# # Edge_modes = [1,2]
+# Edge_modes = [1]
 # # Edge_modes = np.arange(1,2+1,1).tolist()
-# print(Edge_modes)
+# # print(Edge_modes)
 # ACMS_flag = 0
 
 Bubble_modes = [0]
@@ -60,7 +60,7 @@ with TaskManager():
             print(h)
             # Variables setting
             mesh, variables_dictionary = problem_definition(problem, Ncell, incl, h, omega, Bubble_modes, Edge_modes, order_v, load_mesh = True)
-            
+
             #FEM solution with same order of approximation
             solution_dictionary = ground_truth(mesh, variables_dictionary, 10)
             # gfu_gt = solution_dictionary["gfu_fem"]
@@ -69,6 +69,7 @@ with TaskManager():
             
             # Solve ACMS system and compute errors
             variables_dictionary, solution_dictionary, errors_dictionary = acms_main(mesh, variables_dictionary, solution_dictionary)
+            print("l2 error", errors_dictionary["l2_error"])
             
             if error_table == 1:
                 file_name = create_error_file(variables_dictionary)
@@ -82,23 +83,22 @@ with TaskManager():
             # print(errors_dictionary["l2_error"])
             # l2_error_fem = compute_l2_error(gfu_gt, gfu_fem, mesh)
             
-            # if ACMS_flag == 1:
-            #     u_ex = variables_dictionary["u_ex"]
-            #     l2_error = errors_dictionary["l2_error_ex"]
-            #     l2_norm = Integrate ( InnerProduct(u_ex, u_ex), mesh, order = 10)
-            #     print("exact", l2_norm)
-            # else: 
-            #     gfu_gt = solution_dictionary["gfu_fem"]
-            #     l2_error = errors_dictionary["l2_error"]
-            #     l2_norm = Integrate ( InnerProduct(gfu_gt, gfu_gt), mesh, order = 10)
-            #     print("gt", l2_norm)
+            if ACMS_flag == 1:
+                u_ex = variables_dictionary["u_ex"]
+                l2_error = errors_dictionary["l2_error_ex"]
+                l2_norm = Integrate ( InnerProduct(u_ex, u_ex), mesh, order = 10)
+                print("exact", l2_norm)
+            else: 
+                gfu_gt = solution_dictionary["gfu_fem"]
+                l2_error = errors_dictionary["l2_error"]
+                l2_norm = Integrate ( InnerProduct(gfu_gt, gfu_gt), mesh, order = 10)
+                print("gt", l2_norm)
                   
-            # dim = variables_dictionary["dim"]
-            # l2_norm = sqrt(l2_norm.real)
-            # l2_error_rel = np.dot(l2_error, 1/l2_norm)   
-            # l2_error_FEM_rel = np.dot(l2_error, 1/l2_norm)   
-            # relerr.append(l2_error)
-            # print(dim)
+            dim = variables_dictionary["dim"]
+            l2_norm = sqrt(l2_norm.real)
+            l2_error_rel = np.dot(l2_error, 1/l2_norm)   
+            relerr.append(l2_error_rel)
+            print("Rel err", relerr)
             
         print(table_header + table_content_l2_aux + table_separation + table_content_h1_aux + table_end)    
 
