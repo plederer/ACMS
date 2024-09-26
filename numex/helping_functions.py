@@ -11,6 +11,7 @@ import numpy as np
 
 import time
 
+calc_all = True
 
 ###############################################################
 
@@ -738,7 +739,11 @@ class ACMS:
 
                 nels = len([e for e in self.mesh.Boundaries(bndname).Elements()])   
                 edgetype += "_" + str(nels)
-
+                
+                # if "C" in bndname or "D" in bndname:
+                if calc_all:
+                    edgetype = bndname #edge_name
+                
                 dd = nels * (self.order -1) + nels -1
                 
                 sss = time.time()
@@ -765,7 +770,7 @@ class ACMS:
                             gfu.vec[d] = self.edgeversions[edgetype][0][l][ii]#.real
                             # gfu.vec[d] = self.edgeversions[edgetype][1][l,ii]#.real
                             ii+=1
-                        if ii == dd-1:
+                        if ii == dd:
                             break
                     
                     # gfu.vec.data += -(aharm_inv @ aharm_mat) * gfu.vec
@@ -774,6 +779,10 @@ class ACMS:
                 with TaskManager():
                     localbasis_edges[:] += -(aharm_inv @ aharm_mat) * localbasis_edges
                     
+                # for l in range(self.edge_modes):
+                #     gfu.vec.data = localbasis_edges[l]
+                #     Draw(gfu, self.mesh,"test" )
+                #     input()
                 # print(lii)
                 # print(ebi[lii])
 
@@ -841,7 +850,7 @@ class ACMS:
         # input()
         if acms_cell in self.save_doms:
            self.localbasis[acms_cell] = (localbasis, dofs)
-
+        
         uharm, vharm = Vharm.TnT() 
         
         ttt = time.time()
@@ -1068,6 +1077,11 @@ class ACMS:
                 # quit()
                 edgetype += "_" + str(nels)
 
+                # if "C" in edge_name[1] or "D" in edge_name[1]:
+                if calc_all:
+                    edgetype = edge_name[1]
+                
+
                 if edgetype not in self.edgeversions:    
                     fd = self.V.GetDofs(self.mesh.Boundaries(edge_name[1])) & (~vertex_dofs)                           
                     # print("AAA")
@@ -1107,7 +1121,7 @@ class ACMS:
                     try:
                         # print(self.edge_modes)
                         # print(sum(fd))
-                        if True:
+                        if False:
                             minv = aloc.mat.Inverse(Vloc.FreeDofs(), inverse = "sparsecholesky") #IdentityMatrix(Vloc.ndof)        
                             lams, uvecs = PINVIT(aloc.mat, mloc.mat, pre = minv, num = self.edge_modes, printrates = False, maxit = 20)
                         else:
