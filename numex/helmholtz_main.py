@@ -3,44 +3,44 @@ from helmholtz_aux import *
 # import netgen.gui
 # from ngsolve.eigenvalues import PINVIT
 
-problem = float(input("Choose the problem. \n 1 = PW. \n 2 = LIS. \n 3 = LBS. \n 4 = Crystal Sq. \n 5 = Crystal \n Problem =  "))
-# omega = float(input("Wavenumber k: "))
-omega_v = list(map(float, input("Wavenumber k vector = ").split()))
-maxH = float(input("maxH: "))
-Href = int(input("Number of mesh refinements refH (0 is no refinements): "))
-order_v = list(map(int, input("Order of approximation. Vector = ").split())) 
-# Bubble_modes = list(map(int, input("Number of bubble modes. Vector = ").split()))
-Edge_modes = list(map(int, input("Number of edge modes. Vector = ").split()))
-# min_edge_modes = int(input("Min number of edge modes = "))
-# max_edge_modes = int(input("Max number of edge modes = "))
-# Edge_modes = np.arange(min_edge_modes, max_edge_modes+1, 1).tolist()
+# problem = float(input("Choose the problem. \n 1 = PW. \n 2 = LIS. \n 3 = LBS. \n 4 = Crystal Sq. \n 5 = Crystal \n Problem =  "))
+# # omega = float(input("Wavenumber k: "))
+# omega_v = list(map(float, input("Wavenumber k vector = ").split()))
+# maxH = float(input("maxH: "))
+# Href = int(input("Number of mesh refinements refH (0 is no refinements): "))
+# order_v = list(map(int, input("Order of approximation. Vector = ").split())) 
+# # Bubble_modes = list(map(int, input("Number of bubble modes. Vector = ").split()))
+# Edge_modes = list(map(int, input("Number of edge modes. Vector = ").split()))
+# # min_edge_modes = int(input("Min number of edge modes = "))
+# # max_edge_modes = int(input("Max number of edge modes = "))
+# # Edge_modes = np.arange(min_edge_modes, max_edge_modes+1, 1).tolist()
 
-if problem == 5:
-    Ncell = int(input("Number of cells in one direction: "))
-    incl = int(input("Number of inclusions in one direction per cell incl (Power of 2): "))
-    ACMS_flag = 0 #FEM vs ACMS error
-elif problem == 1:
-    Ncell = 0
-    incl = 0
-    ACMS_flag = int(input("Error against exact solution = 1 or FEM solution = 0. "))
-else:
-    Ncell = 0
-    incl = 0
-    ACMS_flag = 0
+# if problem == 5:
+#     Ncell = int(input("Number of cells in one direction: "))
+#     incl = int(input("Number of inclusions in one direction per cell incl (Power of 2): "))
+#     ACMS_flag = 0 #FEM vs ACMS error
+# elif problem == 1:
+#     Ncell = 0
+#     incl = 0
+#     ACMS_flag = int(input("Error against exact solution = 1 or FEM solution = 0. "))
+# else:
+#     Ncell = 0
+#     incl = 0
+#     ACMS_flag = 0
 
 # # FOR TESTING
-# problem = 5
-# Ncell = 2
-# incl = 1
-# omega_v = [1]#np.arange(1,4,1)
-# Href = 0
-# maxH = 0.2
-# order_v = [1]
-# Bubble_modes = [0]
-# Edge_modes = [1]
+problem = 1
+Ncell = 1
+incl = 1
+omega_v = [1,2]#np.arange(1,4,1)
+Href = 0
+maxH = 0.2
+order_v = [2]
+Bubble_modes = [0]
+Edge_modes = [1,2,3] #8,16, 32, 64]
 # # Edge_modes = np.arange(1,2+1,1).tolist()
 # # print(Edge_modes)
-# ACMS_flag = 0
+ACMS_flag = 0
 
 Bubble_modes = [0]
 
@@ -100,10 +100,50 @@ with TaskManager():
             relerr.append(l2_error_rel)
             print("Rel err", relerr)
             
-        print(table_header + table_content_l2_aux + table_separation + table_content_h1_aux + table_end)    
+        # print(table_header + table_content_l2_aux + table_separation + table_content_h1_aux + table_end)    
 
 # relerr_reshaped = np.reshape(relerr, (np.size(omega_v), np.size(Edge_modes)))
 # print(relerr_reshaped)
+
+folder = "omega_sweep_l2_errors"
+
+if not os.path.exists(folder):
+    os.mkdir(folder)
+
+dirname = os.path.dirname(__file__)
+
+
+# pickle_name =  "error_data.out"
+pickle_name = ""
+if problem == 1:
+    pickle_name += "circle_"
+else:
+    pickle_name += "crystal_"
+
+pickle_name += "omega_"
+for om in omega_v:
+    pickle_name += str(om) + "_"
+
+pickle_name += "maxH_" + str(maxH) + "_"
+pickle_name += "order_" + str(order_v[0])
+            
+save_file = os.path.join(dirname, folder + "/" + pickle_name + ".out")
+picklefile = open(save_file, "wb")
+
+omega_v = [1,2]
+maxH = 0.2
+order_v = [2]
+Bubble_modes = [0]
+Edge_modes = [1,2,3]
+
+data = [omega_v, maxH, order_v, Edge_modes, relerr]
+pickle.dump(data, picklefile)
+picklefile.close()
+
+
+from print_errors import SaveTable
+
+SaveTable(pickle_name, dirname, folder)
 
 
 
