@@ -10,10 +10,15 @@ maxH = float(input("maxH: "))
 Href = int(input("Number of mesh refinements refH (0 is no refinements): "))
 order_v = list(map(int, input("Order of approximation. Vector = ").split())) 
 # Bubble_modes = list(map(int, input("Number of bubble modes. Vector = ").split()))
-# Edge_modes = list(map(int, input("Number of edge modes. Vector = ").split()))
-min_edge_modes = int(input("Min number of edge modes = "))
-max_edge_modes = int(input("Max number of edge modes = "))
-Edge_modes = np.arange(min_edge_modes, max_edge_modes+1, 1).tolist()
+
+edge_sweep = int(input("Do you want to sweep over the number of edge modes = 1y/0n "))
+if edge_sweep:
+    min_edge_modes = int(input("Min number of edge modes = "))
+    max_edge_modes = int(input("Max number of edge modes = "))
+    Edge_modes = np.arange(min_edge_modes, max_edge_modes+1, 1).tolist()
+else:
+    Edge_modes = list(map(int, input("Number of edge modes. Vector = ").split()))
+
 
 if problem == 5:
     Ncell = int(input("Number of cells in one direction: "))
@@ -63,9 +68,6 @@ with TaskManager():
 
             #FEM solution with same order of approximation
             solution_dictionary = ground_truth(mesh, variables_dictionary, 10)
-            # gfu_gt = solution_dictionary["gfu_fem"]
-            # solution_dictionary = ground_truth(mesh, variables_dictionary, 5)
-            # gfu_fem = solution_dictionary["gfu_fem"]
             
             # Solve ACMS system and compute errors
             variables_dictionary, solution_dictionary, errors_dictionary = acms_main(mesh, variables_dictionary, solution_dictionary)
@@ -79,9 +81,6 @@ with TaskManager():
                 table_content_l2_aux += table_content_l2 + "\\\\\n"
                 table_content_h1_aux += table_content_h1 + "\\\\\n"
             
-            # print(errors_dictionary["l2_error_ex"])
-            # print(errors_dictionary["l2_error"])
-            # l2_error_fem = compute_l2_error(gfu_gt, gfu_fem, mesh)
             
             if ACMS_flag == 1:
                 u_ex = variables_dictionary["u_ex"]
@@ -100,7 +99,7 @@ with TaskManager():
             relerr.append(l2_error_rel)
             print("Rel err", relerr)
             
-        # print(table_header + table_content_l2_aux + table_separation + table_content_h1_aux + table_end)    
+print(table_header + table_content_l2_aux + table_separation + table_content_h1_aux + table_end)    
 
 # relerr_reshaped = np.reshape(relerr, (np.size(omega_v), np.size(Edge_modes)))
 # print(relerr_reshaped)
@@ -112,13 +111,11 @@ if not os.path.exists(folder):
 
 dirname = os.path.dirname(__file__)
 
-
-# pickle_name =  "error_data.out"
 pickle_name = ""
 if problem == 1:
     pickle_name += "circle_"
 else:
-    pickle_name += "crystal_"
+    pickle_name += "crystal_Ncells_" + str(int(Ncell))  + "_incl_" + str(int(incl))  + "_"
 
 pickle_name += "omega_"
 for om in omega_v:
