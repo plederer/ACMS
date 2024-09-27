@@ -102,7 +102,22 @@ def unit_disc(maxH):
     shape = Glue([triangleUR, triangleUL, triangleLR, triangleLL, outer])
     # shape = triangleUR
     # DrawGeo(shape)
+    nels_r = int(r/maxH)
+    nels_d = int(l/maxH)
+    length_arc = 1/4 * 2 * r * math.pi
+    nels_c = int(length_arc/maxH)
 
+    partition_r = [i*1/nels_r for i in range(1,nels_r)]
+    partition_d = [i*1/nels_d for i in range(1,nels_d)]
+    partition_c = [i*1/nels_c for i in range(1,nels_c)]
+    for ed in shape.edges:
+        if "H" in ed.name or "V" in ed.name:
+            ed.partition = partition_r
+        if "D" in ed.name:
+            ed.partition = partition_d
+        if "C" in ed.name:
+            ed.partition = partition_c
+    
     mesh = Mesh(OCCGeometry(shape, dim=2).GenerateMesh(maxh = maxH))
     mesh.Curve(10)
     
@@ -320,6 +335,17 @@ def crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer = 1, alpha_inner
         
         crystalshape = Glue(outershapes + innershapes)
         
+        nels_x = int(Lx/maxH)
+        nels_y = int(Ly/maxH)
+        partition_x = [i*1/nels_x for i in range(1,nels_x)]
+        partition_y = [i*1/nels_y for i in range(1,nels_y)]
+        for ed in crystalshape.edges:
+            if "H" in ed.name:
+                ed.partition = partition_x
+            if "V" in ed.name:
+                ed.partition = partition_y
+            
+
         with TaskManager():
             geo = OCCGeometry(crystalshape, dim=2)
             mesh = Mesh(geo.GenerateMesh(maxh = maxH))
