@@ -11,7 +11,7 @@ import numpy as np
 
 import time
 
-calc_all = True
+
 
 ###############################################################
 
@@ -29,7 +29,7 @@ def GetVertexNeighbours(vname, mesh):
 # EXTENSIONS
 
 class ACMS:
-    def __init__(self, order, mesh, bm = 0, em = 0, mesh_info = None, bi = 0, alpha = 1, kappa = 1, omega = 1, f = 1, g = 1, beta = 1, gamma = 1, save_doms=None):
+    def __init__(self, order, mesh, bm = 0, em = 0, mesh_info = None, bi = 0, alpha = 1, kappa = 1, omega = 1, f = 1, g = 1, beta = 1, gamma = 1, save_doms=None, calc_all = False):
         self.order = order # Polynomial degree of approximation
         self.dirichlet = mesh_info["dir_edges"]
         self.dom_bnd = mesh_info["dom_bnd"] 
@@ -41,6 +41,8 @@ class ACMS:
 
         self.f = f 
         self.g = g 
+
+        self.calc_all = calc_all
         
         self.edge_extensions = {}
         self.vol_extensions = {}
@@ -555,6 +557,8 @@ class ACMS:
     
 
     def Assemble(self):
+        if len(self.localbasis) > 0:
+            self.localbasis = {}
         for m in range(len(self.doms)):
             self.Assemble_localA_and_f(m)
     
@@ -736,16 +740,52 @@ class ACMS:
                     edgetype = "D"
                 elif "C" in bndname:
                     edgetype = "C"
+                    
 
-                nels = len([e for e in self.mesh.Boundaries(bndname).Elements()])   
+                els = [e for e in self.mesh.Boundaries(bndname).Elements()]
+                efirst = els[0].elementnode.nr
+                elast = els[-1].elementnode.nr
+
+                switch = False
+                if self.is_square_shape_crystal:
+                    if elast < efirst and "H" in bndname:
+                        switch = True
+                    if elast > efirst and "V" in bndname:
+                        switch = True
+                else:
+                    # if elast < efirst and "H" in bndname:
+                    #     switch = True
+                    if elast < efirst and "V" in bndname:
+                        switch = True
+                    if elast < efirst and "D" in bndname:
+                        switch = True
+                    if elast > efirst and "C" in bndname:
+                        switch = True
+                # orient = []
+                # for e in els:
+                    
+                #     v1 = e.vertices[0].nr
+                #     v2 = e.vertices[1].nr
+                #     if v1 < v2:
+                #         orient.append(1)
+                #     else:
+                #         orient.append(-1)
+                #     if "H" in bndname:
+                #         print("e.nr = ", e.elementnode.nr)
+                #         # print(self.mesh.vertices[e.vertices[0].nr].point[0])
+                #         # print(self.mesh.vertices[e.vertices[1].nr].point[0])
+
+                nels = len(els)   
                 edgetype += "_" + str(nels)
                 
                 # if "C" in bndname or "D" in bndname:
-                if calc_all:
+                # print(bndname)
+                if self.calc_all:
                     edgetype = bndname #edge_name
                 
-                dd = nels * (self.order -1) + nels -1
-                
+                dde = nels * (self.order -1) #inner dofs on edges
+                ddn = nels -1 #vertex dofs
+                dd = dde + ddn #nels * (self.order -1) + nels -1
                 sss = time.time()
                 
                 # for l in range(self.edge_modes):
@@ -762,23 +802,43 @@ class ACMS:
                 #     localbasis[lii][:] = gfu.vec
                 #     lii+=1
                 #     gfu.vec[:] = 0
+                # if "dom_bnd_top_H" in bndname:
+                #     print(bndname)
+                #     print(self.edgeversions[edgetype][0][0][1])
+                #     print(np.linalg.norm(self.edgeversions[edgetype][0][0][1]))
+                #     # orient = sum(Integrate(specialcf.tangential(2), self.mesh, definedon=self.mesh.Boundaries(bndname), order = 0))
+                #     print("switch:", switch)
+                    # print("orientation = ", orient)
+                    # print("original orientation = ", self.edgeversions[edgetype][1])
+                    
+                    # print("dd = ", dd)
                 gfu.vec[:] = 0
+                # Draw(gfu, self.mesh, "test")
+                ind = list(range(0,dd))
+                if switch and not self.calc_all:
+                    inner_dofs = self.order - 1
+                    for l in range(inner_dofs):
+                        tmp = ind[ddn + l]
+                        ind[ddn + l] = ind[ddn + l + inner_dofs]
+                        ind[ddn + l + inner_dofs] = tmp
+                
                 for l in range(self.edge_modes):
                     ii = 0
                     for d, bb in enumerate(ddofs):
                         if bb == 1:
-                            gfu.vec[d] = self.edgeversions[edgetype][0][l][ii]#.real
+                            gfu.vec[d] = self.edgeversions[edgetype][0][l][ind[ii]]#.real
                             # gfu.vec[d] = self.edgeversions[edgetype][1][l,ii]#.real
                             ii+=1
                         if ii == dd:
                             break
-                    
+                    # print("ii = ", ii)
                     # gfu.vec.data += -(aharm_inv @ aharm_mat) * gfu.vec
                     localbasis_edges[l][:] = gfu.vec
                     gfu.vec[:] = 0
                 with TaskManager():
                     localbasis_edges[:] += -(aharm_inv @ aharm_mat) * localbasis_edges
                     
+                
                 # for l in range(self.edge_modes):
                 #     gfu.vec.data = localbasis_edges[l]
                 #     Draw(gfu, self.mesh,"test" )
@@ -1064,9 +1124,8 @@ class ACMS:
                 # ndofs = sum(list(fd))
 
                 ssss = time.time()
-                
-
-                nels = len([e for e in self.mesh.Boundaries(edge_name[1]).Elements()])
+                els = [e for e in self.mesh.Boundaries(edge_name[1]).Elements()]
+                nels = len(els)
                 # print(ndofs)
                 # ndofs = sum(H1(self.mesh, order = self.order, definedon = self.mesh.Boundaries(edge_name[1])).FreeDofs()) - 2
                 # print(tt - 2)
@@ -1078,7 +1137,7 @@ class ACMS:
                 edgetype += "_" + str(nels)
 
                 # if "C" in edge_name[1] or "D" in edge_name[1]:
-                if calc_all:
+                if self.calc_all:
                     edgetype = edge_name[1]
                 
 
@@ -1100,7 +1159,14 @@ class ACMS:
                     # Otherwise NGSolve does not allow to take the trace of a function in H^{1/2}(e) - uloc is defined on edge
                     aloc += (grad(uloc)*t) * (grad(vloc)*t) * ds(skeleton=True, definedon = self.mesh.Boundaries(edge_name[1]), bonus_intorder = self.bi)
 
-                    
+                    # print(Vloc.FreeDofs())
+                    # gfu = GridFunction(Vloc)
+                    # Draw(gfu, self.mesh, "test")
+                    # for i in range(Vloc.ndof):
+                    #     gfu.vec[:] = 0.0
+                    #     gfu.vec[i] = 1
+                    #     Redraw()
+                    #     input()
                     
                     #Setting bilinear form:  int u v de        
                     mloc = BilinearForm(Vloc, symmetric = True)
@@ -1131,6 +1197,12 @@ class ACMS:
                             idx = lams.argsort()[::]   
                             lams = lams[idx]
                             uvecs = uvecs[:,idx]
+                            # for i in range(self.edge_modes):
+                            #     if uvecs[:,i][0].real < 0 and sqrt(uvecs[:,i][0].real**2) > 1e-10:
+                            #         uvecs[:,i] = -1 * uvecs[:,i]
+                                # else...
+                                # if uvecs[:,i][0] uvecs[:,i][1] < 0:
+                                #     uvecs[:,i] = -1 * uvecs[:,i]
                             uvecs = uvecs.transpose()
                         self.edgeversions[edgetype] = [uvecs]
                         self.timings["calc_edgebasis_eigenvalues"] += time.time() - sss
