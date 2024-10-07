@@ -1,13 +1,9 @@
 from ngsolve import *
-# from netgen.geom2d import SplineGeometry
-
 from ngsolve.eigenvalues import *
 from ngsolve.la import Real2ComplexMatrix
 import scipy.linalg
 import scipy.sparse as sp
 import numpy as np
-# from ngsolve.webgui import Draw
-# from netgen.webgui import Draw as DrawGeo
 
 import time
 

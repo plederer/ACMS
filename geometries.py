@@ -2,15 +2,15 @@ from ngsolve import *
 from netgen.geom2d import *
 
 import pickle
-
-import numpy 
+ 
 import scipy.linalg
 import scipy.sparse as sp
+import numpy as np 
 
 import os.path
 
 from netgen.occ import *
-from helping_functions import *
+
 import time
 
 

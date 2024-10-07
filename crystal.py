@@ -1,6 +1,8 @@
 # LIBRARIES
-from helmholtz_aux import *
-import matplotlib.pyplot as plt
+from geometries import *
+from acms_class import *
+import numpy as np 
+
 import netgen.gui
 
 incl = 2
