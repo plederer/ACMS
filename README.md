@@ -1,7 +1,7 @@
 # ACMS for photonic-crystals
 
 ## Description
-This is a NGSolve/Netgen package written to solve problems using the discrete approximate component mode synthesis (ACMS) method. Two examples are provided. 
+This is a NGSolve/Netgen (www.ngsolve.org) package written to solve problems using the discrete approximate component mode synthesis (ACMS) method. Two examples are provided. 
 
 ## Papers
 More details on the ACMS method can be found here:
@@ -10,8 +10,9 @@ More details on the ACMS method can be found here:
 
 ## Authors and acknowledgment
 
-- Philip Lederer 
 - Elena Giammatteo
-- Matthias Schlottbom
 - Alexander Heinlein
+- Philip L. Lederer 
+- Matthias Schlottbom
+
 
