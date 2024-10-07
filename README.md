@@ -15,4 +15,7 @@ More details on the ACMS method can be found here:
 - Philip L. Lederer 
 - Matthias Schlottbom
 
+## Funding:
 
+- EG and MS acknowledge support by the Dutch Research council (NWO) via grant OCENW.GROOT.2019.071.
+- AH and MS acknowledge support by the 4TU.AMI SRI \textit{Bridging Numerical Analysis and Machine Learning}
