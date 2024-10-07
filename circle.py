@@ -5,25 +5,21 @@ import numpy as np
 
 import netgen.gui
 
-
 omega = 1
 
 maxH = 0.2
 order = 4
 EE = 16
 
-
-unit_disc
-
 mesh, dom_bnd, alpha, mesh_info = unit_disc(maxH)
 
-k_vec = omega * CF((1,0)) 
-f = 0 
-sigma = 2
 
-g = 1j * (omega - k_vec * specialcf.normal(2)) * exp(-1j * (k_vec[0] * x + k_vec[1] * y)) 
+k = omega * CF((0.6,0.8))
+f = 0
+u_ex = exp(-1J * (k[0] * x + k[1] * y))
+g = -1j * (k[0] * x + k[1] * y) * u_ex - 1j * omega * u_ex
    
-acms = ACMS(order = order, mesh = mesh, bm = 0, em = EE, bi = mesh.GetCurveOrder(), mesh_info = mesh_info, alpha = alpha, omega = omega, kappa = omega, f = f, g = g, beta = -1, gamma = 1)
+acms = ACMS(order = order, mesh = mesh, bm = 0, em = EE, bi = mesh.GetCurveOrder(), mesh_info = mesh_info, alpha = alpha, omega = omega, kappa = omega, f = f, g = g, beta = 1, gamma = 1)
                 
 edge_basis = acms.calc_edge_basis()
 if edge_basis:
@@ -36,4 +32,6 @@ if edge_basis:
     
 acms.PrintTiminigs(all = False)
 
+Draw(u_ex.real, mesh, "u_ex.real")
+Draw(u_ex.real - gfu_acms.real, mesh, "error.real")
 Draw(gfu_acms.real, mesh, "uacms.real")
