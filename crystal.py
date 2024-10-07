@@ -11,7 +11,6 @@ Ny = 10 // incl # number of cells in y direction
 
 Ncell = Nx * Ny * incl**2 
 
-
 omega = 1.48 
 
 Href = 0
@@ -19,28 +18,21 @@ maxH = 0.2
 order = 4
 EE = 16
 
-r  = 0.25 #0.126     # radius of inclusion
-Lx = 1 * incl   #* 0.484 #"c"
-Ly = Lx        #0.685 #"a
+r  = 0.25 
+Lx = 1 * incl
+Ly = Lx
 
-alpha_outer = 1/12.1 #SILICON
-alpha_inner = 1 #0 #AIR             
-layers = 0
-
-ix = [i for i in range(layers)] + [Nx - 1 - i for i in range(layers)]
-iy = [Ny//(2)] #
-# iy = [i for i in range(layers)] + [Ny - 1 - i for i in range(layers)]
+alpha_outer = 1/12.1 # SILICON
+alpha_inner = 1 # AIR             
 
 defects = np.ones((Nx,Ny))
-for i in ix:
-    for j in range(Ny): 
-        defects[i,j] = 0.0
 
+iy = [Ny//(2)]
 for j in iy:
     for i in range(Nx): 
         defects[i,j] = 0.0 
 
-mesh, dom_bnd, alpha, mesh_info = crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer, alpha_inner, defects, layers, load_mesh = True)
+mesh, dom_bnd, alpha, mesh_info = crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer, alpha_inner, defects, load_mesh = True)
 
 k_vec = omega * CF((1,0)) 
 f = 0 

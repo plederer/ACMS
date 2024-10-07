@@ -13,7 +13,6 @@ EE = 16
 
 mesh, dom_bnd, alpha, mesh_info = unit_disc(maxH)
 
-
 k = omega * CF((0.6,0.8))
 f = 0
 u_ex = exp(-1J * (k[0] * x + k[1] * y))
