@@ -42,13 +42,13 @@ peak = exp(-(y-off)**2*sigma)
 # Incoming plane wave times peak
 g = 1j * (omega - k_vec * specialcf.normal(2)) * exp(-1j * (k_vec[0] * x + k_vec[1] * y)) * peak 
    
-acms = ACMS(order = order, mesh = mesh, bm = 0, em = EE, bi = mesh.GetCurveOrder(), mesh_info = mesh_info, alpha = alpha, omega = omega, kappa = omega, f = f, g = g, beta = -1, gamma = 1)
+acms = ACMS(order = order, mesh = mesh, bm = 2, em = EE, bi = mesh.GetCurveOrder(), mesh_info = mesh_info, alpha = alpha, omega = omega, kappa = omega, f = f, g = g, beta = -1, gamma = 1)
                 
 edge_basis = acms.calc_edge_basis()
 if edge_basis:
     acms.Assemble()
     usmall = acms.Solve() 
-
+    
     gfu_acms = GridFunction(acms.Vc)
 
     acms.SetGlobalFunction(gfu_acms, usmall)
