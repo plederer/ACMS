@@ -1,4 +1,3 @@
-# LIBRARIES
 from geometries import *
 from acms_class import *
 import numpy as np 
@@ -32,7 +31,7 @@ for j in iy:
     for i in range(Nx): 
         defects[i,j] = 0.0 
 
-mesh, dom_bnd, alpha, mesh_info = crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer, alpha_inner, defects, load_mesh = True)
+mesh, dom_bnd, alpha, mesh_info = crystal_geometry(maxH, Nx, Ny, incl, r, Lx, Ly, alpha_outer, alpha_inner, defects, load_mesh = False, save_mesh = False)
 
 k_vec = omega * CF((1,0)) 
 f = 0 
